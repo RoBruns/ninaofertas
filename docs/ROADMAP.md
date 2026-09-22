@@ -3,7 +3,7 @@
 14 fases. Cada uma é uma tarefa fechada para o Codex, com critério objetivo de
 conclusão. Nenhuma fase pode deixar o bot fora do ar.
 
-**Estado:** ⬜ não iniciada · 🟡 em execução · 🔵 em revisão · ⏸️ pausada · ✅ concluída
+**Estado:** ⬜ não iniciada · 🟡 em execução · 🔵 em revisão · ✅ concluída
 
 | # | Fase | Estado | Depende de | Agente |
 |---|---|---|---|---|
@@ -11,7 +11,7 @@ conclusão. Nenhuma fase pode deixar o bot fora do ar.
 | 1 | Estrutura do monorepo + `core/` | ✅ | 0 | Codex A |
 | 2 | Migrations e modelo de dados | ✅ | 1 | Codex A |
 | 3 | API: auth, usuários, auditoria | ✅ | 2 | Codex A |
-| 4 | API: plataformas, contas, credenciais | ⏸️ | 3 | Codex A |
+| 4 | API: plataformas, contas, credenciais | ✅ | 3 | Codex A |
 | 5 | API: bots, telefones, grupos | ⬜ | 4 | Codex A |
 | 6 | Worker lê config do banco | ⬜ | 5 | Codex B (**sozinho**) |
 | 7 | Atribuição: sub_id + redirect | ⬜ | 6 | Codex B |
@@ -179,48 +179,6 @@ E2E, revisão de segurança final, migração das env vars operacionais para o b
 
 Critério: dashboard no ar com HTTPS · bot rodando normal · nenhum segredo no
 frontend · backup verificado · `/api/docs` bate com este contrato.
-
----
-
-## ⏸️ Desenvolvimento pausado em 2026-09-22
-
-Pausado a pedido do usuário, com as fases 0–3 concluídas, revisadas e commitadas.
-
-**Onde parou.** A fase 4 estava em execução no Codex e foi interrompida no meio.
-Os arquivos abaixo existem no working tree, **não commitados e não revisados**:
-
-```
-api/routers/{platforms,accounts,credentials}.py
-api/schemas/{platform,account,credential}.py
-core/credentials.py
-core/platforms/registry.py
-tests/test_platform_accounts_api.py
-api/main.py                     (modificado, provavelmente registra os routers)
-```
-
-**Trate esse código como rascunho.** Nunca rodou, nunca foi testado, nunca
-passou por revisão. A fase 4 é a que mexe com credenciais cifradas — nada ali
-deve ser considerado correto até passar pela verificação de sempre, incluindo
-a varredura anti-vazamento com valor sentinela.
-
-**Para retomar**, em conversa nova:
-> "Continua o projeto do dashboard do ninaofertas, lê o docs/ROADMAP.md"
-
-E então decidir entre:
-1. **descartar o rascunho** (`git checkout -- api/main.py && rm` os novos) e
-   redisparar a fase 4 do zero — mais limpo, e a spec já existe;
-2. **revisar o que ficou** e completar a partir dali.
-
-A opção 1 costuma custar menos: código de agente interrompido tende a ter
-pontas soltas que dão mais trabalho para auditar do que para refazer.
-
-**Nada disso afeta a produção.** O bot segue rodando com o código antigo;
-`master` está em `f848f1b`, intocada; nada foi publicado no GitHub; o banco de
-produção está como estava (640 ofertas, 608 envios). Os bancos de teste foram
-removidos e o túnel do Postgres, encerrado.
-
-**Chave SSH** `claude-code-nina` continua registrada na conta Railway — se
-preferir revogá-la durante a pausa: `railway ssh keys remove`.
 
 ---
 
