@@ -43,6 +43,23 @@ POST   /api/auth/logout
 GET    /api/auth/me                           → User
 ```
 
+## Usuários
+
+Todas as rotas abaixo exigem papel `admin`. As listagens usam o envelope
+paginado das convenções; `password_hash` nunca é serializado.
+
+```
+GET    /api/users                             → {items,total,page,page_size}
+POST   /api/users                             → User
+PATCH  /api/users/{id}                        → User
+DELETE /api/users/{id}                        → 204  (desativação lógica)
+```
+
+Um admin não pode excluir a si próprio, desativar a própria conta nem rebaixar
+o próprio papel. Essas operações respondem `409 CONFLICT`. A exclusão é lógica
+(`is_active=false`) para preservar a autoria imutável de `audit_logs`; tokens do
+usuário desativado deixam de ser aceitos imediatamente.
+
 ## Plataformas e contas
 
 ```
@@ -220,10 +237,15 @@ seguro.
 GET    /api/alerts?status=open&severity=       → [Alert]
 POST   /api/alerts/{id}/acknowledge | /resolve
 GET    /api/events?level=&bot_id=&type=&from=  → [Event]   (área técnica)
-GET    /api/health                             → {status, db, evolution_api, worker_last_seen}
+GET    /api/health                             → {status, db, worker_last_seen}
 GET    /api/system/status                      → visão consolidada por bot/conta/telefone
-GET    /api/audit-logs?entity_type=&entity_id= → [AuditLog]
+GET    /api/audit-logs?entity_type=&entity_id=&user_id=&from=&to=
+                                               → {items,total,page,page_size}
 ```
+
+`/api/audit-logs` exige papel `admin` e também aceita `page`, `page_size` e
+`sort`. O health desta fase deliberadamente não consulta serviços externos; o
+estado consolidado deles pertence a `/api/system/status`.
 
 ## Interno (worker ↔ API)
 

@@ -13,20 +13,24 @@ dependencies = [
     "argon2-cffi",
     "beautifulsoup4",
     "cryptography",
+    "fastapi",
     "httpx",
     "loguru",
     "lxml",
     "pillow",
     "psycopg[binary]",
+    "PyJWT",
+    "python-multipart",
     "python-dotenv",
     "sqlalchemy",
+    "uvicorn",
 ]
 
 [project.optional-dependencies]
 dev = ["black", "pytest", "ruff"]
 
 [tool.setuptools.packages.find]
-include = ["core*", "worker*"]
+include = ["api*", "core*", "worker*"]
 
 [tool.black]
 line-length = 100

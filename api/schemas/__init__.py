@@ -1,0 +1,1 @@
+"""Schemas publicos da API."""

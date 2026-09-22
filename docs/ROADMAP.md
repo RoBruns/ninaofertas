@@ -10,7 +10,7 @@ conclusão. Nenhuma fase pode deixar o bot fora do ar.
 | 0 | Documentação e baseline | ✅ | — | Claude |
 | 1 | Estrutura do monorepo + `core/` | ✅ | 0 | Codex A |
 | 2 | Migrations e modelo de dados | ✅ | 1 | Codex A |
-| 3 | API: auth, usuários, auditoria | ⬜ | 2 | Codex A |
+| 3 | API: auth, usuários, auditoria | ✅ | 2 | Codex A |
 | 4 | API: plataformas, contas, credenciais | ⬜ | 3 | Codex A |
 | 5 | API: bots, telefones, grupos | ⬜ | 4 | Codex A |
 | 6 | Worker lê config do banco | ⬜ | 5 | Codex B (**sozinho**) |
@@ -228,6 +228,21 @@ Bancos de teste removidos ao final; produção conferida intacta (640 ofertas,
 
 ---
 
+### V2 — Testes da API exigem Postgres, não SQLite (2026-09-22)
+
+`tests/test_api.py` roda contra Postgres real (`TEST_DATABASE_URL`) e monta o
+schema aplicando `alembic upgrade head`, não `create_all` tabela a tabela.
+Sem a variável, pula com instrução de como rodar.
+
+O caminho SQLite foi **removido de propósito**. Os models usam tipos e funções
+que só existem no Postgres (`CITEXT` no email, `INET` no ip da auditoria,
+`now()` e `gen_random_uuid()` como server_default, `JSONB`). Emular isso deixaria
+o teste verde contra algo que não é o que roda em produção — e foi exatamente
+rodando em Postgres de verdade que apareceu o **B3** abaixo, que o SQLite
+escondia atrás de um erro genérico.
+
+---
+
 ## Bugs encontrados durante a obra
 
 Achados que **já existiam** antes deste projeto. Não foram corrigidos na hora
@@ -254,6 +269,21 @@ uma fonte que hoje está desligada de fato e muda o que chega nos grupos.
 Retomar quando o usuário definir o papel do cupom. A essa altura a fase 6 já terá
 deixado `max_cupons_por_dia` e `aceitar_cupons` controláveis pelo dashboard, então
 dá para ligar com o volume limitado e observar antes de soltar.
+
+### B3 — `audit_logs.ip` é INET e derrubava o login ✅ corrigido
+
+`record_audit` gravava `request.client.host` cru numa coluna `INET`. Qualquer
+valor que não seja um IP válido faz o Postgres recusar o INSERT — e como a
+auditoria do login acontece dentro da request, **o login inteiro respondia 500**.
+
+Apareceu com o TestClient, que se identifica como `"testclient"`, mas não é
+artefato de teste: um proxy mal configurado, um `X-Forwarded-For` forjado ou um
+socket Unix produziriam o mesmo 500 em produção — numa rota crítica e sem pista
+no corpo da resposta, já que o handler 500 (corretamente) não vaza detalhe.
+
+**Corrigido nesta fase:** `_ip_valido()` valida com `ipaddress.ip_address()` e
+grava `NULL` quando não reconhece. Auditoria não pode derrubar a operação que
+ela registra.
 
 ### B2 — `E741` nome de variável ambíguo (`l`)
 

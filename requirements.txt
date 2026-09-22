@@ -3,6 +3,10 @@ beautifulsoup4
 sqlalchemy
 alembic
 argon2-cffi
+fastapi
+PyJWT
+python-multipart
+uvicorn
 cryptography
 apscheduler
 loguru

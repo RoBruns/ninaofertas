@@ -164,3 +164,17 @@ nas colunas antigas porque mudar tipos seria destrutivo. O fingerprint de
 credencial usa os primeiros 16 bytes do SHA-256 (32 caracteres hexadecimais).
 Extensões não são removidas no downgrade por serem objetos globais potencialmente
 compartilhados por outros schemas.
+
+---
+
+## ADR-013 — Exclusão de usuário é desativação lógica
+**Data:** 2026-09-22 · **Status:** aceita
+
+`DELETE /api/users/{id}` define `is_active=false` em vez de remover a linha. A
+FK `audit_logs.user_id` não usa `ON DELETE SET NULL`; uma exclusão física apagaria
+a identidade do autor ou falharia depois da primeira ação auditada. Usuário
+inativo não autentica e seus access/refresh tokens deixam de ser aceitos.
+
+**Consequência:** o e-mail continua reservado e o usuário permanece disponível
+para investigação histórica, embora a API responda `204` como operação de
+remoção administrativa.
