@@ -3,10 +3,10 @@
 Foco do canal: Mercado Livre + Shopee (produtos, promoções e cupons),
 sempre com link de afiliado quando possível.
 """
-from scraper.base import OfertaCapturada, Scraper
-from scraper.cupons import CupomScraper
-from scraper.mercadolivre import MercadoLivreScraper
-from scraper.shopee import ShopeeScraper
+from core.platforms.base import OfertaCapturada, Scraper
+from core.platforms.mercadolivre import MercadoLivreScraper
+from core.platforms.shopee import ShopeeScraper
+from worker.sources.cupons import CupomScraper
 
 FONTES: list[Scraper] = [
     CupomScraper(),

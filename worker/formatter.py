@@ -1,8 +1,8 @@
 """Monta a mensagem do WhatsApp a partir do template configurável em config.json."""
 from __future__ import annotations
 
-from config import load_filtros
-from scraper.base import OfertaCapturada
+from core.platforms.base import OfertaCapturada
+from worker.channels import load_filtros
 
 TEMPLATE_PADRAO = (
     "🔥 OFERTA ENCONTRADA!\n\n"

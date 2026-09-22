@@ -11,8 +11,7 @@ from datetime import datetime
 from typing import Optional
 
 import httpx
-
-from logger import logger
+from loguru import logger
 
 
 @dataclass

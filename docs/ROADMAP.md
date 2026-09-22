@@ -8,7 +8,7 @@ conclusão. Nenhuma fase pode deixar o bot fora do ar.
 | # | Fase | Estado | Depende de | Agente |
 |---|---|---|---|---|
 | 0 | Documentação e baseline | ✅ | — | Claude |
-| 1 | Estrutura do monorepo + `core/` | ⬜ | 0 | Codex A |
+| 1 | Estrutura do monorepo + `core/` | ✅ | 0 | Codex A |
 | 2 | Migrations e modelo de dados | ⬜ | 1 | Codex A |
 | 3 | API: auth, usuários, auditoria | ⬜ | 2 | Codex A |
 | 4 | API: plataformas, contas, credenciais | ⬜ | 3 | Codex A |
@@ -179,6 +179,35 @@ E2E, revisão de segurança final, migração das env vars operacionais para o b
 
 Critério: dashboard no ar com HTTPS · bot rodando normal · nenhum segredo no
 frontend · backup verificado · `/api/docs` bate com este contrato.
+
+---
+
+## Bugs encontrados durante a obra
+
+Achados que **já existiam** antes deste projeto. Não foram corrigidos na hora
+para não misturar mudança de comportamento com refatoração estrutural.
+
+### B1 — Cupons de campanha Shopee nunca são capturados ⚠️ produção
+
+`worker/sources/cupons.py:191` usa `nome=linha`, mas `linha` nunca é definida
+naquela função (`_shopee_offer_como_cupom`) — só nas outras duas, nas linhas 217
+e 271. Toda chamada levanta `NameError`, que `Scraper.executar()` engole. É por
+isso que o log de produção mostra `[Cupons] 0 cupons capturados` em todo ciclo.
+
+Descoberto na fase 1 por `ruff` (F821). Estava no código desde o commit
+`507eaff`. Corrigir provavelmente é usar `_linha_beneficio(beneficio, codigo)`,
+como fazem os outros dois caminhos — **mas isso liga uma fonte que hoje está
+desligada de fato**, e passaria a enviar cupons de campanha ao grupo. É mudança
+de comportamento operacional, então precisa de decisão do usuário, não de um
+fix silencioso.
+
+**Status:** aguardando decisão. Corrigir junto com a fase 6 (que já mexe no
+worker) ou antes, se o usuário quiser os cupons no ar logo.
+
+### B2 — `E741` nome de variável ambíguo (`l`)
+
+`worker/filters.py:337,392` e `worker/monitor.py:29`. Cosmético, sem impacto.
+Corrigir quando esses arquivos forem tocados por outro motivo.
 
 ---
 

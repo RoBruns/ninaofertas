@@ -14,10 +14,12 @@ import time
 from datetime import datetime, timezone
 
 import httpx
+from loguru import logger
 
-from config import load_filtros, settings
-from logger import logger
-from scraper.base import OfertaCapturada, Scraper
+from core.platforms.base import OfertaCapturada, Scraper
+from core.settings import load_filtros_atual, settings
+
+load_filtros = load_filtros_atual
 
 API_URL = "https://open-api.affiliate.shopee.com.br/graphql"
 

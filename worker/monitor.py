@@ -5,17 +5,15 @@ Depois: só ofertas novas/quentes — com freio anti-ban no WhatsApp.
 """
 from __future__ import annotations
 
-import affiliate
-import cupom_card
-import dedup
-import database
-import formatter
-import whatsapp
-from config import canal_atual, grupo_whatsapp, load_filtros, nome_canal, settings
-from filters import passa_nos_filtros
-from logger import logger
-from scraper import FONTES
-from scraper.base import OfertaCapturada
+from core import db, repositories
+from core.platforms import affiliate
+from core.platforms.base import OfertaCapturada
+from core.settings import settings
+from worker import cupom_card, dedup, formatter, whatsapp
+from worker.channels import canal_atual, grupo_whatsapp, load_filtros, nome_canal
+from worker.filters import passa_nos_filtros
+from worker.logger import logger
+from worker.sources import FONTES
 
 _baseline_ciclos_feitos: dict[str, int] = {}
 _ciclo_n: dict[str, int] = {}
@@ -47,7 +45,7 @@ def _ordenar_envio(ofertas: list[OfertaCapturada], n: int, prioridade: str) -> l
 
 
 def _salvar_oferta(session, oferta: OfertaCapturada):
-    return database.upsert_oferta(
+    return repositories.upsert_oferta(
         session,
         {
             "nome": oferta.nome,
@@ -71,9 +69,9 @@ def _baseline_oferta(session, oferta: OfertaCapturada, filtros: dict) -> bool:
 
     oferta_db = _salvar_oferta(session, oferta)
     grupo = grupo_whatsapp()
-    if database.ja_conhecida(session, oferta_db.id, grupo=grupo):
+    if repositories.ja_conhecida(session, oferta_db.id, grupo=grupo):
         return False
-    database.registrar_visto(session, oferta_db.id, oferta.preco, grupo=grupo)
+    repositories.registrar_visto(session, oferta_db.id, oferta.preco, grupo=grupo)
     return True
 
 
@@ -81,7 +79,7 @@ def _freio_anti_ban(session, filtros: dict, grupo: str, oferta: OfertaCapturada 
     """Ritmo da conta inteira: o WhatsApp bane o número, não o grupo."""
     from datetime import datetime, timedelta
 
-    decorridos_conta = database.minutos_desde_ultimo_envio(session)
+    decorridos_conta = repositories.minutos_desde_ultimo_envio(session)
 
     intervalo_min = filtros.get("intervalo_minutos_entre_ofertas")
     if intervalo_min and decorridos_conta is not None and decorridos_conta < float(intervalo_min):
@@ -92,7 +90,7 @@ def _freio_anti_ban(session, filtros: dict, grupo: str, oferta: OfertaCapturada 
     janela = float(filtros.get("janela_rajada_minutos") or 12)
     pausa = float(filtros.get("pausa_entre_rajadas_minutos") or 0)
     if max_rajada and pausa:
-        n_janela = database.contar_envios_desde(
+        n_janela = repositories.contar_envios_desde(
             session, datetime.now() - timedelta(minutes=janela)
         )
         if n_janela >= max_rajada and decorridos_conta is not None and decorridos_conta < pausa:
@@ -103,24 +101,30 @@ def _freio_anti_ban(session, filtros: dict, grupo: str, oferta: OfertaCapturada 
             )
 
     max_hora_grupo = filtros.get("max_ofertas_por_hora")
-    if max_hora_grupo and database.contar_envios_ultima_hora(session, grupo=grupo) >= int(max_hora_grupo):
+    if max_hora_grupo and repositories.contar_envios_ultima_hora(
+        session, grupo=grupo
+    ) >= int(max_hora_grupo):
         return False, f"freio: limite {max_hora_grupo}/hora neste grupo"
 
     max_hora_global = filtros.get("max_ofertas_globais_por_hora")
-    if max_hora_global and database.contar_envios_ultima_hora(session) >= int(max_hora_global):
+    if max_hora_global and repositories.contar_envios_ultima_hora(session) >= int(
+        max_hora_global
+    ):
         return False, f"freio: limite {max_hora_global}/hora na conta (os dois grupos juntos)"
 
     max_dia_grupo = filtros.get("max_ofertas_por_dia")
-    if max_dia_grupo and database.contar_envios_hoje(session, grupo=grupo) >= int(max_dia_grupo):
+    if max_dia_grupo and repositories.contar_envios_hoje(session, grupo=grupo) >= int(
+        max_dia_grupo
+    ):
         return False, f"freio: limite {max_dia_grupo}/dia neste grupo"
 
     max_dia_global = filtros.get("max_ofertas_globais_por_dia")
-    if max_dia_global and database.contar_envios_hoje(session) >= int(max_dia_global):
+    if max_dia_global and repositories.contar_envios_hoje(session) >= int(max_dia_global):
         return False, f"freio: limite {max_dia_global}/dia na conta (os dois grupos juntos)"
 
     if oferta and (oferta.categoria or "").lower() == "cupom":
         max_cupom = int(filtros.get("max_cupons_por_dia") or 2)
-        if database.contar_cupons_hoje(session, grupo=grupo) >= max_cupom:
+        if repositories.contar_cupons_hoje(session, grupo=grupo) >= max_cupom:
             return False, f"freio: já foram {max_cupom} cupons hoje neste grupo"
 
     return True, ""
@@ -148,8 +152,8 @@ def _processar_oferta(session, oferta: OfertaCapturada, filtros: dict) -> str:
     )
     if not pode_enviar:
         if "duplicata" in motivo_dedup or "igual/parecida" in motivo_dedup:
-            if not database.ja_conhecida(session, oferta_db.id, grupo=grupo):
-                database.registrar_visto(session, oferta_db.id, oferta.preco, grupo=grupo)
+            if not repositories.ja_conhecida(session, oferta_db.id, grupo=grupo):
+                repositories.registrar_visto(session, oferta_db.id, oferta.preco, grupo=grupo)
         logger.debug(f"Pulando '{oferta.nome[:60]}': {motivo_dedup}")
         return "pulou"
 
@@ -179,7 +183,7 @@ def _processar_oferta(session, oferta: OfertaCapturada, filtros: dict) -> str:
     logger.info(f"[{nome_canal()}] Enviando para WhatsApp...")
     sucesso = whatsapp.enviar_mensagem(mensagem, imagem=oferta.imagem, grupo=grupo)
 
-    database.registrar_envio(
+    repositories.registrar_envio(
         session,
         oferta_id=oferta_db.id,
         grupo=grupo,
@@ -216,7 +220,7 @@ def ciclo() -> None:
 
     logger.info(f"[{nome_canal()}] {len(todas_ofertas)} ofertas encontradas na varredura.")
 
-    with database.get_session() as session:
+    with db.get_session() as session:
         if feitos < baseline_alvo:
             feitos += 1
             _baseline_ciclos_feitos[canal] = feitos

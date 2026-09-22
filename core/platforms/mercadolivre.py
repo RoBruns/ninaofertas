@@ -15,10 +15,12 @@ import json
 from urllib.parse import quote_plus
 
 import httpx
+from loguru import logger
 
-from config import load_filtros
-from logger import logger
-from scraper.base import OfertaCapturada, Scraper
+from core.platforms.base import OfertaCapturada, Scraper
+from core.settings import load_filtros_atual
+
+load_filtros = load_filtros_atual
 
 HEADERS = {
     "User-Agent": (

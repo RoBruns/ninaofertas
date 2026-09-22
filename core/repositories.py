@@ -1,93 +1,12 @@
-"""Models SQLAlchemy e helpers de acesso ao banco (SQLite)."""
+"""Queries sobre ofertas e envios."""
 from __future__ import annotations
 
-from contextlib import contextmanager
 from datetime import datetime, timedelta
 
-from sqlalchemy import (
-    Column,
-    DateTime,
-    Float,
-    ForeignKey,
-    Integer,
-    String,
-    Text,
-    create_engine,
-    func,
-)
-from sqlalchemy.orm import Session, declarative_base, relationship, sessionmaker
+from sqlalchemy import func
+from sqlalchemy.orm import Session
 
-from config import settings
-
-Base = declarative_base()
-
-
-class Oferta(Base):
-    """Uma linha por produto (identificado pela URL). Atualizada a cada nova captura."""
-
-    __tablename__ = "ofertas"
-
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    nome = Column(String, nullable=False)
-    preco = Column(Float, nullable=False)
-    preco_anterior = Column(Float)
-    desconto = Column(Float)
-    loja = Column(String)
-    categoria = Column(String)
-    url = Column(String, unique=True, index=True)
-    imagem = Column(String)
-    sku = Column(String)
-    capturado_em = Column(DateTime, default=datetime.now, onupdate=datetime.now)
-
-    envios = relationship("Envio", back_populates="oferta")
-
-
-class Envio(Base):
-    """Registro de cada envio efetivo para o WhatsApp (permite mais de um por oferta)."""
-
-    __tablename__ = "envios"
-
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    oferta_id = Column(Integer, ForeignKey("ofertas.id"))
-    enviado_em = Column(DateTime, default=datetime.now)
-    grupo = Column(String)
-    mensagem = Column(Text)
-    preco_enviado = Column(Float)
-    status = Column(String)
-
-    oferta = relationship("Oferta", back_populates="envios")
-
-
-def _url_do_banco() -> str:
-    """Normaliza a URL do Postgres para o driver psycopg 3 (o Railway entrega
-    postgresql://, que o SQLAlchemy roteia para o psycopg2, que nao instalamos)."""
-    url = settings.database_url
-    if url.startswith("postgres://"):
-        url = url.replace("postgres://", "postgresql://", 1)
-    if url.startswith("postgresql://"):
-        url = url.replace("postgresql://", "postgresql+psycopg://", 1)
-    return url
-
-
-_engine = create_engine(_url_do_banco(), echo=False, future=True)
-_SessionFactory = sessionmaker(bind=_engine, expire_on_commit=False, future=True)
-
-
-def init_db() -> None:
-    Base.metadata.create_all(_engine)
-
-
-@contextmanager
-def get_session() -> Session:
-    session = _SessionFactory()
-    try:
-        yield session
-        session.commit()
-    except Exception:
-        session.rollback()
-        raise
-    finally:
-        session.close()
+from core.models import Envio, Oferta
 
 
 def upsert_oferta(session: Session, dados: dict) -> Oferta:
@@ -96,7 +15,6 @@ def upsert_oferta(session: Session, dados: dict) -> Oferta:
     sku = dados.get("sku")
     loja = dados.get("loja")
     if sku:
-        # Pode haver duplicatas antigas no SQLite — pega a mais recente.
         oferta = (
             session.query(Oferta)
             .filter_by(sku=sku, loja=loja)
@@ -117,7 +35,6 @@ def upsert_oferta(session: Session, dados: dict) -> Oferta:
         oferta.desconto = dados.get("desconto")
         oferta.loja = dados.get("loja")
         oferta.categoria = dados.get("categoria")
-        # Só atualiza URL se não conflitar com outra linha (unique).
         if oferta.url != dados["url"]:
             conflito = session.query(Oferta).filter_by(url=dados["url"]).first()
             if conflito is None or conflito.id == oferta.id:
@@ -131,10 +48,7 @@ def upsert_oferta(session: Session, dados: dict) -> Oferta:
 
 def ultimo_envio(session: Session, oferta_id: int, grupo: str | None = None) -> Envio | None:
     """Último envio com sucesso no WhatsApp (falha de rede não bloqueia retry)."""
-    q = (
-        session.query(Envio)
-        .filter_by(oferta_id=oferta_id, status="sucesso")
-    )
+    q = session.query(Envio).filter_by(oferta_id=oferta_id, status="sucesso")
     if grupo:
         q = q.filter_by(grupo=grupo)
     return q.order_by(Envio.enviado_em.desc()).first()
@@ -163,7 +77,14 @@ def registrar_visto(session: Session, oferta_id: int, preco: float, grupo: str =
     )
 
 
-def registrar_envio(session: Session, oferta_id: int, grupo: str, mensagem: str, preco: float, status: str) -> Envio:
+def registrar_envio(
+    session: Session,
+    oferta_id: int,
+    grupo: str,
+    mensagem: str,
+    preco: float,
+    status: str,
+) -> Envio:
     envio = Envio(
         oferta_id=oferta_id,
         grupo=grupo,
@@ -221,7 +142,9 @@ def contar_cupons_hoje(session: Session, grupo: str | None = None) -> int:
     return q.scalar() or 0
 
 
-def minutos_desde_ultimo_sku(session: Session, sku: str, grupo: str | None = None) -> float | None:
+def minutos_desde_ultimo_sku(
+    session: Session, sku: str, grupo: str | None = None
+) -> float | None:
     q = (
         session.query(Envio.enviado_em)
         .join(Oferta, Oferta.id == Envio.oferta_id)

@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
-from scraper.base import OfertaCapturada
+from core.platforms.base import OfertaCapturada
 
 # Casa + público feminino (campanhas Shopee off-topic).
 _NICHOS_CASA_PADRAO = (

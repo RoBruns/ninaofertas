@@ -12,9 +12,9 @@ import re
 import httpx
 from bs4 import BeautifulSoup
 
-from config import load_filtros
-from logger import logger
-from scraper.base import OfertaCapturada, Scraper
+from core.platforms.base import OfertaCapturada, Scraper
+from worker.channels import load_filtros
+from worker.logger import logger
 
 BASE_URL = "https://www.amazon.com.br"
 HEADERS = {

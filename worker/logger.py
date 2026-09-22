@@ -1,12 +1,11 @@
 """Configuração central de logs (loguru), console + arquivo rotativo."""
 import sys
-from pathlib import Path
 
 from loguru import logger
 
-from config import settings
+from core.settings import BASE_DIR, settings
 
-LOG_DIR = Path(__file__).resolve().parent / "logs"
+LOG_DIR = BASE_DIR / "logs"
 LOG_DIR.mkdir(exist_ok=True)
 
 logger.remove()

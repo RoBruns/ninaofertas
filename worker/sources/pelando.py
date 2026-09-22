@@ -18,8 +18,8 @@ import re
 import httpx
 from bs4 import BeautifulSoup, Tag
 
-from logger import logger
-from scraper.base import OfertaCapturada, Scraper
+from core.platforms.base import OfertaCapturada, Scraper
+from worker.logger import logger
 
 URL = "https://www.pelando.com.br/mais-quentes"
 HEADERS = {

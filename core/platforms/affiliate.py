@@ -11,9 +11,9 @@ import json
 import time
 
 import httpx
+from loguru import logger
 
-from config import settings
-from logger import logger
+from core.settings import settings
 
 ML_CREATE_LINK = "https://www.mercadolivre.com.br/affiliate-program/api/v2/affiliates/createLink"
 ML_LINKBUILDER = "https://www.mercadolivre.com.br/afiliados/linkbuilder"

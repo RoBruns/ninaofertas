@@ -3,10 +3,11 @@ from __future__ import annotations
 
 import time
 
-import database
-import whatsapp
-from config import BASE_DIR, canais_ativos, grupo_whatsapp, nome_canal, usar_canal
-from logger import logger
+from core import db, repositories
+from core.settings import BASE_DIR
+from worker import whatsapp
+from worker.channels import canais_ativos, grupo_whatsapp, nome_canal, usar_canal
+from worker.logger import logger
 
 SKU = "promo:instagram"
 URL = "https://www.instagram.com/ninamegaofertas"
@@ -37,8 +38,8 @@ def _enviar_canal() -> None:
     if not grupo:
         return
 
-    with database.get_session() as session:
-        decorridos = database.minutos_desde_ultimo_sku(session, SKU, grupo=grupo)
+    with db.get_session() as session:
+        decorridos = repositories.minutos_desde_ultimo_sku(session, SKU, grupo=grupo)
         if decorridos is not None and decorridos < INTERVALO_HORAS * 60:
             falta = INTERVALO_HORAS * 60 - decorridos
             logger.debug(
@@ -46,12 +47,12 @@ def _enviar_canal() -> None:
             )
             return
 
-        desde_qualquer = database.minutos_desde_ultimo_envio(session)
+        desde_qualquer = repositories.minutos_desde_ultimo_envio(session)
         if desde_qualquer is not None and desde_qualquer < 3:
             logger.info(f"[{nome_canal()}] recado Instagram adiado: acabou de sair oferta")
             return
 
-        oferta = database.upsert_oferta(
+        oferta = repositories.upsert_oferta(
             session,
             {
                 "nome": "Segue a vó no Instagram",
@@ -66,7 +67,7 @@ def _enviar_canal() -> None:
 
         logger.info(f"[{nome_canal()}] Enviando recado do Instagram...")
         ok = whatsapp.enviar_mensagem(MENSAGEM, imagem=str(FOTO), grupo=grupo)
-        database.registrar_envio(
+        repositories.registrar_envio(
             session,
             oferta_id=oferta.id,
             grupo=grupo,

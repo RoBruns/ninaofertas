@@ -6,11 +6,11 @@ from datetime import datetime, timedelta
 
 from apscheduler.schedulers.background import BackgroundScheduler
 
-import database
-import monitor
-import promo_instagram
-from config import canais_ativos, settings, usar_canal
-from logger import logger
+from core import db
+from core.settings import settings
+from worker import monitor, promo_instagram
+from worker.channels import canais_ativos, usar_canal
+from worker.logger import logger
 
 
 def _ciclo_achadinhos() -> None:
@@ -24,7 +24,7 @@ def _ciclo_auto() -> None:
 
 
 def main() -> None:
-    database.init_db()
+    db.init_db()
     ativos = canais_ativos()
     logger.info("Bot de Ofertas iniciado.")
     if "auto" in ativos:
@@ -32,7 +32,8 @@ def main() -> None:
     else:
         logger.info("Canal ativo: Achadinhos da Nina (casa/feminino). Nina Ofertas (auto) está desligado.")
     logger.info(f"Verificando novas ofertas a cada {settings.check_interval}s.")
-    import whatsapp
+    from worker import whatsapp
+
     whatsapp.avisar_permissao_grupos()
 
     scheduler = BackgroundScheduler(timezone="America/Sao_Paulo")

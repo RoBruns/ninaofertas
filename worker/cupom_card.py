@@ -5,8 +5,8 @@ from pathlib import Path
 
 from PIL import Image, ImageDraw, ImageFont
 
-from config import BASE_DIR
-from scraper.base import OfertaCapturada
+from core.platforms.base import OfertaCapturada
+from core.settings import BASE_DIR
 
 _DIR = BASE_DIR / "data" / "cupons"
 _FONTS = (

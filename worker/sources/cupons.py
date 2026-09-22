@@ -9,12 +9,13 @@ from datetime import datetime, timezone
 
 import httpx
 
-from config import load_filtros, settings
-from logger import logger
-from scraper.base import OfertaCapturada, Scraper
-from scraper.mercadolivre import HEADERS as ML_HEADERS
-from scraper.mercadolivre import OFERTAS_URL
-from scraper.shopee import API_URL, _assinar, _preco_float, _ts_para_dt
+from core.platforms.base import OfertaCapturada, Scraper
+from core.platforms.mercadolivre import HEADERS as ML_HEADERS
+from core.platforms.mercadolivre import OFERTAS_URL
+from core.platforms.shopee import API_URL, _assinar, _preco_float, _ts_para_dt
+from core.settings import settings
+from worker.channels import load_filtros
+from worker.logger import logger
 
 _SHOPEE_VOUCHER_QUERIES = (
     """

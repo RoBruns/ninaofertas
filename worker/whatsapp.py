@@ -12,8 +12,8 @@ from pathlib import Path
 
 import httpx
 
-from config import settings
-from logger import logger
+from core.settings import settings
+from worker.logger import logger
 
 
 class WhatsAppError(Exception):
@@ -24,7 +24,7 @@ def enviar_mensagem(texto: str, imagem: str | None = None, grupo: str | None = N
     """Envia `texto` (com `imagem` opcional) para o grupo do canal atual.
     Retorna True em sucesso, False em falha (nunca lança para não parar o bot)."""
 
-    from config import grupo_whatsapp
+    from worker.channels import grupo_whatsapp
 
     destino = grupo or grupo_whatsapp()
     if not settings.evolution_instance or not destino:
@@ -85,7 +85,7 @@ def _participante_do_numero(part: dict, numero: str) -> bool:
 
 def avisar_permissao_grupos() -> None:
     """Grupo 'somente admins' + número sem admin = API 200 e ninguém vê a msg."""
-    from config import CANAIS, canais_ativos, grupo_whatsapp, usar_canal
+    from worker.channels import CANAIS, canais_ativos, grupo_whatsapp, usar_canal
 
     headers = {"apikey": settings.evolution_api_key}
     url = f"{settings.evolution_api_url}/group/fetchAllGroups/{settings.evolution_instance}"
