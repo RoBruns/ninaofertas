@@ -9,7 +9,7 @@ conclusão. Nenhuma fase pode deixar o bot fora do ar.
 |---|---|---|---|---|
 | 0 | Documentação e baseline | ✅ | — | Claude |
 | 1 | Estrutura do monorepo + `core/` | ✅ | 0 | Codex A |
-| 2 | Migrations e modelo de dados | 🔵 | 1 | Codex A |
+| 2 | Migrations e modelo de dados | ✅ | 1 | Codex A |
 | 3 | API: auth, usuários, auditoria | ⬜ | 2 | Codex A |
 | 4 | API: plataformas, contas, credenciais | ⬜ | 3 | Codex A |
 | 5 | API: bots, telefones, grupos | ⬜ | 4 | Codex A |
@@ -179,6 +179,31 @@ E2E, revisão de segurança final, migração das env vars operacionais para o b
 
 Critério: dashboard no ar com HTTPS · bot rodando normal · nenhum segredo no
 frontend · backup verificado · `/api/docs` bate com este contrato.
+
+---
+
+## Pendências de verificação
+
+### V1 — Migrations nunca rodaram contra Postgres real
+
+As revisions 0001–0003 foram validadas **offline**: o SQL de `upgrade head` e de
+`downgrade base` foi gerado e auditado (nenhum DROP/ALTER COLUMN/TRUNCATE; todo
+contato com `ofertas`/`envios` é `ADD COLUMN ... NULL` sob `to_regclass()`).
+Mas `alembic upgrade head` nunca executou de fato — não há Docker na máquina de
+desenvolvimento e o Postgres da Railway é interno-only (`railway run` injeta as
+vars mas roda local, então o host interno não resolve).
+
+`tests/test_migrations.py` está escrito e pula com `TEST_DATABASE_URL` ausente.
+
+**Antes de aplicar em produção (fase 14, ou antes se precisar):**
+1. `pg_dump` do banco de produção;
+2. rodar `alembic upgrade head` contra um banco descartável na Railway
+   (um serviço temporário, ou `railway ssh` com chave SSH configurada);
+3. rodar a suíte com `TEST_DATABASE_URL` apontando para ele;
+4. só então aplicar em produção.
+
+Enquanto isso, nada foi aplicado ao banco real — o worker segue usando
+`create_all` como sempre.
 
 ---
 
