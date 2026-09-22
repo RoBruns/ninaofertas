@@ -182,28 +182,49 @@ frontend · backup verificado · `/api/docs` bate com este contrato.
 
 ---
 
-## Pendências de verificação
+## Verificações realizadas
 
-### V1 — Migrations nunca rodaram contra Postgres real
+### V1 — Migrations validadas contra Postgres real ✅ (2026-09-22)
 
-As revisions 0001–0003 foram validadas **offline**: o SQL de `upgrade head` e de
-`downgrade base` foi gerado e auditado (nenhum DROP/ALTER COLUMN/TRUNCATE; todo
-contato com `ofertas`/`envios` é `ADD COLUMN ... NULL` sob `to_regclass()`).
-Mas `alembic upgrade head` nunca executou de fato — não há Docker na máquina de
-desenvolvimento e o Postgres da Railway é interno-only (`railway run` injeta as
-vars mas roda local, então o host interno não resolve).
+As revisions 0001–0003 foram executadas de verdade contra a instância Postgres
+da Railway, em bancos descartáveis. **Nada foi aplicado ao banco de produção.**
 
-`tests/test_migrations.py` está escrito e pula com `TEST_DATABASE_URL` ausente.
+**Como acessar o Postgres interno** (o método que funciona — `railway run` não
+serve, pois injeta as vars mas roda local e o host interno não resolve):
 
-**Antes de aplicar em produção (fase 14, ou antes se precisar):**
-1. `pg_dump` do banco de produção;
-2. rodar `alembic upgrade head` contra um banco descartável na Railway
-   (um serviço temporário, ou `railway ssh` com chave SSH configurada);
-3. rodar a suíte com `TEST_DATABASE_URL` apontando para ele;
-4. só então aplicar em produção.
+```bash
+railway connect Postgres --tunnel-only --port 55432   # não imprime nada; segura o túnel
+# em outro terminal:
+export PGPASS=$(railway variables --service Postgres --kv | grep '^POSTGRES_PASSWORD=' | cut -d= -f2-)
+export DATABASE_URL="postgresql://postgres:${PGPASS}@127.0.0.1:55432/<banco>"
+```
+Exige chave SSH registrada (`railway ssh keys add --key <caminho windows do .pub>`).
 
-Enquanto isso, nada foi aplicado ao banco real — o worker segue usando
-`create_all` como sempre.
+**Cenário 1 — banco vazio.** `upgrade head` criou 22 tabelas + `alembic_version`.
+Tipos conferidos no banco: `NUMERIC(14,2)` para dinheiro, `NUMERIC(7,4)` para
+percentual, `TIMESTAMPTZ` para timestamp.
+
+**Cenário 2 — simulação de produção.** Recriado o schema legado com o DDL
+original (`ofertas`/`envios` sem as colunas novas) e populado com dados, então
+`upgrade head` por cima. Resultado medido:
+
+| Verificação | Resultado |
+|---|---|
+| Colunas perdidas em `ofertas` | **nenhuma** |
+| Colunas perdidas em `envios` | **nenhuma** |
+| Colunas adicionadas | exatamente as 4 esperadas, todas nullable |
+| Contagem de linhas antes/depois | idêntica |
+| Conteúdo das linhas | idêntico |
+| `downgrade base` | remove só as tabelas novas; `ofertas`/`envios` e dados intactos |
+
+**Suíte completa:** 24/24 passando com `TEST_DATABASE_URL` apontando para o
+Postgres real (os 2 testes de migration deixaram de pular).
+
+Bancos de teste removidos ao final; produção conferida intacta (640 ofertas,
+608 envios — os mesmos números de antes).
+
+> Mesmo com isso verificado, o passo 1 antes de aplicar em produção continua
+> sendo `pg_dump`. Teste bem-sucedido reduz risco; não substitui backup.
 
 ---
 
@@ -226,8 +247,13 @@ desligada de fato**, e passaria a enviar cupons de campanha ao grupo. É mudanç
 de comportamento operacional, então precisa de decisão do usuário, não de um
 fix silencioso.
 
-**Status:** aguardando decisão. Corrigir junto com a fase 6 (que já mexe no
-worker) ou antes, se o usuário quiser os cupons no ar logo.
+**Status:** adiado por decisão do usuário (2026-09-22) — ele ainda não avaliou
+como quer usar cupons na operação. **Não corrigir sem consultá-lo**: o fix liga
+uma fonte que hoje está desligada de fato e muda o que chega nos grupos.
+
+Retomar quando o usuário definir o papel do cupom. A essa altura a fase 6 já terá
+deixado `max_cupons_por_dia` e `aceitar_cupons` controláveis pelo dashboard, então
+dá para ligar com o volume limitado e observar antes de soltar.
 
 ### B2 — `E741` nome de variável ambíguo (`l`)
 

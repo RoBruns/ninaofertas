@@ -23,10 +23,32 @@ railway up --service ninaofertas
 ```
 
 > O Postgres não tem `DATABASE_PUBLIC_URL` nem TCP proxy — é acessível apenas de
-> dentro da rede Railway. Isso é proposital. Para rodar migration ou inspecionar
-> o banco, use `railway run` (injeta as vars no processo local mas **não** dá
-> rota de rede ao host interno) a partir de um serviço, ou `railway ssh` com
-> chave SSH configurada. Não crie URL pública para o banco.
+> dentro da rede Railway. Isso é proposital: **não crie URL pública para o banco.**
+
+### Como acessar o banco a partir da máquina local
+
+`railway run` **não serve** para isso: injeta as variáveis mas executa o processo
+localmente, então `postgres.railway.internal` não resolve. O caminho que funciona
+é o túnel SSH:
+
+```bash
+# uma vez, se ainda não houver chave registrada:
+ssh-keygen -t ed25519 -f ~/.ssh/id_ed25519 -N ""
+railway ssh keys add --key 'C:\Users\<voce>\.ssh\id_ed25519.pub' --name minha-chave
+
+# abre o túnel (não imprime nada; segura o terminal até Ctrl+C):
+railway connect Postgres --tunnel-only --port 55432
+
+# em outro terminal:
+export PGPASS=$(railway variables --service Postgres --kv | grep '^POSTGRES_PASSWORD=' | cut -d= -f2-)
+export DATABASE_URL="postgresql://postgres:${PGPASS}@127.0.0.1:55432/railway"
+```
+
+Dois detalhes que custam tempo: o CLI espera **caminho no formato Windows** em
+`--key`, e `railway connect` passa o nome do serviço como **argumento posicional**
+(`railway connect Postgres`, não `--service Postgres`).
+
+Revogar a chave depois: `railway ssh keys remove`.
 
 ## Variáveis de ambiente
 
