@@ -9,7 +9,7 @@ conclusão. Nenhuma fase pode deixar o bot fora do ar.
 |---|---|---|---|---|
 | 0 | Documentação e baseline | ✅ | — | Claude |
 | 1 | Estrutura do monorepo + `core/` | ✅ | 0 | Codex A |
-| 2 | Migrations e modelo de dados | ⬜ | 1 | Codex A |
+| 2 | Migrations e modelo de dados | 🔵 | 1 | Codex A |
 | 3 | API: auth, usuários, auditoria | ⬜ | 2 | Codex A |
 | 4 | API: plataformas, contas, credenciais | ⬜ | 3 | Codex A |
 | 5 | API: bots, telefones, grupos | ⬜ | 4 | Codex A |

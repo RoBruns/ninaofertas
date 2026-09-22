@@ -1,6 +1,9 @@
 httpx
 beautifulsoup4
 sqlalchemy
+alembic
+argon2-cffi
+cryptography
 apscheduler
 loguru
 python-dotenv

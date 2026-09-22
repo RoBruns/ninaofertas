@@ -144,3 +144,23 @@ não atualizados" cobre gasto de tráfego sem lançamento há mais de X dias.
 Serviço Railway no mesmo projeto, mas é app Vite/Supabase de outro contexto
 (vars `VITE_SUPABASE_*`, nenhuma referência ao bot). **Não tocar.** Registrado
 para que nenhum agente futuro o interprete como parte do sistema.
+
+---
+
+## ADR-012 — Baseline legada não materializa `ofertas`/`envios`
+**Data:** 2026-09-22 · **Status:** aceita
+
+A revision `0001` habilita `pgcrypto`/`citext`, mas nunca cria nem altera as
+tabelas legadas. Em um banco vazio, as revisions seguintes criam todo o schema
+novo e omitem condicionalmente as FKs e colunas que dependeriam de `ofertas` e
+`envios`. Em produção, onde as tabelas existem, as relações são criadas.
+
+**Motivo:** criar as legadas na baseline contrariaria a regra de adoção e
+duplicaria um DDL que pertence ao worker histórico. A condicional mantém tanto a
+segurança de produção quanto o teste de `upgrade head` em banco vazio.
+
+**Detalhes de implementação:** os modelos mantêm `Float` e timestamp sem timezone
+nas colunas antigas porque mudar tipos seria destrutivo. O fingerprint de
+credencial usa os primeiros 16 bytes do SHA-256 (32 caracteres hexadecimais).
+Extensões não são removidas no downgrade por serem objetos globais potencialmente
+compartilhados por outros schemas.

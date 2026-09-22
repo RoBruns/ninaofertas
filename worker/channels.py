@@ -1,28 +1,15 @@
 """Configuração dos canais e filtros versionados."""
+
 from __future__ import annotations
 
 import os
 from contextlib import contextmanager
 from contextvars import ContextVar
 
+from core.channels import CANAIS
 from core.settings import load_filtros_atual, usar_arquivo_config
 
 _canal: ContextVar[str] = ContextVar("canal", default="achadinhos")
-
-CANAIS = {
-    "achadinhos": {
-        "arquivo": "config.json",
-        "grupo_env": "WHATSAPP_GROUP_ID",
-        "nome": "Achadinhos da Nina",
-        "ativo": True,
-    },
-    "auto": {
-        "arquivo": "config.auto.json",
-        "grupo_env": "WHATSAPP_GROUP_ID_AUTO",
-        "nome": "Nina Ofertas",
-        "ativo": False,
-    },
-}
 
 
 def canais_ativos() -> tuple[str, ...]:

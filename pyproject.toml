@@ -8,8 +8,11 @@ version = "0.1.0"
 description = "Worker de captura e publicação de ofertas"
 requires-python = ">=3.10"
 dependencies = [
+    "alembic",
     "apscheduler",
+    "argon2-cffi",
     "beautifulsoup4",
+    "cryptography",
     "httpx",
     "loguru",
     "lxml",
@@ -35,6 +38,11 @@ target-version = "py310"
 
 [tool.ruff.lint]
 select = ["E4", "E7", "E9", "F"]
+
+[tool.ruff.lint.per-file-ignores]
+"worker/filters.py" = ["E741"]
+"worker/monitor.py" = ["E741"]
+"worker/sources/cupons.py" = ["F821"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

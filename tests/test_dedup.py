@@ -1,4 +1,5 @@
 """Caracterização das regras atuais de reenvio."""
+
 from __future__ import annotations
 
 import pytest
@@ -6,14 +7,14 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
 from core import repositories
-from core.models import Base, Oferta
+from core.models import Base, Envio, Oferta
 from worker.dedup import deve_enviar
 
 
 @pytest.fixture
 def oferta_e_sessao() -> tuple[Oferta, Session]:
     engine = create_engine("sqlite:///:memory:", future=True)
-    Base.metadata.create_all(engine)
+    Base.metadata.create_all(engine, tables=[Oferta.__table__, Envio.__table__])
     session = Session(engine)
     oferta = Oferta(
         nome="Air fryer para cozinha",

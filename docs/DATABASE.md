@@ -19,6 +19,12 @@ Migrations com Alembic. Nomes de tabela em inglês, no plural.
 `ofertas` e `envios` continuam **exatamente como estão** — o bot depende delas e
 os freios anti-ban contam suas linhas. A migration inicial as adota sem recriar.
 
+Em um banco literalmente vazio, a baseline também não as cria: as tabelas novas
+são instaladas e as FKs/colunas que apontam para o legado são omitidas. No banco
+de produção, onde ambas existem, essas FKs e colunas são adicionadas normalmente.
+Isso permite testar `upgrade head` em banco vazio sem transformar a baseline em
+uma segunda fonte de DDL para o schema legado.
+
 ```
 ofertas(id, nome, preco, preco_anterior, desconto, loja, categoria,
         url UNIQUE, imagem, sku, capturado_em)
