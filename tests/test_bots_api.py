@@ -67,13 +67,20 @@ def add_catalog(
     account_ids = [uuid4(), uuid4()]
     with factory.begin() as session:
         niche = Niche(owner_id=owner_id, slug="casa", name="Casa")
-        platform = Platform(
-            slug="mercadolivre",
-            name="Mercado Livre",
-            is_active=True,
-            capabilities={"offers": True},
-        )
-        session.add_all([niche, platform])
+        session.add(niche)
+        # platforms.slug é UNIQUE global (não por owner): um teste que chama
+        # add_catalog duas vezes precisa reaproveitar a linha existente.
+        platform = session.scalars(
+            select(Platform).where(Platform.slug == "mercadolivre")
+        ).first()
+        if platform is None:
+            platform = Platform(
+                slug="mercadolivre",
+                name="Mercado Livre",
+                is_active=True,
+                capabilities={"offers": True},
+            )
+            session.add(platform)
         session.flush()
         session.add(
             Phone(

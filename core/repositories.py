@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta
+from uuid import UUID
 
 from sqlalchemy import func
 from sqlalchemy.orm import Session
@@ -65,7 +66,15 @@ def ja_conhecida(session: Session, oferta_id: int, grupo: str | None = None) -> 
     return q.first() is not None
 
 
-def registrar_visto(session: Session, oferta_id: int, preco: float, grupo: str = "") -> Envio:
+def registrar_visto(
+    session: Session,
+    oferta_id: int,
+    preco: float,
+    grupo: str = "",
+    *,
+    bot_id: UUID | None = None,
+    group_id: UUID | None = None,
+) -> Envio:
     """Marca a oferta como já existente na partida do bot (sem WhatsApp)."""
     return registrar_envio(
         session,
@@ -74,6 +83,8 @@ def registrar_visto(session: Session, oferta_id: int, preco: float, grupo: str =
         mensagem="",
         preco=preco,
         status="visto",
+        bot_id=bot_id,
+        group_id=group_id,
     )
 
 
@@ -84,6 +95,9 @@ def registrar_envio(
     mensagem: str,
     preco: float,
     status: str,
+    *,
+    bot_id: UUID | None = None,
+    group_id: UUID | None = None,
 ) -> Envio:
     envio = Envio(
         oferta_id=oferta_id,
@@ -91,6 +105,8 @@ def registrar_envio(
         mensagem=mensagem,
         preco_enviado=preco,
         status=status,
+        bot_id=bot_id,
+        group_id=group_id,
     )
     session.add(envio)
     session.flush()

@@ -3,7 +3,7 @@
 14 fases. Cada uma é uma tarefa fechada para o Codex, com critério objetivo de
 conclusão. Nenhuma fase pode deixar o bot fora do ar.
 
-**Estado:** ⬜ não iniciada · 🟡 em execução · 🔵 em revisão · ⏸️ pausada · ✅ concluída
+**Estado:** ⬜ não iniciada · 🟡 em execução · 🔵 em revisão · ✅ concluída
 
 | # | Fase | Estado | Depende de | Agente |
 |---|---|---|---|---|
@@ -13,7 +13,7 @@ conclusão. Nenhuma fase pode deixar o bot fora do ar.
 | 3 | API: auth, usuários, auditoria | ✅ | 2 | Codex A |
 | 4 | API: plataformas, contas, credenciais | ✅ | 3 | Codex A |
 | 5 | API: bots, telefones, grupos | ✅ | 4 | Codex A |
-| 6 | Worker lê config do banco | ⏸️ | 5 | Codex B (**sozinho**) |
+| 6 | Worker lê config do banco | ✅ | 5 | Codex B (**sozinho**) |
 | 7 | Atribuição: sub_id + redirect | ⬜ | 6 | Codex B |
 | 8 | API: despesas, campanhas, vendas | ⬜ | 4 | Codex C ∥ 6 |
 | 9 | API: métricas e agregações | ⬜ | 8 | Codex C |
@@ -179,59 +179,6 @@ E2E, revisão de segurança final, migração das env vars operacionais para o b
 
 Critério: dashboard no ar com HTTPS · bot rodando normal · nenhum segredo no
 frontend · backup verificado · `/api/docs` bate com este contrato.
-
----
-
-## ⏸️ Desenvolvimento pausado em 2026-09-23
-
-Pausado a pedido do usuário. Fases 0–5 concluídas e commitadas (último commit:
-`9ede0bd`). A fase 6 está **escrita e verificada nos pontos críticos, mas NÃO
-commitada** — 17 arquivos no working tree.
-
-### Fase 6 — o que já foi verificado ✅
-
-A pergunta que governa a fase é "com o banco como está hoje, o bot se comporta
-igual?". Foi capturada uma baseline **antes** do trabalho (hash dos filtros de
-cada canal, nomes, grupos) e comparada depois:
-
-| Verificação | Resultado |
-|---|---|
-| Hash dos filtros vs. baseline | **idêntico** nos 2 canais |
-| `filters.py` / `dedup.py` / `formatter.py` | diff **ZERO** |
-| `_freio_anti_ban` e contagem de envios | **intactos** |
-| `enviar_mensagem` | **intacta** |
-| Tabelas ausentes / banco fora do ar / exceção | cai no legado, **não propaga** |
-| `python -m worker.main` com banco vazio | inicia e completa ciclo normal |
-| `tests/test_worker_config.py` | 9/9 |
-| `ruff` | limpo |
-
-Correções feitas na revisão:
-- `enviadas_ciclo` era referenciado no `return` mas só definido num dos ramos;
-  funcionava por curto-circuito, mas dependia de duas condições nunca
-  divergirem. Inicializado explicitamente.
-- `add_catalog` (fixture da fase 5) recriava a plataforma `mercadolivre`, cujo
-  `slug` é UNIQUE global — quebrava qualquer teste que o chamasse duas vezes.
-  Agora reaproveita a linha existente.
-- O literal `558531791835` virou `LEGACY_PHONE_NUMBER`, constante de fallback.
-
-### O que falta antes de commitar
-
-**Rodar `pytest tests/ -q` inteiro com `TEST_DATABASE_URL`** e confirmar que as
-fases 1–5 não regrediram. A última execução completa deu `67 passed, 1 failed`,
-e a única falha foi o bug de fixture já corrigido — mas a suíte não foi
-reexecutada até o fim depois da correção. **Não commitar sem isso**: foi
-justamente rodando a suíte de verdade que apareceram os bugs das fases 3 e 5.
-
-### Produção intacta
-
-Bot rodando normalmente; `master` em `f848f1b`, sem nenhum commit deste
-trabalho; nada publicado no GitHub. Banco de produção com apenas `ofertas` (746)
-e `envios` (690) — **nenhuma migration foi aplicada**. Bancos de teste
-removidos, túnel encerrado, processos do Codex encerrados.
-
-Mesmo depois de commitada, a fase 6 **não muda a operação**: o worker só passa a
-ler do banco quando as migrations forem aplicadas E existir um bot ativo lá.
-São dois passos explícitos, nenhum automático.
 
 ---
 

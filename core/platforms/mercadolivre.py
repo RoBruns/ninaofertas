@@ -18,9 +18,7 @@ import httpx
 from loguru import logger
 
 from core.platforms.base import OfertaCapturada, Scraper
-from core.settings import load_filtros_atual
-
-load_filtros = load_filtros_atual
+from core.config_provider import load_filtros_runtime as load_filtros
 
 HEADERS = {
     "User-Agent": (

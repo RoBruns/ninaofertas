@@ -13,6 +13,7 @@ from typing import Optional
 import httpx
 from loguru import logger
 
+from core.config_provider import registrar_evento_runtime
 
 @dataclass
 class OfertaCapturada:
@@ -60,9 +61,19 @@ class Scraper:
                 logger.warning(
                     f"[{self.nome_fonte}] falha de conexão (tentativa {tentativa}/{self.tentativas}): {e}"
                 )
+                registrar_evento_runtime(
+                    "platform_error",
+                    f"Falha de conexao em {self.nome_fonte}",
+                    detail={"source": self.nome_fonte, "attempt": tentativa},
+                )
                 time.sleep(1.5 * tentativa)
             except Exception as e:
                 logger.error(f"[{self.nome_fonte}] erro inesperado: {e}")
+                registrar_evento_runtime(
+                    "platform_error",
+                    f"Falha na plataforma {self.nome_fonte}",
+                    detail={"source": self.nome_fonte, "error": str(e)[:1000]},
+                )
                 break
         logger.error(f"[{self.nome_fonte}] indisponível após {self.tentativas} tentativas. Seguindo sem esta fonte.")
         return []

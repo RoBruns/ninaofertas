@@ -13,11 +13,28 @@ import time
 import httpx
 from loguru import logger
 
+from core.config_provider import bot_runtime_atual
+from core.credentials import mark_account_credentials_invalid, runtime_account_credentials
 from core.settings import settings
 
 ML_CREATE_LINK = "https://www.mercadolivre.com.br/affiliate-program/api/v2/affiliates/createLink"
 ML_LINKBUILDER = "https://www.mercadolivre.com.br/afiliados/linkbuilder"
 SHOPEE_API = "https://open-api.affiliate.shopee.com.br/graphql"
+
+
+def _runtime_auth(platform_slug: str):
+    runtime = bot_runtime_atual()
+    try:
+        if runtime is None or not runtime.account_ids:
+            return runtime, None
+        return runtime, runtime_account_credentials(runtime.account_ids, platform_slug)
+    except Exception as exc:
+        logger.error(f"[afiliado] Falha ao ler credencial da conta {platform_slug}: {exc}")
+        return runtime, None
+
+
+def _credential_value(values: dict[str, str], *names: str) -> str:
+    return next((values[name] for name in names if values.get(name)), "")
 
 
 def _cookie_value(cookie: str, name: str) -> str | None:
@@ -76,8 +93,18 @@ def _ja_parece_afiliado_shopee(url: str) -> bool:
 
 
 def converter_mercadolivre(url: str) -> str | None:
-    tag = settings.mercadolivre_affiliate_tag
-    cookie = settings.mercadolivre_affiliate_cookie
+    runtime, account = _runtime_auth("mercadolivre")
+    if runtime is not None and runtime.account_ids:
+        if account is None:
+            logger.warning("[afiliado] MELI sem conta/credencial vinculada")
+            return None
+        account_id, config, values = account
+        tag = str(config.get("affiliate_tag") or config.get("tag") or "")
+        cookie = _credential_value(values, "cookie", "affiliate_cookie")
+    else:
+        account_id = None
+        tag = settings.mercadolivre_affiliate_tag
+        cookie = settings.mercadolivre_affiliate_cookie
     if not tag or not cookie:
         logger.warning("[afiliado] MELI sem TAG/COOKIE no .env — mantendo URL original")
         return None
@@ -109,6 +136,12 @@ def converter_mercadolivre(url: str) -> str | None:
 
             resp = client.post(ML_CREATE_LINK, headers=headers, json={"urls": [url], "tag": tag})
             if resp.status_code >= 400:
+                if resp.status_code in {401, 403} and account_id is not None:
+                    mark_account_credentials_invalid(
+                        account_id,
+                        f"HTTP {resp.status_code}",
+                        bot_id=runtime.id if runtime else None,
+                    )
                 logger.error(f"[afiliado] MELI createLink HTTP {resp.status_code}: {resp.text[:200]}")
                 return None
             data = resp.json()
@@ -127,8 +160,24 @@ def converter_mercadolivre(url: str) -> str | None:
 def converter_shopee(url: str) -> str | None:
     if _ja_parece_afiliado_shopee(url):
         return url
-    app_id = settings.shopee_app_id
-    secret = settings.shopee_app_secret
+    runtime, account = _runtime_auth("shopee")
+    if runtime is not None and runtime.account_ids:
+        if account is None:
+            return None
+        account_id, config, values = account
+        app_id = str(
+            config.get("app_id")
+            or config.get("affiliate_id")
+            or config.get("external_id")
+            or values.get("app_id")
+            or values.get("api_key")
+            or ""
+        )
+        secret = _credential_value(values, "app_secret", "secret")
+    else:
+        account_id = None
+        app_id = settings.shopee_app_id
+        secret = settings.shopee_app_secret
     if not app_id or not secret:
         return None
 
@@ -150,6 +199,12 @@ def converter_shopee(url: str) -> str | None:
     try:
         with httpx.Client(timeout=20.0) as client:
             resp = client.post(SHOPEE_API, content=payload.encode("utf-8"), headers=headers)
+            if resp.status_code in {401, 403} and account_id is not None:
+                mark_account_credentials_invalid(
+                    account_id,
+                    f"HTTP {resp.status_code}",
+                    bot_id=runtime.id if runtime else None,
+                )
             resp.raise_for_status()
             data = resp.json()
         if data.get("errors"):

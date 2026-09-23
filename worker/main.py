@@ -8,22 +8,58 @@ from apscheduler.schedulers.background import BackgroundScheduler
 
 from core import db
 from core.settings import settings
-from worker import monitor, promo_instagram
+from worker import commands, monitor, promo_instagram
 from worker.channels import canais_ativos, usar_canal
 from worker.logger import logger
 
+_database_mode = False
+
 
 def _ciclo_achadinhos() -> None:
+    global _database_mode
+    ativos = canais_ativos()
+    if any(canal.startswith("db:") for canal in ativos):
+        _database_mode = True
+        _ciclos_banco()
+        return
+    if _database_mode:
+        return
     with usar_canal("achadinhos"):
         monitor.ciclo()
 
 
 def _ciclo_auto() -> None:
+    if _database_mode or any(canal.startswith("db:") for canal in canais_ativos()):
+        return
     with usar_canal("auto"):
         monitor.ciclo()
 
 
+def _ciclos_banco() -> None:
+    """Um ciclo por grupo, mantendo monitor.ciclo() com o contrato historico."""
+    for canal in canais_ativos():
+        if not canal.startswith("db:"):
+            continue
+        with usar_canal(canal):
+            monitor.ciclo()
+
+
+def _comandos_imediatos() -> None:
+    commands.drenar_comandos()
+    bot_ids = commands.consumir_run_now()
+    if not bot_ids:
+        return
+    for canal in canais_ativos():
+        if not canal.startswith("db:"):
+            continue
+        bot_id = canal.split(":", 2)[1]
+        if any(str(wanted) == bot_id for wanted in bot_ids):
+            with usar_canal(canal):
+                monitor.ciclo()
+
+
 def main() -> None:
+    global _database_mode
     db.init_db()
     ativos = canais_ativos()
     logger.info("Bot de Ofertas iniciado.")
@@ -38,7 +74,19 @@ def main() -> None:
 
     scheduler = BackgroundScheduler(timezone="America/Sao_Paulo")
     agora = datetime.now()
-    if "achadinhos" in ativos:
+    banco_ativo = any(canal.startswith("db:") for canal in ativos)
+    _database_mode = banco_ativo
+    if banco_ativo:
+        scheduler.add_job(
+            _ciclos_banco,
+            "interval",
+            seconds=settings.check_interval,
+            next_run_time=agora,
+            id="bots-db",
+            max_instances=1,
+            coalesce=True,
+        )
+    if not banco_ativo and "achadinhos" in ativos:
         scheduler.add_job(
             _ciclo_achadinhos,
             "interval",
@@ -48,7 +96,7 @@ def main() -> None:
             max_instances=1,
             coalesce=True,
         )
-    if "auto" in ativos:
+    if not banco_ativo and "auto" in ativos:
         scheduler.add_job(
             _ciclo_auto,
             "interval",
@@ -58,6 +106,15 @@ def main() -> None:
             max_instances=1,
             coalesce=True,
         )
+    scheduler.add_job(
+        _comandos_imediatos,
+        "interval",
+        seconds=5,
+        next_run_time=agora,
+        id="commands",
+        max_instances=1,
+        coalesce=True,
+    )
     scheduler.add_job(
         promo_instagram.ciclo,
         "interval",

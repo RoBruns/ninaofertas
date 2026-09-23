@@ -16,10 +16,10 @@ from datetime import datetime, timezone
 import httpx
 from loguru import logger
 
+from core.config_provider import bot_runtime_atual, load_filtros_runtime as load_filtros
+from core.credentials import mark_account_credentials_invalid, runtime_account_credentials
 from core.platforms.base import OfertaCapturada, Scraper
-from core.settings import load_filtros_atual, settings
-
-load_filtros = load_filtros_atual
+from core.settings import settings
 
 API_URL = "https://open-api.affiliate.shopee.com.br/graphql"
 
@@ -65,6 +65,33 @@ def _ts_para_dt(valor) -> datetime | None:
 class ShopeeScraper(Scraper):
     nome_fonte = "Shopee"
     _avisou_sem_credenciais = False
+    _runtime_account_id = None
+    _runtime_app_id = ""
+    _runtime_secret = ""
+
+    def _load_auth(self) -> tuple[str, str]:
+        runtime = bot_runtime_atual()
+        self._runtime_account_id = None
+        if runtime is None or not runtime.account_ids:
+            return settings.shopee_app_id, settings.shopee_app_secret
+        account = runtime_account_credentials(runtime.account_ids, "shopee")
+        if account is None:
+            return "", ""
+        account_id, config, values = account
+        self._runtime_account_id = account_id
+        app_id = str(
+            config.get("app_id")
+            or config.get("affiliate_id")
+            or config.get("external_id")
+            or values.get("app_id")
+            or values.get("api_key")
+            or ""
+        )
+        secret = next(
+            (values[key] for key in ("app_secret", "secret") if values.get(key)),
+            "",
+        )
+        return app_id, secret
 
     def _termos_busca(self) -> list[str]:
         filtros = load_filtros()
@@ -76,8 +103,8 @@ class ShopeeScraper(Scraper):
         )
 
     def _graphql(self, client: httpx.Client, query: str) -> dict:
-        app_id = settings.shopee_app_id
-        secret = settings.shopee_app_secret
+        app_id = self._runtime_app_id
+        secret = self._runtime_secret
         payload_obj = {"query": query}
         payload = json.dumps(payload_obj, separators=(",", ":"), ensure_ascii=False)
         timestamp = int(time.time())
@@ -89,6 +116,13 @@ class ShopeeScraper(Scraper):
             ),
         }
         resp = client.post(API_URL, content=payload.encode("utf-8"), headers=headers)
+        if resp.status_code in {401, 403} and self._runtime_account_id is not None:
+            runtime = bot_runtime_atual()
+            mark_account_credentials_invalid(
+                self._runtime_account_id,
+                f"HTTP {resp.status_code}",
+                bot_id=runtime.id if runtime else None,
+            )
         resp.raise_for_status()
         dados = resp.json()
         if dados.get("errors"):
@@ -100,7 +134,8 @@ class ShopeeScraper(Scraper):
         return dados.get("data") or {}
 
     def buscar(self) -> list[OfertaCapturada]:
-        if not settings.shopee_app_id or not settings.shopee_app_secret:
+        self._runtime_app_id, self._runtime_secret = self._load_auth()
+        if not self._runtime_app_id or not self._runtime_secret:
             if not ShopeeScraper._avisou_sem_credenciais:
                 logger.warning(
                     "[Shopee] SHOPEE_APP_ID/SECRET não configurados — fonte pulada. "

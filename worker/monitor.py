@@ -5,18 +5,37 @@ Depois: só ofertas novas/quentes — com freio anti-ban no WhatsApp.
 """
 from __future__ import annotations
 
+from typing import Any, Callable
+
 from core import db, repositories
 from core.platforms import affiliate
 from core.platforms.base import OfertaCapturada
 from core.settings import settings
-from worker import cupom_card, dedup, formatter, whatsapp
-from worker.channels import canal_atual, grupo_whatsapp, load_filtros, nome_canal
+from worker import commands, cupom_card, dedup, formatter, telemetry, whatsapp
+from worker.channels import (
+    bot_atual,
+    canal_atual,
+    grupo_db_id,
+    grupo_whatsapp,
+    load_filtros,
+    nome_canal,
+)
 from worker.filters import passa_nos_filtros
 from worker.logger import logger
 from worker.sources import FONTES
 
 _baseline_ciclos_feitos: dict[str, int] = {}
 _ciclo_n: dict[str, int] = {}
+
+
+def _telemetria_best_effort(
+    func: Callable[..., Any], *args: Any, default: Any = None, **kwargs: Any
+) -> Any:
+    try:
+        return func(*args, **kwargs)
+    except Exception as exc:
+        logger.debug(f"Telemetria ignorada para preservar o ciclo: {exc}")
+        return default
 
 
 def _intercalar_lojas(ofertas: list[OfertaCapturada], prioridade: str) -> list[OfertaCapturada]:
@@ -71,7 +90,15 @@ def _baseline_oferta(session, oferta: OfertaCapturada, filtros: dict) -> bool:
     grupo = grupo_whatsapp()
     if repositories.ja_conhecida(session, oferta_db.id, grupo=grupo):
         return False
-    repositories.registrar_visto(session, oferta_db.id, oferta.preco, grupo=grupo)
+    runtime = bot_atual()
+    repositories.registrar_visto(
+        session,
+        oferta_db.id,
+        oferta.preco,
+        grupo=grupo,
+        bot_id=runtime.id if runtime else None,
+        group_id=grupo_db_id(),
+    )
     return True
 
 
@@ -190,18 +217,36 @@ def _processar_oferta(session, oferta: OfertaCapturada, filtros: dict) -> str:
         mensagem=mensagem,
         preco=oferta.preco,
         status="sucesso" if sucesso else "falha",
+        bot_id=bot_atual().id if bot_atual() else None,
+        group_id=grupo_db_id(),
     )
 
     if sucesso:
         logger.info("Oferta enviada com sucesso.")
     else:
         logger.error("Falha ao enviar oferta para o WhatsApp.")
+        runtime = bot_atual()
+        current_group_id = grupo_db_id()
+        _telemetria_best_effort(
+            telemetry.registrar_evento,
+            "send_failed",
+            "Falha ao enviar oferta para o WhatsApp",
+            bot_id=runtime.id if runtime else None,
+            entity_type="group",
+            entity_id=str(current_group_id) if current_group_id else grupo,
+        )
     return "enviou"
 
 
-def ciclo() -> None:
+def _executar_ciclo() -> tuple[int, int, bool]:
     canal = canal_atual()
-    feitos = _baseline_ciclos_feitos.get(canal, 0)
+    runtime = bot_atual()
+    current_group_id = grupo_db_id()
+    feitos = (
+        telemetry.quantidade_baselines(runtime.id, current_group_id)
+        if runtime is not None
+        else _baseline_ciclos_feitos.get(canal, 0)
+    )
     n = _ciclo_n.get(canal, 0)
 
     logger.info(f"[{nome_canal()}] Buscando novas ofertas...")
@@ -220,10 +265,13 @@ def ciclo() -> None:
 
     logger.info(f"[{nome_canal()}] {len(todas_ofertas)} ofertas encontradas na varredura.")
 
+    em_baseline = feitos < baseline_alvo
+    enviadas_ciclo = 0
     with db.get_session() as session:
         if feitos < baseline_alvo:
             feitos += 1
-            _baseline_ciclos_feitos[canal] = feitos
+            if runtime is None:
+                _baseline_ciclos_feitos[canal] = feitos
             logger.info(
                 f"[{nome_canal()}] Baseline {feitos}/{baseline_alvo}: "
                 "marcando estoque atual (sem enviar)."
@@ -242,7 +290,6 @@ def ciclo() -> None:
                     "com freio anti-ban."
                 )
         else:
-            enviadas_ciclo = 0
             for oferta in todas_ofertas:
                 try:
                     resultado = _processar_oferta(session, oferta, filtros)
@@ -261,3 +308,50 @@ def ciclo() -> None:
                         break
 
     logger.info(f"[{nome_canal()}] Próxima verificação em {settings.check_interval}s.")
+    return len(todas_ofertas), 0 if em_baseline else enviadas_ciclo, em_baseline
+
+
+def ciclo() -> None:
+    """Executa o pipeline legado envolvido apenas por operacao best-effort."""
+    commands.drenar_comandos()
+    runtime = bot_atual()
+    if runtime is not None and not commands.bot_esta_ativo(runtime.id):
+        logger.info(f"[{nome_canal()}] Bot pausado; ciclo ignorado.")
+        return
+    run_id, started = _telemetria_best_effort(
+        telemetry.iniciar_ciclo,
+        runtime.id if runtime else None,
+        grupo_db_id(),
+        default=(None, 0.0),
+    )
+    try:
+        found, sent, baseline = _executar_ciclo()
+    except Exception as exc:
+        _telemetria_best_effort(
+            telemetry.finalizar_ciclo,
+            run_id,
+            started,
+            status="failed",
+            offers_found=0,
+            offers_sent=0,
+            error=str(exc)[:1000],
+        )
+        _telemetria_best_effort(
+            telemetry.registrar_evento,
+            "platform_error",
+            "Ciclo do worker falhou",
+            bot_id=runtime.id if runtime else None,
+            detail={"error": str(exc)[:1000]},
+        )
+        _telemetria_best_effort(telemetry.heartbeat, [runtime.id] if runtime else [])
+        raise
+    _telemetria_best_effort(
+        telemetry.finalizar_ciclo,
+        run_id,
+        started,
+        status="success",
+        offers_found=found,
+        offers_sent=sent,
+        baseline=baseline,
+    )
+    _telemetria_best_effort(telemetry.heartbeat, [runtime.id] if runtime else [])

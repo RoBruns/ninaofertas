@@ -9,7 +9,8 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from core.crypto import decrypt, encrypt, fingerprint
-from core.models import PlatformCredential
+from core import db
+from core.models import Event, Platform, PlatformAccount, PlatformCredential
 
 
 def store_credential(
@@ -68,3 +69,62 @@ def read_account_credentials(
         {credential.kind: read_credential(session, credential) for credential in credentials},
         credentials,
     )
+
+
+def runtime_account_credentials(
+    account_ids: tuple[UUID, ...], platform_slug: str
+) -> tuple[UUID, dict, dict[str, str]] | None:
+    """Resolve config e segredos da primeira conta ativa da plataforma."""
+    if not account_ids:
+        return None
+    with db.get_session() as session:
+        account = session.scalar(
+            select(PlatformAccount)
+            .join(Platform, Platform.id == PlatformAccount.platform_id)
+            .where(
+                PlatformAccount.id.in_(account_ids),
+                PlatformAccount.status == "active",
+                Platform.slug == platform_slug,
+            )
+            .order_by(PlatformAccount.created_at)
+        )
+        if account is None:
+            return None
+        values, _ = read_account_credentials(session, account.id)
+        config = dict(account.config or {})
+        if account.external_id:
+            config.setdefault("external_id", account.external_id)
+        return account.id, config, values
+
+
+def mark_account_credentials_invalid(
+    account_id: UUID, error: str, *, bot_id: UUID | None = None
+) -> None:
+    """Marca segredos rejeitados e emite auth_expired, sempre best-effort."""
+    try:
+        with db.get_session() as session:
+            now = datetime.now(timezone.utc)
+            credentials = list(
+                session.scalars(
+                    select(PlatformCredential).where(
+                        PlatformCredential.account_id == account_id
+                    )
+                )
+            )
+            for credential in credentials:
+                credential.status = "invalid"
+                credential.last_error = error[:1000]
+                credential.last_error_at = now
+            session.add(
+                Event(
+                    bot_id=bot_id,
+                    entity_type="platform_account",
+                    entity_id=str(account_id),
+                    level="error",
+                    type="auth_expired",
+                    message="Credencial de plataforma rejeitada",
+                    detail={"status": "invalid"},
+                )
+            )
+    except Exception:
+        return
