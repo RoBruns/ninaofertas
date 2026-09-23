@@ -27,6 +27,16 @@ def main() -> None:
     database.init_db()
     ativos = canais_ativos()
     logger.info("Bot de Ofertas iniciado.")
+    if not settings.evolution_instance or not settings.whatsapp_group_id:
+        logger.error(
+            "WhatsApp incompleto: defina EVOLUTION_INSTANCE e WHATSAPP_GROUP_ID "
+            "nas Variables da Railway. Sem isso a Nina não blipa."
+        )
+    if "auto" in ativos and not settings.whatsapp_group_id_auto:
+        logger.warning(
+            "Nina Ofertas está ligada, mas WHATSAPP_GROUP_ID_AUTO está vazio — "
+            "esse canal cai no mesmo grupo dos Achadinhos."
+        )
     if "auto" in ativos:
         logger.info("Canais: Achadinhos da Nina (casa/feminino) + Nina Ofertas (automotivo)")
     else:

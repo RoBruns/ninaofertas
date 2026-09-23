@@ -368,11 +368,8 @@ def passa_nos_filtros(oferta: OfertaCapturada, filtros: dict) -> tuple[bool, str
             return False, f"preço R${oferta.preco:.2f} abaixo do mínimo R${preco_minimo:.2f}"
 
         desconto_minimo = filtros.get("desconto_minimo")
-        if desconto_minimo:
-            if oferta.desconto is None:
-                return False, "desconto desconhecido (não foi possível confirmar preço anterior)"
-            if oferta.desconto < desconto_minimo:
-                return False, f"desconto {oferta.desconto}% abaixo do mínimo {desconto_minimo}%"
+        if desconto_minimo and oferta.desconto is not None and oferta.desconto < desconto_minimo:
+            return False, f"desconto {oferta.desconto}% abaixo do mínimo {desconto_minimo}%"
 
         max_vendas = filtros.get("max_vendas")
         if max_vendas is not None and oferta.vendas is not None and oferta.vendas > int(max_vendas):

@@ -190,9 +190,9 @@ def _processar_oferta(session, oferta: OfertaCapturada, filtros: dict) -> str:
 
     if sucesso:
         logger.info("Oferta enviada com sucesso.")
-    else:
-        logger.error("Falha ao enviar oferta para o WhatsApp.")
-    return "enviou"
+        return "enviou"
+    logger.error("Falha ao enviar oferta para o WhatsApp.")
+    return "falhou"
 
 
 def ciclo() -> None:
@@ -248,14 +248,23 @@ def ciclo() -> None:
                 )
         else:
             enviadas_ciclo = 0
+            puladas = 0
+            falhas = 0
             for oferta in todas_ofertas:
                 try:
                     resultado = _processar_oferta(session, oferta, filtros)
                 except Exception as e:
                     logger.error(f"Erro ao processar oferta '{oferta.nome[:60]}': {e}")
+                    falhas += 1
                     continue
                 if resultado == "freio":
                     break
+                if resultado == "pulou":
+                    puladas += 1
+                    continue
+                if resultado == "falhou":
+                    falhas += 1
+                    continue
                 if resultado == "enviou":
                     enviadas_ciclo += 1
                     if enviadas_ciclo >= max_por_ciclo:
@@ -264,5 +273,10 @@ def ciclo() -> None:
                             f"(máx {max_por_ciclo})."
                         )
                         break
+            if enviadas_ciclo == 0:
+                logger.warning(
+                    f"[{nome_canal()}] Ciclo sem blip: {len(todas_ofertas)} capturadas, "
+                    f"{puladas} puladas (filtro/dedup), {falhas} falhas de envio."
+                )
 
     logger.info(f"[{nome_canal()}] Próxima verificação em {settings.check_interval}s.")
