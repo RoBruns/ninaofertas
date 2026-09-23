@@ -70,11 +70,16 @@ def install_error_handlers(app: FastAPI) -> None:
     async def validation_error_handler(
         _request: Request, exc: RequestValidationError
     ) -> JSONResponse:
+        fields = _validation_fields(exc)
+        safety_message = next(
+            (message for message in fields.values() if "risco de banimento" in message),
+            None,
+        )
         return error_response(
             422,
             "VALIDATION_ERROR",
-            "Dados de entrada invalidos",
-            _validation_fields(exc),
+            safety_message or "Dados de entrada invalidos",
+            fields,
         )
 
     @app.exception_handler(IntegrityError)

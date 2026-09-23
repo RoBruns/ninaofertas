@@ -3,7 +3,7 @@
 14 fases. Cada uma é uma tarefa fechada para o Codex, com critério objetivo de
 conclusão. Nenhuma fase pode deixar o bot fora do ar.
 
-**Estado:** ⬜ não iniciada · 🟡 em execução · 🔵 em revisão · ⏸️ pausada · ✅ concluída
+**Estado:** ⬜ não iniciada · 🟡 em execução · 🔵 em revisão · ✅ concluída
 
 | # | Fase | Estado | Depende de | Agente |
 |---|---|---|---|---|
@@ -12,7 +12,7 @@ conclusão. Nenhuma fase pode deixar o bot fora do ar.
 | 2 | Migrations e modelo de dados | ✅ | 1 | Codex A |
 | 3 | API: auth, usuários, auditoria | ✅ | 2 | Codex A |
 | 4 | API: plataformas, contas, credenciais | ✅ | 3 | Codex A |
-| 5 | API: bots, telefones, grupos | ⏸️ | 4 | Codex A |
+| 5 | API: bots, telefones, grupos | ✅ | 4 | Codex A |
 | 6 | Worker lê config do banco | ⬜ | 5 | Codex B (**sozinho**) |
 | 7 | Atribuição: sub_id + redirect | ⬜ | 6 | Codex B |
 | 8 | API: despesas, campanhas, vendas | ⬜ | 4 | Codex C ∥ 6 |
@@ -179,49 +179,6 @@ E2E, revisão de segurança final, migração das env vars operacionais para o b
 
 Critério: dashboard no ar com HTTPS · bot rodando normal · nenhum segredo no
 frontend · backup verificado · `/api/docs` bate com este contrato.
-
----
-
-## ⏸️ Desenvolvimento pausado em 2026-09-22
-
-Pausado a pedido do usuário, com as fases 0–4 concluídas, revisadas e commitadas
-(último commit: `c98cb07`).
-
-**Onde parou.** A fase 5 estava em execução no Codex e foi interrompida. Estes
-arquivos existem no working tree, **não commitados e não revisados**:
-
-```
-api/routers/{bots,groups,niches,phones}.py
-api/schemas/{bot,group,niche,phone}.py
-core/{bot_settings,safety,evolution}.py
-api/errors.py, api/main.py          (modificados)
-```
-
-**Trate como rascunho.** Nunca rodou, nunca foi testado, não passou por revisão.
-Dois arquivos ali merecem atenção especial quando for revisar:
-
-- `core/safety.py` — são os tetos que impedem o dashboard de afrouxar os freios
-  anti-ban além do seguro (ADR-008). Se estiverem errados, o dashboard vira o
-  caminho fácil para queimar o número do WhatsApp.
-- `core/bot_settings.py` — é o contrato que o worker vai consumir na fase 6.
-  Exige teste de round-trip com os `config.json` reais: se perder uma chave,
-  a configuração de produção se perde junto.
-
-**Nota:** na fase 4 o rascunho interrompido acabou sendo aproveitável — estava
-quase completo e passou na revisão. Vale avaliar antes de descartar, em vez de
-refazer por reflexo.
-
-**Para retomar**, em conversa nova:
-> "Continua o projeto do dashboard do ninaofertas, lê o docs/ROADMAP.md"
-
-**Produção intacta.** Bot rodando normalmente; `master` em `f848f1b`, sem
-nenhum commit deste trabalho; nada publicado no GitHub; banco de produção com
-apenas `ofertas` (643) e `envios` (609) — **nenhuma migration foi aplicada em
-produção até aqui**. Bancos de teste removidos, túnel do Postgres encerrado,
-processos do Codex encerrados.
-
-**Chave SSH** `claude-code-nina` segue registrada na Railway; para revogar
-durante a pausa: `railway ssh keys remove`.
 
 ---
 

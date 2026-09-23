@@ -11,7 +11,19 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from api.errors import install_error_handlers
 from api.ratelimit import limiter
-from api.routers import accounts, audit, auth, credentials, health, platforms, users
+from api.routers import (
+    accounts,
+    audit,
+    auth,
+    bots,
+    credentials,
+    groups,
+    health,
+    niches,
+    phones,
+    platforms,
+    users,
+)
 from api.security import validate_security_config
 
 
@@ -24,7 +36,7 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
 
 app = FastAPI(
     title="Nina Ofertas API",
-    version="0.4.0",
+    version="0.5.0",
     docs_url="/api/docs",
     openapi_url="/api/openapi.json",
     redoc_url=None,
@@ -52,3 +64,7 @@ app.include_router(audit.router, prefix="/api")
 app.include_router(platforms.router, prefix="/api")
 app.include_router(accounts.router, prefix="/api")
 app.include_router(credentials.router, prefix="/api")
+app.include_router(niches.router, prefix="/api")
+app.include_router(phones.router, prefix="/api")
+app.include_router(groups.router, prefix="/api")
+app.include_router(bots.router, prefix="/api")
