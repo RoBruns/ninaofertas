@@ -1,6 +1,27 @@
-"""Mapeamento explicito do relatorio CSV da Shopee."""
+"""Importacao CSV e sincronizacao via conversionReport da Shopee."""
 
-from core.importers.base import BaseCSVImporter
+from __future__ import annotations
+
+import json
+import logging
+import time
+from datetime import datetime, timezone
+from decimal import Decimal
+from typing import Any
+
+import httpx
+
+from core.importers.base import BaseCSVImporter, SaleImportRow
+from core.platforms.shopee import API_URL, _assinar
+
+logger = logging.getLogger(__name__)
+MONEY = Decimal("0.01")
+STATUS_MAP = {
+    "COMPLETED": "confirmed",
+    "CANCELLED": "cancelled",
+    "PENDING": "pending",
+    "UNPAID": "pending",
+}
 
 
 class ShopeeCSVImporter(BaseCSVImporter):
@@ -30,3 +51,119 @@ class ShopeeCSVImporter(BaseCSVImporter):
         "pago": "paid",
         "paid": "paid",
     }
+
+
+def _status(value: object) -> str:
+    raw = str(value or "").upper()
+    mapped = STATUS_MAP.get(raw)
+    if mapped is None:
+        logger.warning("Status desconhecido da Shopee: %s; usando pending", raw)
+        return "pending"
+    return mapped
+
+
+def _money(value: object) -> Decimal:
+    return Decimal(str(value or 0)).quantize(MONEY)
+
+
+def parse_conversion_report(report: dict[str, Any]) -> list[SaleImportRow]:
+    """Converte conversoes em uma linha por pedido, sem aritmetica em float."""
+    rows: list[SaleImportRow] = []
+    line = 1
+    for conversion in report.get("nodes") or []:
+        ordered_at = datetime.fromtimestamp(int(conversion["purchaseTime"]), tz=timezone.utc)
+        for order in conversion.get("orders") or []:
+            items = order.get("items") or []
+            names = [str(item.get("itemName") or "").strip() for item in items]
+            product_name = names[0] if names else None
+            if product_name and len(items) > 1:
+                product_name = f"{product_name} +{len(items) - 1}"
+            quantity = sum(int(item.get("qty") or 0) for item in items)
+            gross_amount = sum(
+                (_money(item.get("itemPrice")) * int(item.get("qty") or 0) for item in items),
+                Decimal("0.00"),
+            ).quantize(MONEY)
+            commission = sum(
+                (_money(item.get("itemTotalCommission")) for item in items),
+                Decimal("0.00"),
+            ).quantize(MONEY)
+            rows.append(
+                SaleImportRow(
+                    line=line,
+                    external_id=str(order["orderId"]),
+                    product_name=product_name,
+                    quantity=quantity,
+                    gross_amount=gross_amount,
+                    commission=commission,
+                    commission_rate=None,
+                    status=_status(order.get("orderStatus")),
+                    ordered_at=ordered_at,
+                    confirmed_at=None,
+                    sub_id=str(conversion["utmContent"])
+                    if conversion.get("utmContent") is not None
+                    else None,
+                    bot_id=None,
+                    group_id=None,
+                    buyer_hash=None,
+                    raw={
+                        "conversionId": conversion.get("conversionId"),
+                        "orderStatus": order.get("orderStatus"),
+                    },
+                )
+            )
+            line += 1
+    return rows
+
+
+def _query(start_ts: int, end_ts: int, scroll_id: str | None) -> str:
+    scroll = f", scrollId: {json.dumps(scroll_id)}" if scroll_id else ""
+    return (
+        "{ conversionReport("
+        f"purchaseTimeStart: {start_ts}, purchaseTimeEnd: {end_ts}, limit: 500{scroll}"
+        ") { nodes { conversionId purchaseTime clickTime totalCommission netCommission "
+        "buyerType utmContent orders { orderId orderStatus items { itemName itemPrice qty "
+        "itemTotalCommission } } } pageInfo { hasNextPage scrollId } } }"
+    )
+
+
+def fetch_conversion_report(
+    app_id: str,
+    secret: str,
+    start_at: datetime,
+    end_at: datetime,
+) -> list[SaleImportRow]:
+    """Busca todas as paginas do conversionReport usando o scrollId oficial."""
+    rows: list[SaleImportRow] = []
+    scroll_id: str | None = None
+    with httpx.Client(timeout=30.0) as client:
+        while True:
+            query = _query(int(start_at.timestamp()), int(end_at.timestamp()), scroll_id)
+            payload = json.dumps({"query": query}, separators=(",", ":"), ensure_ascii=False)
+            timestamp = int(time.time())
+            signature = _assinar(app_id, secret, timestamp, payload)
+            response = client.post(
+                API_URL,
+                content=payload.encode("utf-8"),
+                headers={
+                    "Content-Type": "application/json",
+                    "Authorization": (
+                        f"SHA256 Credential={app_id}, Timestamp={timestamp}, Signature={signature}"
+                    ),
+                },
+            )
+            if response.status_code in {401, 403}:
+                raise PermissionError(f"Shopee recusou a credencial (HTTP {response.status_code})")
+            response.raise_for_status()
+            payload_json = response.json()
+            if payload_json.get("errors"):
+                raise RuntimeError("Shopee retornou erro no conversionReport")
+            report = (payload_json.get("data") or {}).get("conversionReport") or {}
+            rows.extend(parse_conversion_report(report))
+            page_info = report.get("pageInfo") or {}
+            if not page_info.get("hasNextPage"):
+                break
+            next_scroll = page_info.get("scrollId")
+            if not next_scroll or next_scroll == scroll_id:
+                raise RuntimeError("Shopee informou proxima pagina sem novo scrollId")
+            scroll_id = str(next_scroll)
+    return rows

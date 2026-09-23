@@ -9,7 +9,7 @@ import unicodedata
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from decimal import Decimal, InvalidOperation
-from typing import ClassVar
+from typing import Any, ClassVar
 from uuid import UUID
 
 VALID_STATUSES = {"pending", "confirmed", "cancelled", "paid"}
@@ -43,7 +43,7 @@ class SaleImportRow:
     bot_id: UUID | None
     group_id: UUID | None
     buyer_hash: str | None
-    raw: dict[str, str]
+    raw: dict[str, Any]
 
 
 def _normalized(value: str) -> str:

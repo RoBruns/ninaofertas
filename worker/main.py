@@ -1,4 +1,5 @@
 """Entrypoint: inicializa o banco e o agendador do monitoramento periódico."""
+
 from __future__ import annotations
 
 import time
@@ -7,6 +8,7 @@ from datetime import datetime, timedelta
 from apscheduler.schedulers.background import BackgroundScheduler
 
 from core import db
+from core.sales_sync import sync_all_active_accounts
 from core.settings import settings
 from worker import commands, monitor, promo_instagram
 from worker.channels import canais_ativos, usar_canal
@@ -58,22 +60,13 @@ def _comandos_imediatos() -> None:
                 monitor.ciclo()
 
 
-def main() -> None:
+def _registrar_jobs(
+    scheduler: BackgroundScheduler,
+    ativos: tuple[str, ...],
+    agora: datetime,
+) -> None:
+    """Registra jobs para permitir validar a agenda sem iniciar o processo."""
     global _database_mode
-    db.init_db()
-    ativos = canais_ativos()
-    logger.info("Bot de Ofertas iniciado.")
-    if "auto" in ativos:
-        logger.info("Canais: Achadinhos da Nina (casa/feminino) + Nina Ofertas (automotivo)")
-    else:
-        logger.info("Canal ativo: Achadinhos da Nina (casa/feminino). Nina Ofertas (auto) está desligado.")
-    logger.info(f"Verificando novas ofertas a cada {settings.check_interval}s.")
-    from worker import whatsapp
-
-    whatsapp.avisar_permissao_grupos()
-
-    scheduler = BackgroundScheduler(timezone="America/Sao_Paulo")
-    agora = datetime.now()
     banco_ativo = any(canal.startswith("db:") for canal in ativos)
     _database_mode = banco_ativo
     if banco_ativo:
@@ -116,6 +109,15 @@ def main() -> None:
         coalesce=True,
     )
     scheduler.add_job(
+        sync_all_active_accounts,
+        "cron",
+        hour=6,
+        minute=0,
+        id="sales-sync-daily",
+        max_instances=1,
+        coalesce=True,
+    )
+    scheduler.add_job(
         promo_instagram.ciclo,
         "interval",
         hours=1,
@@ -124,6 +126,27 @@ def main() -> None:
         max_instances=1,
         coalesce=True,
     )
+
+
+def main() -> None:
+    global _database_mode
+    db.init_db()
+    ativos = canais_ativos()
+    logger.info("Bot de Ofertas iniciado.")
+    if "auto" in ativos:
+        logger.info("Canais: Achadinhos da Nina (casa/feminino) + Nina Ofertas (automotivo)")
+    else:
+        logger.info(
+            "Canal ativo: Achadinhos da Nina (casa/feminino). Nina Ofertas (auto) está desligado."
+        )
+    logger.info(f"Verificando novas ofertas a cada {settings.check_interval}s.")
+    from worker import whatsapp
+
+    whatsapp.avisar_permissao_grupos()
+
+    scheduler = BackgroundScheduler(timezone="America/Sao_Paulo")
+    agora = datetime.now()
+    _registrar_jobs(scheduler, ativos, agora)
     logger.info("Recado do Instagram (foto da vó) a cada 4h no grupo ativo.")
     scheduler.start()
 

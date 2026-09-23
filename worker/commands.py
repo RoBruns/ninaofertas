@@ -13,7 +13,8 @@ from sqlalchemy.exc import DBAPIError, ProgrammingError
 
 from core import db
 from core.config_provider import invalidar_cache
-from core.models import Bot, Command, Group, Phone
+from core.models import Bot, Command, Event, Group, Phone
+from core.sales_sync import sync_account
 from core.settings import settings
 from worker.logger import logger
 
@@ -42,7 +43,9 @@ def bot_esta_ativo(bot_id: UUID) -> bool:
 def _grupos_evolution(phone: Phone) -> list[dict]:
     if not phone.evolution_instance:
         raise RuntimeError("Telefone sem instancia da evolution-api")
-    url = f"{settings.evolution_api_url.rstrip('/')}/group/fetchAllGroups/{phone.evolution_instance}"
+    url = (
+        f"{settings.evolution_api_url.rstrip('/')}/group/fetchAllGroups/{phone.evolution_instance}"
+    )
     with httpx.Client(timeout=30.0) as client:
         response = client.get(
             url,
@@ -51,7 +54,9 @@ def _grupos_evolution(phone: Phone) -> list[dict]:
         )
     response.raise_for_status()
     payload = response.json()
-    groups = payload if isinstance(payload, list) else payload.get("data") or payload.get("groups") or []
+    groups = (
+        payload if isinstance(payload, list) else payload.get("data") or payload.get("groups") or []
+    )
     if not isinstance(groups, list):
         raise RuntimeError("Resposta invalida ao sincronizar grupos")
     return [item for item in groups if isinstance(item, dict)]
@@ -119,6 +124,12 @@ def _executar(session, command: Command) -> str:
     if command.type == "reload_config":
         invalidar_cache()
         return "cache invalidado"
+    if command.type == "commission_import":
+        raw_account_id = (command.payload or {}).get("account_id")
+        if not raw_account_id:
+            raise ValueError("commission_import sem account_id")
+        result = sync_account(UUID(str(raw_account_id)))
+        return f"{result.imported} vendas importadas; {result.skipped} sem alteracao"
     raise ValueError(f"Comando desconhecido: {command.type}")
 
 
@@ -129,7 +140,21 @@ def _marcar_falha(command_id: int, exc: Exception) -> None:
             if command is not None:
                 command.status = "failed"
                 command.finished_at = datetime.now(timezone.utc)
-                command.result = str(exc)[:1000]
+                if command.type == "commission_import":
+                    account_id = str((command.payload or {}).get("account_id") or "")
+                    command.result = "Falha na sincronizacao de vendas"
+                    session.add(
+                        Event(
+                            entity_type="platform_account",
+                            entity_id=account_id or None,
+                            level="error",
+                            type="commission_import_failed",
+                            message="Sincronizacao de vendas solicitada falhou",
+                            detail={"error_type": type(exc).__name__},
+                        )
+                    )
+                else:
+                    command.result = str(exc)[:1000]
     except Exception as mark_exc:
         logger.debug(f"Nao foi possivel marcar comando {command_id} como failed: {mark_exc}")
 
@@ -167,7 +192,7 @@ def drenar_comandos(limit: int = 10) -> None:
                 command.finished_at = datetime.now(timezone.utc)
                 command.result = result
         except Exception as exc:
-            logger.error(f"Comando {command_id} falhou: {exc}")
+            logger.error(f"Comando {command_id} falhou")
             _marcar_falha(command_id, exc)
 
 

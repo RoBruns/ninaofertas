@@ -16,6 +16,7 @@ conclusão. Nenhuma fase pode deixar o bot fora do ar.
 | 6 | Worker lê config do banco | ✅ | 5 | Codex B (**sozinho**) |
 | 7 | Atribuição: sub_id + redirect | ⬜ | 6 | Codex B |
 | 8 | API: despesas, campanhas, vendas | ✅ | 4 | Codex C ∥ 6 |
+| 8b | Sincronização real de vendas (Shopee API, ML painel) | ✅ | 8 | Codex C |
 | 9 | API: métricas e agregações | ⬜ | 8 | Codex C |
 | 10 | Alertas e observabilidade | ⬜ | 6, 9 | Codex C |
 | 11 | Frontend: base, auth, layout | ⬜ | 3 | Codex D ∥ 6–10 |
@@ -284,6 +285,22 @@ no corpo da resposta, já que o handler 500 (corretamente) não vaza detalhe.
 **Corrigido nesta fase:** `_ip_valido()` valida com `ipaddress.ip_address()` e
 grava `NULL` quando não reconhece. Auditoria não pode derrubar a operação que
 ela registra.
+
+### B4 — Telemetria podia derrubar o ciclo de ofertas ✅ corrigido (fase 8b)
+
+`monitor.ciclo()` desempacotava o retorno de `telemetry.iniciar_ciclo` fora de
+qualquer proteção. A função real sempre devolve um par, mas um retorno fora do
+formato quebraria o envio — contrariando a regra da fase 6 de que telemetria é
+best-effort. Agora retorno inesperado vira "sem run" e o ciclo segue.
+
+### B5 — Migrations silenciavam os logs da aplicação ✅ corrigido (fase 8b)
+
+`migrations/env.py` chamava `fileConfig()` com o padrão
+`disable_existing_loggers=True`. Qualquer migration executada no mesmo processo
+**desativava todos os loggers já criados** — inclusive os WARNINGs de status
+desconhecido e de credencial expirada. Na suíte, aparecia como falha dependente
+da ordem dos testes. Mecanismo provado isoladamente (`logger.disabled`
+True → False) antes da correção.
 
 ### B2 — `E741` nome de variável ambíguo (`l`)
 

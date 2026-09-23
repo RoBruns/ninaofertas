@@ -13,7 +13,10 @@ from core.settings import settings
 
 config = context.config
 if config.config_file_name is not None:
-    fileConfig(config.config_file_name)
+    # disable_existing_loggers=False: o padrão (True) silencia todos os loggers
+    # da aplicação já criados sempre que uma migration roda no mesmo processo —
+    # inclusive os WARNINGs de status desconhecido e de credencial expirada.
+    fileConfig(config.config_file_name, disable_existing_loggers=False)
 
 target_metadata = Base.metadata
 database_url = normalize_database_url(settings.database_url)

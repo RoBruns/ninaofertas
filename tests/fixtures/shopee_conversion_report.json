@@ -1,0 +1,98 @@
+{
+  "pages": [
+    {
+      "data": {
+        "conversionReport": {
+          "nodes": [
+            {
+              "conversionId": "CONV-1",
+              "purchaseTime": 1789558200,
+              "clickTime": 1789550000,
+              "totalCommission": "21.10",
+              "netCommission": "21.10",
+              "buyerType": "NEW",
+              "utmContent": "bot-casa-grupo-1",
+              "orders": [
+                {
+                  "orderId": "ORDER-1",
+                  "orderStatus": "COMPLETED",
+                  "items": [
+                    {
+                      "itemName": "Cafeteira",
+                      "itemPrice": "149.90",
+                      "qty": 1,
+                      "itemTotalCommission": "14.99"
+                    },
+                    {
+                      "itemName": "Filtro",
+                      "itemPrice": "20.35",
+                      "qty": 2,
+                      "itemTotalCommission": "6.11"
+                    }
+                  ]
+                },
+                {
+                  "orderId": "ORDER-2",
+                  "orderStatus": "CANCELLED",
+                  "items": [
+                    {
+                      "itemName": "Caneca",
+                      "itemPrice": "35.00",
+                      "qty": 1,
+                      "itemTotalCommission": "3.50"
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "pageInfo": {"hasNextPage": true, "scrollId": "scroll-page-2"}
+        }
+      }
+    },
+    {
+      "data": {
+        "conversionReport": {
+          "nodes": [
+            {
+              "conversionId": "CONV-2",
+              "purchaseTime": 1789644600,
+              "clickTime": 1789640000,
+              "totalCommission": "5.00",
+              "netCommission": "5.00",
+              "buyerType": "EXISTING",
+              "utmContent": "bot-auto-grupo-2",
+              "orders": [
+                {
+                  "orderId": "ORDER-3",
+                  "orderStatus": "NEW_STATUS_FROM_PLATFORM",
+                  "items": [
+                    {
+                      "itemName": "Suporte veicular",
+                      "itemPrice": "25.00",
+                      "qty": 2,
+                      "itemTotalCommission": "5.00"
+                    }
+                  ]
+                },
+                {
+                  "orderId": "ORDER-4",
+                  "orderStatus": "UNPAID",
+                  "items": [
+                    {
+                      "itemName": "Cabo USB",
+                      "itemPrice": "12.50",
+                      "qty": 1,
+                      "itemTotalCommission": "1.25"
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "pageInfo": {"hasNextPage": false, "scrollId": null}
+        }
+      }
+    }
+  ]
+}

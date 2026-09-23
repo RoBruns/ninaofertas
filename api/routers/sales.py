@@ -277,7 +277,11 @@ def sync_sales(
     platform = session.get(Platform, account.platform_id)
     if platform is None:
         raise APIError(500, "INTERNAL", "Plataforma da conta nao encontrada")
-    if not bool(platform.capabilities.get("commission_api")):
+    can_sync = bool(
+        platform.capabilities.get("commission_api")
+        or platform.capabilities.get("commission_scrape")
+    )
+    if not can_sync:
         raise APIError(
             501,
             "NOT_IMPLEMENTED",

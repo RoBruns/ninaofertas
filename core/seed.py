@@ -28,7 +28,13 @@ PLATFORMS = (
     (
         "mercadolivre",
         "Mercado Livre",
-        {"offers": True, "affiliate_link": True, "coupons": False, "commission_api": False},
+        {
+            "offers": True,
+            "affiliate_link": True,
+            "coupons": False,
+            "commission_api": False,
+            "commission_scrape": True,
+        },
     ),
     (
         "aliexpress",

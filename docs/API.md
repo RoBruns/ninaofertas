@@ -223,13 +223,18 @@ GET    /api/campaigns/{id}/metrics
 ```
 GET    /api/sales?from=&to=&platform_id=&bot_id=&status=
 POST   /api/sales/import         multipart CSV + platform_id → {imported, skipped, errors[]}
-POST   /api/sales/sync           {account_id} → 202  (onde a plataforma tiver API)
+POST   /api/sales/sync           {account_id} → 202  (API ou painel autenticado suportado)
 GET    /api/sales/imports        → histórico de importações
 ```
 
 O CSV é mapeado por plataforma em `core/importers/<slug>.py`. Dedup por
 `(platform_id, external_id)`: reimportar o mesmo relatório é idempotente e
 seguro.
+
+A sincronização automática usa `conversionReport` na Shopee e, no Mercado
+Livre, lê o JSON server-side do painel de afiliados um dia por requisição nos
+últimos 14 dias, sempre limitado a D-1. O worker executa todas as contas ativas
+diariamente às 06:00 em `America/Sao_Paulo`.
 
 ## Observabilidade
 

@@ -318,12 +318,14 @@ def ciclo() -> None:
     if runtime is not None and not commands.bot_esta_ativo(runtime.id):
         logger.info(f"[{nome_canal()}] Bot pausado; ciclo ignorado.")
         return
-    run_id, started = _telemetria_best_effort(
+    inicio = _telemetria_best_effort(
         telemetry.iniciar_ciclo,
         runtime.id if runtime else None,
         grupo_db_id(),
         default=(None, 0.0),
     )
+    # Telemetria nunca derruba o ciclo: retorno fora do formato vira "sem run".
+    run_id, started = inicio if isinstance(inicio, tuple) and len(inicio) == 2 else (None, 0.0)
     try:
         found, sent, baseline = _executar_ciclo()
     except Exception as exc:
