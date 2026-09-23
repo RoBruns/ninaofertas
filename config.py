@@ -27,7 +27,7 @@ CANAIS = {
         "arquivo": "config.auto.json",
         "grupo_env": "WHATSAPP_GROUP_ID_AUTO",
         "nome": "Nina Ofertas",
-        "ativo": True,
+        "ativo": False,
     },
 }
 
