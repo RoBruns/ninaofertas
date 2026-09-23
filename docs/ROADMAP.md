@@ -15,7 +15,7 @@ conclusão. Nenhuma fase pode deixar o bot fora do ar.
 | 5 | API: bots, telefones, grupos | ✅ | 4 | Codex A |
 | 6 | Worker lê config do banco | ✅ | 5 | Codex B (**sozinho**) |
 | 7 | Atribuição: sub_id + redirect | ⬜ | 6 | Codex B |
-| 8 | API: despesas, campanhas, vendas | ⬜ | 4 | Codex C ∥ 6 |
+| 8 | API: despesas, campanhas, vendas | ✅ | 4 | Codex C ∥ 6 |
 | 9 | API: métricas e agregações | ⬜ | 8 | Codex C |
 | 10 | Alertas e observabilidade | ⬜ | 6, 9 | Codex C |
 | 11 | Frontend: base, auth, layout | ⬜ | 3 | Codex D ∥ 6–10 |

@@ -16,12 +16,15 @@ from api.routers import (
     audit,
     auth,
     bots,
+    campaigns,
     credentials,
+    expenses,
     groups,
     health,
     niches,
     phones,
     platforms,
+    sales,
     users,
 )
 from api.security import validate_security_config
@@ -68,3 +71,6 @@ app.include_router(niches.router, prefix="/api")
 app.include_router(phones.router, prefix="/api")
 app.include_router(groups.router, prefix="/api")
 app.include_router(bots.router, prefix="/api")
+app.include_router(expenses.router, prefix="/api")
+app.include_router(campaigns.router, prefix="/api")
+app.include_router(sales.router, prefix="/api")

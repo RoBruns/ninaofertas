@@ -178,3 +178,53 @@ inativo não autentica e seus access/refresh tokens deixam de ser aceitos.
 **Consequência:** o e-mail continua reservado e o usuário permanece disponível
 para investigação histórica, embora a API responda `204` como operação de
 remoção administrativa.
+
+---
+
+## ADR-014 — Receita: Shopee pela API, Mercado Livre pelo painel
+**Data:** 2026-09-23 · **Status:** aceita · **Decisor:** usuário + orquestrador
+**Refina:** ADR-009
+
+O ADR-009 previa "API onde houver, CSV onde não". A validação com as contas
+reais mudou a segunda metade:
+
+- **Shopee:** `conversionReport` da Affiliate Open API responde com as
+  credenciais atuais (HTTP 200, sem erros). Zero conversões em 90 dias,
+  confirmado pelo usuário como ausência real de venda, não falha de acesso.
+- **Mercado Livre:** não oferece API nem export CSV de comissões. O painel
+  `/afiliados/dashboard` é renderizado no servidor e embute todas as abas num
+  JSON (`_n.ctx.r` → `appProps.pageProps`). A leitura é desse JSON, não do
+  HTML visual, com o cookie de sessão da conta (credencial cifrada, ADR-004).
+  Validado: a soma das vendas individuais bate ao centavo com os totais do
+  painel (R$ 238,30 de comissão, R$ 3.198,80 de vendas no período testado).
+
+O CSV continua existindo como caminho de reserva e de importação histórica.
+
+**Riscos aceitos:**
+- O formato do painel do ML pode mudar sem aviso. Mitigação: reconciliação
+  automática entre linhas e totais; divergência vira evento e alerta.
+- `purchaseId` falta em parte das vendas do ML. A chave de idempotência é `id`.
+- O parâmetro de paginação do ML é desconhecido (10 itens por página). A
+  sincronização pede um dia por vez e alerta quando um dia estoura a página,
+  em vez de perder venda em silêncio.
+- A sessão do ML expira. Tratado como credencial `invalid` + alerta de renovar.
+
+---
+
+## ADR-015 — Atribuição no Mercado Livre por etiqueta de rastreamento
+**Data:** 2026-09-23 · **Status:** proposta (decisão final na fase 7)
+
+O painel do ML agrega cliques, conversão e ganhos por **etiqueta de
+rastreamento** (`earnings.item_list[].tag`). Hoje a conta usa uma só
+(`midi5623028`). Com uma etiqueta por bot ou por grupo, o próprio ML entrega a
+métrica separada, sem redirect próprio e sem mudar o formato do link enviado.
+
+A venda individual (`sales.item_list`) **não** traz a etiqueta; a atribuição
+por etiqueta é agregada (cliques, pedidos e ganhos por etiqueta), não por venda.
+Para o produto isso basta: as perguntas são "qual bot/grupo rende mais", não
+"quem comprou o quê".
+
+Na Shopee, o equivalente é `utmContent`, que volta por conversão.
+
+**A decidir na fase 7:** granularidade (etiqueta por bot ou por grupo) e o
+limite de etiquetas que a conta do ML aceita.
