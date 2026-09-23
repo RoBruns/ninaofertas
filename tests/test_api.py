@@ -35,6 +35,11 @@ def _recriar_schema_com_migrations(url: str) -> None:
     from alembic.config import Config
     from sqlalchemy import create_engine as _ce
 
+    from sqlalchemy.engine import make_url
+
+    from tests._db_guard import recusar_banco_de_producao
+
+    recusar_banco_de_producao(make_url(normalize_database_url(url)).database)
     # normaliza para o driver psycopg 3 — sem isso o SQLAlchemy tenta psycopg2
     engine = _ce(normalize_database_url(url), future=True)
     with engine.begin() as conexao:

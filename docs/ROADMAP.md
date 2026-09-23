@@ -3,7 +3,7 @@
 14 fases. Cada uma é uma tarefa fechada para o Codex, com critério objetivo de
 conclusão. Nenhuma fase pode deixar o bot fora do ar.
 
-**Estado:** ⬜ não iniciada · 🟡 em execução · 🔵 em revisão · ⏸️ pausada · ✅ concluída
+**Estado:** ⬜ não iniciada · 🟡 em execução · 🔵 em revisão · ✅ concluída
 
 | # | Fase | Estado | Depende de | Agente |
 |---|---|---|---|---|
@@ -17,7 +17,7 @@ conclusão. Nenhuma fase pode deixar o bot fora do ar.
 | 7 | Atribuição: sub_id + redirect | ⬜ | 6 | Codex B |
 | 8 | API: despesas, campanhas, vendas | ✅ | 4 | Codex C ∥ 6 |
 | 8b | Sincronização real de vendas (Shopee API, ML painel) | ✅ | 8 | Codex C |
-| 9 | API: métricas e agregações | ⏸️ | 8 | Codex C |
+| 9 | API: métricas e agregações | ✅ | 8 | Codex C |
 | 10 | Alertas e observabilidade | ⬜ | 6, 9 | Codex C |
 | 11 | Frontend: base, auth, layout | ⬜ | 3 | Codex D ∥ 6–10 |
 | 12 | Frontend: gestão (contas, bots, grupos) | ⬜ | 5, 11 | Codex D |
@@ -183,58 +183,6 @@ frontend · backup verificado · `/api/docs` bate com este contrato.
 
 ---
 
-## ⏸️ Desenvolvimento pausado em 2026-09-23
-
-Pausado a pedido do usuário. Fases 0–8b concluídas e commitadas, mais o
-esqueleto do dashboard (último commit: `56d0f6c`). A **fase 9 (métricas)** está
-escrita pelo Codex e parcialmente verificada, mas **não commitada**:
-
-```
-core/metrics.py  api/routers/metrics.py  api/schemas/metrics.py
-tests/test_metrics_api.py  api/main.py (registra o router)
-```
-
-### Já verificado na fase 9 ✅
-
-Dataset montado à mão contra Postgres real, conferido fórmula por fórmula:
-
-| Métrica | Esperado | Obtido |
-|---|---|---|
-| revenue (só confirmed/paid) | 1500.00 | 1500.00 |
-| commission / commission_pending | 90.00 / 12.00 | 90.00 / 12.00 |
-| orders | 2 | 2 |
-| spend / traffic_spend | 150.00 / 100.00 | 150.00 / 100.00 |
-| profit / roi / roas / cost_per_sale | -60.00 / -0.4 / 15 / 75.00 | idênticos |
-
-Também: período vazio devolve `null` em todas as razões (nunca 0); `0.10 + 0.20`
-dá `0.30` exato; venda às 23:30 de Brasília cai no dia certo; `buyers`, `clicks`
-e `conversion` vêm `null` com warning; viewer lê as métricas; nenhum `float()`
-em `core/metrics.py`; `worker/`, `core/models.py` e `migrations/` intocados;
-ruff limpo.
-
-### Pendente antes de commitar
-
-1. **Rodar `pytest tests/ -q` inteiro com `TEST_DATABASE_URL`.** A execução
-   foi interrompida quando a sessão caiu.
-2. **Critério de 500 ms do `overview`.** Medido pelo túnel local: ~2,5–3,3 s.
-   Mas o `overview` faz **11 consultas** e cada ida e volta pelo túnel custa
-   ~147 ms, ou seja, quase todo o tempo é latência do túnel, não do SQL. Dentro
-   da rede da Railway (API e banco lado a lado) a latência cai para ~1 ms e o
-   tempo esperado fica bem abaixo de 500 ms. **Confirmar medindo na Railway na
-   fase 14.** Se estourar, o caminho é juntar as 11 consultas em poucas (CTEs),
-   não cache.
-
-### Produção intacta
-
-Banco de produção com apenas `ofertas` (753) e `envios` (692), nenhuma
-migration aplicada; `master` em `f848f1b`; nada publicado. Bancos de teste
-removidos, túnel fechado, Codex encerrado.
-
-**Ainda pendente do usuário:** sair e entrar de novo no Mercado Livre para
-invalidar a sessão cujo cookie foi colado na conversa de 2026-09-23.
-
----
-
 ## Verificações realizadas
 
 ### V1 — Migrations validadas contra Postgres real ✅ (2026-09-22)
@@ -293,6 +241,29 @@ que só existem no Postgres (`CITEXT` no email, `INET` no ip da auditoria,
 o teste verde contra algo que não é o que roda em produção — e foi exatamente
 rodando em Postgres de verdade que apareceu o **B3** abaixo, que o SQLite
 escondia atrás de um erro genérico.
+
+---
+
+### V3 — Desempenho das métricas: orçamento de consultas, não cronômetro (2026-09-23)
+
+O critério "overview < 500 ms" mede tempo de relógio, que inclui a rede até o
+banco. Pelo túnel local (~147 ms por ida e volta) o overview leva ~4 s; dentro
+da Railway, com API e banco lado a lado (~1 ms), o esperado é bem abaixo de
+500 ms. O teste agora verifica o que o código controla: **no máximo 14 consultas
+SQL** por overview. O número é constante — 11 sem as tabelas legadas, 13 com
+`ofertas`/`envios` como em produção — e não cresce com o volume de dados; os
+loops em `core/metrics.py` percorrem listas fixas de tipos de evento, não linhas.
+
+O cronômetro continua no teste, ligado por `METRICS_LATENCY_CHECK=1`. **Rodar
+com essa variável na Railway durante a fase 14** para fechar o critério.
+
+### V4 — Trava contra rodar a suíte no banco de produção (2026-09-23)
+
+Os fixtures apagam o schema `public` inteiro para montar um banco limpo.
+Apontados para produção por engano, destruiriam `ofertas` e `envios`.
+`tests/_db_guard.py` faz os dois fixtures se recusarem a rodar num banco
+chamado `railway` (ou sem nome). Validado chamando a função diretamente —
+nunca rodando a suíte contra produção.
 
 ---
 

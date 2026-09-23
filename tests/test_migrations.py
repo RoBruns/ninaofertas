@@ -16,6 +16,7 @@ from alembic.config import Config
 
 from core.seed import run_seed
 from core.settings import settings
+from tests._db_guard import recusar_banco_de_producao
 
 ORIGINAL_OFERTAS = [
     "id",
@@ -49,9 +50,18 @@ def postgres_schema() -> Iterator[tuple[str, object]]:
     base_url = make_url(raw_url.replace("postgres://", "postgresql+psycopg://", 1))
     if base_url.drivername == "postgresql":
         base_url = base_url.set(drivername="postgresql+psycopg")
+    recusar_banco_de_producao(base_url.database)
     schema = f"phase2_{uuid.uuid4().hex}"
     admin_engine = create_engine(base_url)
     with admin_engine.begin() as connection:
+        # O search_path inclui `public` (onde moram citext e pgcrypto). Se outro
+        # teste deixou tabelas legadas lá, `to_regclass('envios')` as enxerga e a
+        # migration cria FKs cruzando schemas — o downgrade então falha. Zerar o
+        # `public` torna este teste independente da ordem da suíte.
+        connection.execute(text("DROP SCHEMA IF EXISTS public CASCADE"))
+        connection.execute(text("CREATE SCHEMA public"))
+        connection.execute(text("CREATE EXTENSION IF NOT EXISTS citext SCHEMA public"))
+        connection.execute(text("CREATE EXTENSION IF NOT EXISTS pgcrypto SCHEMA public"))
         connection.execute(text(f'CREATE SCHEMA "{schema}"'))
     scoped_url = base_url.update_query_dict({"options": f"-csearch_path={schema},public"})
     engine = create_engine(scoped_url)

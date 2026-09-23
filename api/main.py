@@ -21,6 +21,7 @@ from api.routers import (
     expenses,
     groups,
     health,
+    metrics,
     niches,
     phones,
     platforms,
@@ -74,3 +75,4 @@ app.include_router(bots.router, prefix="/api")
 app.include_router(expenses.router, prefix="/api")
 app.include_router(campaigns.router, prefix="/api")
 app.include_router(sales.router, prefix="/api")
+app.include_router(metrics.router, prefix="/api")
