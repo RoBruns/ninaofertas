@@ -3805,6 +3805,1786 @@
      }
     ]
    }
+  },
+  "/api/metrics/overview": {
+   "get": {
+    "tags": [
+     "metrics"
+    ],
+    "summary": "Overview",
+    "operationId": "overview_api_metrics_overview_get",
+    "security": [
+     {
+      "HTTPBearer": []
+     }
+    ],
+    "parameters": [
+     {
+      "name": "from",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string",
+         "format": "date"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "From"
+      }
+     },
+     {
+      "name": "to",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string",
+         "format": "date"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "To"
+      }
+     },
+     {
+      "name": "bot_id",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string",
+         "format": "uuid"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Bot Id"
+      }
+     },
+     {
+      "name": "platform_id",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "integer"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Platform Id"
+      }
+     },
+     {
+      "name": "account_id",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string",
+         "format": "uuid"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Account Id"
+      }
+     },
+     {
+      "name": "group_id",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string",
+         "format": "uuid"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Group Id"
+      }
+     },
+     {
+      "name": "campaign_id",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string",
+         "format": "uuid"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Campaign Id"
+      }
+     },
+     {
+      "name": "niche_id",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "integer"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Niche Id"
+      }
+     },
+     {
+      "name": "phone_id",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string",
+         "format": "uuid"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Phone Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/OverviewResponse"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/metrics/timeseries": {
+   "get": {
+    "tags": [
+     "metrics"
+    ],
+    "summary": "Metric Timeseries",
+    "operationId": "metric_timeseries_api_metrics_timeseries_get",
+    "security": [
+     {
+      "HTTPBearer": []
+     }
+    ],
+    "parameters": [
+     {
+      "name": "metric",
+      "in": "query",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Metric"
+      }
+     },
+     {
+      "name": "granularity",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "type": "string",
+       "default": "day",
+       "title": "Granularity"
+      }
+     },
+     {
+      "name": "from",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string",
+         "format": "date"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "From"
+      }
+     },
+     {
+      "name": "to",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string",
+         "format": "date"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "To"
+      }
+     },
+     {
+      "name": "bot_id",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string",
+         "format": "uuid"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Bot Id"
+      }
+     },
+     {
+      "name": "platform_id",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "integer"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Platform Id"
+      }
+     },
+     {
+      "name": "account_id",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string",
+         "format": "uuid"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Account Id"
+      }
+     },
+     {
+      "name": "group_id",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string",
+         "format": "uuid"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Group Id"
+      }
+     },
+     {
+      "name": "campaign_id",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string",
+         "format": "uuid"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Campaign Id"
+      }
+     },
+     {
+      "name": "niche_id",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "integer"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Niche Id"
+      }
+     },
+     {
+      "name": "phone_id",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string",
+         "format": "uuid"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Phone Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/TimeseriesResponse"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/metrics/by-platform": {
+   "get": {
+    "tags": [
+     "metrics"
+    ],
+    "summary": "Metrics By Platform",
+    "operationId": "metrics_by_platform_api_metrics_by_platform_get",
+    "security": [
+     {
+      "HTTPBearer": []
+     }
+    ],
+    "parameters": [
+     {
+      "name": "sort",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "type": "string",
+       "default": "profit",
+       "title": "Sort"
+      }
+     },
+     {
+      "name": "from",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string",
+         "format": "date"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "From"
+      }
+     },
+     {
+      "name": "to",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string",
+         "format": "date"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "To"
+      }
+     },
+     {
+      "name": "bot_id",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string",
+         "format": "uuid"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Bot Id"
+      }
+     },
+     {
+      "name": "platform_id",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "integer"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Platform Id"
+      }
+     },
+     {
+      "name": "account_id",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string",
+         "format": "uuid"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Account Id"
+      }
+     },
+     {
+      "name": "group_id",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string",
+         "format": "uuid"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Group Id"
+      }
+     },
+     {
+      "name": "campaign_id",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string",
+         "format": "uuid"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Campaign Id"
+      }
+     },
+     {
+      "name": "niche_id",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "integer"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Niche Id"
+      }
+     },
+     {
+      "name": "phone_id",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string",
+         "format": "uuid"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Phone Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/MetricBreakdownResponse"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/metrics/by-account": {
+   "get": {
+    "tags": [
+     "metrics"
+    ],
+    "summary": "Metrics By Account",
+    "operationId": "metrics_by_account_api_metrics_by_account_get",
+    "security": [
+     {
+      "HTTPBearer": []
+     }
+    ],
+    "parameters": [
+     {
+      "name": "sort",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "type": "string",
+       "default": "profit",
+       "title": "Sort"
+      }
+     },
+     {
+      "name": "from",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string",
+         "format": "date"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "From"
+      }
+     },
+     {
+      "name": "to",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string",
+         "format": "date"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "To"
+      }
+     },
+     {
+      "name": "bot_id",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string",
+         "format": "uuid"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Bot Id"
+      }
+     },
+     {
+      "name": "platform_id",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "integer"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Platform Id"
+      }
+     },
+     {
+      "name": "account_id",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string",
+         "format": "uuid"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Account Id"
+      }
+     },
+     {
+      "name": "group_id",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string",
+         "format": "uuid"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Group Id"
+      }
+     },
+     {
+      "name": "campaign_id",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string",
+         "format": "uuid"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Campaign Id"
+      }
+     },
+     {
+      "name": "niche_id",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "integer"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Niche Id"
+      }
+     },
+     {
+      "name": "phone_id",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string",
+         "format": "uuid"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Phone Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/MetricBreakdownResponse"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/metrics/by-bot": {
+   "get": {
+    "tags": [
+     "metrics"
+    ],
+    "summary": "Metrics By Bot",
+    "operationId": "metrics_by_bot_api_metrics_by_bot_get",
+    "security": [
+     {
+      "HTTPBearer": []
+     }
+    ],
+    "parameters": [
+     {
+      "name": "sort",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "type": "string",
+       "default": "profit",
+       "title": "Sort"
+      }
+     },
+     {
+      "name": "from",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string",
+         "format": "date"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "From"
+      }
+     },
+     {
+      "name": "to",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string",
+         "format": "date"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "To"
+      }
+     },
+     {
+      "name": "bot_id",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string",
+         "format": "uuid"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Bot Id"
+      }
+     },
+     {
+      "name": "platform_id",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "integer"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Platform Id"
+      }
+     },
+     {
+      "name": "account_id",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string",
+         "format": "uuid"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Account Id"
+      }
+     },
+     {
+      "name": "group_id",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string",
+         "format": "uuid"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Group Id"
+      }
+     },
+     {
+      "name": "campaign_id",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string",
+         "format": "uuid"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Campaign Id"
+      }
+     },
+     {
+      "name": "niche_id",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "integer"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Niche Id"
+      }
+     },
+     {
+      "name": "phone_id",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string",
+         "format": "uuid"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Phone Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/MetricBreakdownResponse"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/metrics/by-group": {
+   "get": {
+    "tags": [
+     "metrics"
+    ],
+    "summary": "Metrics By Group",
+    "operationId": "metrics_by_group_api_metrics_by_group_get",
+    "security": [
+     {
+      "HTTPBearer": []
+     }
+    ],
+    "parameters": [
+     {
+      "name": "sort",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "type": "string",
+       "default": "profit",
+       "title": "Sort"
+      }
+     },
+     {
+      "name": "from",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string",
+         "format": "date"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "From"
+      }
+     },
+     {
+      "name": "to",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string",
+         "format": "date"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "To"
+      }
+     },
+     {
+      "name": "bot_id",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string",
+         "format": "uuid"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Bot Id"
+      }
+     },
+     {
+      "name": "platform_id",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "integer"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Platform Id"
+      }
+     },
+     {
+      "name": "account_id",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string",
+         "format": "uuid"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Account Id"
+      }
+     },
+     {
+      "name": "group_id",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string",
+         "format": "uuid"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Group Id"
+      }
+     },
+     {
+      "name": "campaign_id",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string",
+         "format": "uuid"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Campaign Id"
+      }
+     },
+     {
+      "name": "niche_id",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "integer"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Niche Id"
+      }
+     },
+     {
+      "name": "phone_id",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string",
+         "format": "uuid"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Phone Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/MetricBreakdownResponse"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/metrics/by-campaign": {
+   "get": {
+    "tags": [
+     "metrics"
+    ],
+    "summary": "Metrics By Campaign",
+    "operationId": "metrics_by_campaign_api_metrics_by_campaign_get",
+    "security": [
+     {
+      "HTTPBearer": []
+     }
+    ],
+    "parameters": [
+     {
+      "name": "sort",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "type": "string",
+       "default": "profit",
+       "title": "Sort"
+      }
+     },
+     {
+      "name": "from",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string",
+         "format": "date"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "From"
+      }
+     },
+     {
+      "name": "to",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string",
+         "format": "date"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "To"
+      }
+     },
+     {
+      "name": "bot_id",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string",
+         "format": "uuid"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Bot Id"
+      }
+     },
+     {
+      "name": "platform_id",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "integer"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Platform Id"
+      }
+     },
+     {
+      "name": "account_id",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string",
+         "format": "uuid"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Account Id"
+      }
+     },
+     {
+      "name": "group_id",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string",
+         "format": "uuid"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Group Id"
+      }
+     },
+     {
+      "name": "campaign_id",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string",
+         "format": "uuid"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Campaign Id"
+      }
+     },
+     {
+      "name": "niche_id",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "integer"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Niche Id"
+      }
+     },
+     {
+      "name": "phone_id",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string",
+         "format": "uuid"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Phone Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/MetricBreakdownResponse"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/metrics/by-niche": {
+   "get": {
+    "tags": [
+     "metrics"
+    ],
+    "summary": "Metrics By Niche",
+    "operationId": "metrics_by_niche_api_metrics_by_niche_get",
+    "security": [
+     {
+      "HTTPBearer": []
+     }
+    ],
+    "parameters": [
+     {
+      "name": "sort",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "type": "string",
+       "default": "profit",
+       "title": "Sort"
+      }
+     },
+     {
+      "name": "from",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string",
+         "format": "date"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "From"
+      }
+     },
+     {
+      "name": "to",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string",
+         "format": "date"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "To"
+      }
+     },
+     {
+      "name": "bot_id",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string",
+         "format": "uuid"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Bot Id"
+      }
+     },
+     {
+      "name": "platform_id",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "integer"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Platform Id"
+      }
+     },
+     {
+      "name": "account_id",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string",
+         "format": "uuid"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Account Id"
+      }
+     },
+     {
+      "name": "group_id",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string",
+         "format": "uuid"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Group Id"
+      }
+     },
+     {
+      "name": "campaign_id",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string",
+         "format": "uuid"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Campaign Id"
+      }
+     },
+     {
+      "name": "niche_id",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "integer"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Niche Id"
+      }
+     },
+     {
+      "name": "phone_id",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string",
+         "format": "uuid"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Phone Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/MetricBreakdownResponse"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/metrics/funnel": {
+   "get": {
+    "tags": [
+     "metrics"
+    ],
+    "summary": "Funnel",
+    "operationId": "funnel_api_metrics_funnel_get",
+    "security": [
+     {
+      "HTTPBearer": []
+     }
+    ],
+    "parameters": [
+     {
+      "name": "from",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string",
+         "format": "date"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "From"
+      }
+     },
+     {
+      "name": "to",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string",
+         "format": "date"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "To"
+      }
+     },
+     {
+      "name": "bot_id",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string",
+         "format": "uuid"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Bot Id"
+      }
+     },
+     {
+      "name": "platform_id",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "integer"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Platform Id"
+      }
+     },
+     {
+      "name": "account_id",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string",
+         "format": "uuid"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Account Id"
+      }
+     },
+     {
+      "name": "group_id",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string",
+         "format": "uuid"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Group Id"
+      }
+     },
+     {
+      "name": "campaign_id",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string",
+         "format": "uuid"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Campaign Id"
+      }
+     },
+     {
+      "name": "niche_id",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "integer"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Niche Id"
+      }
+     },
+     {
+      "name": "phone_id",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string",
+         "format": "uuid"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Phone Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/FunnelResponse"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
   }
  },
  "components": {
@@ -5131,6 +6911,50 @@
     "type": "object",
     "title": "Content"
    },
+   "CountKPI": {
+    "properties": {
+     "value": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Value"
+     },
+     "previous": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Previous"
+     },
+     "change_pct": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Change Pct"
+     }
+    },
+    "type": "object",
+    "required": [
+     "value",
+     "previous",
+     "change_pct"
+    ],
+    "title": "CountKPI"
+   },
    "CredentialStatus": {
     "properties": {
      "kind": {
@@ -5786,6 +7610,79 @@
     "type": "object",
     "title": "Filters"
    },
+   "FunnelResponse": {
+    "properties": {
+     "period": {
+      "$ref": "#/components/schemas/MetricPeriod"
+     },
+     "sends": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Sends"
+     },
+     "clicks": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Clicks"
+     },
+     "orders": {
+      "type": "integer",
+      "title": "Orders"
+     },
+     "buyers": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Buyers"
+     },
+     "conversion": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Conversion"
+     },
+     "warnings": {
+      "items": {
+       "type": "string"
+      },
+      "type": "array",
+      "title": "Warnings"
+     }
+    },
+    "type": "object",
+    "required": [
+     "period",
+     "sends",
+     "clicks",
+     "orders",
+     "buyers",
+     "conversion",
+     "warnings"
+    ],
+    "title": "FunnelResponse"
+   },
    "GroupCreate": {
     "properties": {
      "phone_id": {
@@ -6245,6 +8142,312 @@
     ],
     "title": "LoginResponse"
    },
+   "MetricBreakdownItem": {
+    "properties": {
+     "id": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "string",
+        "format": "uuid"
+       }
+      ],
+      "title": "Id"
+     },
+     "name": {
+      "type": "string",
+      "title": "Name"
+     },
+     "revenue": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Revenue"
+     },
+     "commission": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Commission"
+     },
+     "commission_pending": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Commission Pending"
+     },
+     "orders": {
+      "type": "integer",
+      "title": "Orders"
+     },
+     "buyers": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Buyers"
+     },
+     "spend": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Spend"
+     },
+     "traffic_spend": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Traffic Spend"
+     },
+     "profit": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Profit"
+     },
+     "roi": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Roi"
+     },
+     "roas": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Roas"
+     },
+     "cost_per_sale": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Cost Per Sale"
+     },
+     "cost_per_buyer": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Cost Per Buyer"
+     },
+     "cost_per_join": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Cost Per Join"
+     },
+     "group_joins": {
+      "type": "integer",
+      "title": "Group Joins"
+     },
+     "sends": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Sends"
+     },
+     "clicks": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Clicks"
+     },
+     "conversion": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Conversion"
+     }
+    },
+    "type": "object",
+    "required": [
+     "id",
+     "name",
+     "revenue",
+     "commission",
+     "commission_pending",
+     "orders",
+     "buyers",
+     "spend",
+     "traffic_spend",
+     "profit",
+     "roi",
+     "roas",
+     "cost_per_sale",
+     "cost_per_buyer",
+     "cost_per_join",
+     "group_joins",
+     "sends",
+     "clicks",
+     "conversion"
+    ],
+    "title": "MetricBreakdownItem"
+   },
+   "MetricBreakdownResponse": {
+    "properties": {
+     "period": {
+      "$ref": "#/components/schemas/MetricPeriod"
+     },
+     "items": {
+      "items": {
+       "$ref": "#/components/schemas/MetricBreakdownItem"
+      },
+      "type": "array",
+      "title": "Items"
+     },
+     "warnings": {
+      "items": {
+       "type": "string"
+      },
+      "type": "array",
+      "title": "Warnings"
+     }
+    },
+    "type": "object",
+    "required": [
+     "period",
+     "items",
+     "warnings"
+    ],
+    "title": "MetricBreakdownResponse"
+   },
+   "MetricPeriod": {
+    "properties": {
+     "from": {
+      "type": "string",
+      "title": "From"
+     },
+     "to": {
+      "type": "string",
+      "title": "To"
+     }
+    },
+    "type": "object",
+    "required": [
+     "from",
+     "to"
+    ],
+    "title": "MetricPeriod"
+   },
+   "MoneyKPI": {
+    "properties": {
+     "value": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Value"
+     },
+     "previous": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Previous"
+     },
+     "change_pct": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Change Pct"
+     }
+    },
+    "type": "object",
+    "required": [
+     "value",
+     "previous",
+     "change_pct"
+    ],
+    "title": "MoneyKPI"
+   },
    "NicheCreate": {
     "properties": {
      "slug": {
@@ -6323,6 +8526,106 @@
     },
     "type": "object",
     "title": "NicheUpdate"
+   },
+   "OverviewKPIs": {
+    "properties": {
+     "revenue": {
+      "$ref": "#/components/schemas/MoneyKPI"
+     },
+     "commission": {
+      "$ref": "#/components/schemas/MoneyKPI"
+     },
+     "commission_pending": {
+      "$ref": "#/components/schemas/MoneyKPI"
+     },
+     "orders": {
+      "$ref": "#/components/schemas/CountKPI"
+     },
+     "buyers": {
+      "$ref": "#/components/schemas/CountKPI"
+     },
+     "spend": {
+      "$ref": "#/components/schemas/MoneyKPI"
+     },
+     "traffic_spend": {
+      "$ref": "#/components/schemas/MoneyKPI"
+     },
+     "profit": {
+      "$ref": "#/components/schemas/MoneyKPI"
+     },
+     "roi": {
+      "$ref": "#/components/schemas/RatioKPI"
+     },
+     "roas": {
+      "$ref": "#/components/schemas/RatioKPI"
+     },
+     "cost_per_sale": {
+      "$ref": "#/components/schemas/MoneyKPI"
+     },
+     "cost_per_buyer": {
+      "$ref": "#/components/schemas/MoneyKPI"
+     },
+     "cost_per_join": {
+      "$ref": "#/components/schemas/MoneyKPI"
+     },
+     "group_joins": {
+      "$ref": "#/components/schemas/CountKPI"
+     },
+     "sends": {
+      "$ref": "#/components/schemas/CountKPI"
+     },
+     "clicks": {
+      "$ref": "#/components/schemas/CountKPI"
+     },
+     "conversion": {
+      "$ref": "#/components/schemas/RatioKPI"
+     }
+    },
+    "type": "object",
+    "required": [
+     "revenue",
+     "commission",
+     "commission_pending",
+     "orders",
+     "buyers",
+     "spend",
+     "traffic_spend",
+     "profit",
+     "roi",
+     "roas",
+     "cost_per_sale",
+     "cost_per_buyer",
+     "cost_per_join",
+     "group_joins",
+     "sends",
+     "clicks",
+     "conversion"
+    ],
+    "title": "OverviewKPIs"
+   },
+   "OverviewResponse": {
+    "properties": {
+     "period": {
+      "$ref": "#/components/schemas/MetricPeriod"
+     },
+     "kpis": {
+      "$ref": "#/components/schemas/OverviewKPIs"
+     },
+     "warnings": {
+      "items": {
+       "type": "string"
+      },
+      "type": "array",
+      "title": "Warnings"
+     }
+    },
+    "type": "object",
+    "required": [
+     "period",
+     "kpis",
+     "warnings"
+    ],
+    "title": "OverviewResponse"
    },
    "Pacing": {
     "properties": {
@@ -6931,6 +9234,50 @@
     ],
     "title": "QuietHours"
    },
+   "RatioKPI": {
+    "properties": {
+     "value": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Value"
+     },
+     "previous": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Previous"
+     },
+     "change_pct": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Change Pct"
+     }
+    },
+    "type": "object",
+    "required": [
+     "value",
+     "previous",
+     "change_pct"
+    ],
+    "title": "RatioKPI"
+   },
    "SaleResponse": {
     "properties": {
      "id": {
@@ -7205,6 +9552,81 @@
     "additionalProperties": true,
     "type": "object",
     "title": "Schedule"
+   },
+   "TimeseriesPoint": {
+    "properties": {
+     "date": {
+      "type": "string",
+      "format": "date",
+      "title": "Date"
+     },
+     "value": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "integer"
+       },
+       {
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Value"
+     }
+    },
+    "type": "object",
+    "required": [
+     "date",
+     "value"
+    ],
+    "title": "TimeseriesPoint"
+   },
+   "TimeseriesResponse": {
+    "properties": {
+     "period": {
+      "$ref": "#/components/schemas/MetricPeriod"
+     },
+     "metric": {
+      "type": "string",
+      "title": "Metric"
+     },
+     "granularity": {
+      "type": "string",
+      "enum": [
+       "day",
+       "week",
+       "month"
+      ],
+      "title": "Granularity"
+     },
+     "points": {
+      "items": {
+       "$ref": "#/components/schemas/TimeseriesPoint"
+      },
+      "type": "array",
+      "title": "Points"
+     },
+     "warnings": {
+      "items": {
+       "type": "string"
+      },
+      "type": "array",
+      "title": "Warnings"
+     }
+    },
+    "type": "object",
+    "required": [
+     "period",
+     "metric",
+     "granularity",
+     "points",
+     "warnings"
+    ],
+    "title": "TimeseriesResponse"
    },
    "UserCreate": {
     "properties": {

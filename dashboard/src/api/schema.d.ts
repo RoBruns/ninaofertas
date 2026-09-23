@@ -823,6 +823,159 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/metrics/overview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Overview */
+        get: operations["overview_api_metrics_overview_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/metrics/timeseries": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Metric Timeseries */
+        get: operations["metric_timeseries_api_metrics_timeseries_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/metrics/by-platform": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Metrics By Platform */
+        get: operations["metrics_by_platform_api_metrics_by_platform_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/metrics/by-account": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Metrics By Account */
+        get: operations["metrics_by_account_api_metrics_by_account_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/metrics/by-bot": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Metrics By Bot */
+        get: operations["metrics_by_bot_api_metrics_by_bot_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/metrics/by-group": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Metrics By Group */
+        get: operations["metrics_by_group_api_metrics_by_group_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/metrics/by-campaign": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Metrics By Campaign */
+        get: operations["metrics_by_campaign_api_metrics_by_campaign_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/metrics/by-niche": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Metrics By Niche */
+        get: operations["metrics_by_niche_api_metrics_by_niche_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/metrics/funnel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Funnel */
+        get: operations["funnel_api_metrics_funnel_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1249,6 +1402,15 @@ export interface components {
         } & {
             [key: string]: unknown;
         };
+        /** CountKPI */
+        CountKPI: {
+            /** Value */
+            value: number | null;
+            /** Previous */
+            previous: number | null;
+            /** Change Pct */
+            change_pct: number | null;
+        };
         /** CredentialStatus */
         CredentialStatus: {
             /** Kind */
@@ -1442,6 +1604,22 @@ export interface components {
         } & {
             [key: string]: unknown;
         };
+        /** FunnelResponse */
+        FunnelResponse: {
+            period: components["schemas"]["MetricPeriod"];
+            /** Sends */
+            sends: number | null;
+            /** Clicks */
+            clicks: number | null;
+            /** Orders */
+            orders: number;
+            /** Buyers */
+            buyers: number | null;
+            /** Conversion */
+            conversion: number | null;
+            /** Warnings */
+            warnings: string[];
+        };
         /** GroupCreate */
         GroupCreate: {
             /**
@@ -1575,6 +1753,71 @@ export interface components {
             token_type: string;
             user: components["schemas"]["UserResponse"];
         };
+        /** MetricBreakdownItem */
+        MetricBreakdownItem: {
+            /** Id */
+            id: number | string;
+            /** Name */
+            name: string;
+            /** Revenue */
+            revenue: string | null;
+            /** Commission */
+            commission: string | null;
+            /** Commission Pending */
+            commission_pending: string | null;
+            /** Orders */
+            orders: number;
+            /** Buyers */
+            buyers: number | null;
+            /** Spend */
+            spend: string | null;
+            /** Traffic Spend */
+            traffic_spend: string | null;
+            /** Profit */
+            profit: string | null;
+            /** Roi */
+            roi: number | null;
+            /** Roas */
+            roas: number | null;
+            /** Cost Per Sale */
+            cost_per_sale: string | null;
+            /** Cost Per Buyer */
+            cost_per_buyer: string | null;
+            /** Cost Per Join */
+            cost_per_join: string | null;
+            /** Group Joins */
+            group_joins: number;
+            /** Sends */
+            sends: number | null;
+            /** Clicks */
+            clicks: number | null;
+            /** Conversion */
+            conversion: number | null;
+        };
+        /** MetricBreakdownResponse */
+        MetricBreakdownResponse: {
+            period: components["schemas"]["MetricPeriod"];
+            /** Items */
+            items: components["schemas"]["MetricBreakdownItem"][];
+            /** Warnings */
+            warnings: string[];
+        };
+        /** MetricPeriod */
+        MetricPeriod: {
+            /** From */
+            from: string;
+            /** To */
+            to: string;
+        };
+        /** MoneyKPI */
+        MoneyKPI: {
+            /** Value */
+            value: string | null;
+            /** Previous */
+            previous: string | null;
+            /** Change Pct */
+            change_pct: number | null;
+        };
         /** NicheCreate */
         NicheCreate: {
             /** Slug */
@@ -1597,6 +1840,33 @@ export interface components {
             slug?: string | null;
             /** Name */
             name?: string | null;
+        };
+        /** OverviewKPIs */
+        OverviewKPIs: {
+            revenue: components["schemas"]["MoneyKPI"];
+            commission: components["schemas"]["MoneyKPI"];
+            commission_pending: components["schemas"]["MoneyKPI"];
+            orders: components["schemas"]["CountKPI"];
+            buyers: components["schemas"]["CountKPI"];
+            spend: components["schemas"]["MoneyKPI"];
+            traffic_spend: components["schemas"]["MoneyKPI"];
+            profit: components["schemas"]["MoneyKPI"];
+            roi: components["schemas"]["RatioKPI"];
+            roas: components["schemas"]["RatioKPI"];
+            cost_per_sale: components["schemas"]["MoneyKPI"];
+            cost_per_buyer: components["schemas"]["MoneyKPI"];
+            cost_per_join: components["schemas"]["MoneyKPI"];
+            group_joins: components["schemas"]["CountKPI"];
+            sends: components["schemas"]["CountKPI"];
+            clicks: components["schemas"]["CountKPI"];
+            conversion: components["schemas"]["RatioKPI"];
+        };
+        /** OverviewResponse */
+        OverviewResponse: {
+            period: components["schemas"]["MetricPeriod"];
+            kpis: components["schemas"]["OverviewKPIs"];
+            /** Warnings */
+            warnings: string[];
         };
         /** Pacing */
         Pacing: {
@@ -1841,6 +2111,15 @@ export interface components {
             /** End */
             end: string;
         };
+        /** RatioKPI */
+        RatioKPI: {
+            /** Value */
+            value: number | null;
+            /** Previous */
+            previous: number | null;
+            /** Change Pct */
+            change_pct: number | null;
+        };
         /** SaleResponse */
         SaleResponse: {
             /**
@@ -1942,6 +2221,31 @@ export interface components {
             quiet_hours?: components["schemas"]["QuietHours"];
         } & {
             [key: string]: unknown;
+        };
+        /** TimeseriesPoint */
+        TimeseriesPoint: {
+            /**
+             * Date
+             * Format: date
+             */
+            date: string;
+            /** Value */
+            value: string | number | null;
+        };
+        /** TimeseriesResponse */
+        TimeseriesResponse: {
+            period: components["schemas"]["MetricPeriod"];
+            /** Metric */
+            metric: string;
+            /**
+             * Granularity
+             * @enum {string}
+             */
+            granularity: "day" | "week" | "month";
+            /** Points */
+            points: components["schemas"]["TimeseriesPoint"][];
+            /** Warnings */
+            warnings: string[];
         };
         /** UserCreate */
         UserCreate: {
@@ -4130,6 +4434,365 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SalesSyncResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    overview_api_metrics_overview_get: {
+        parameters: {
+            query?: {
+                from?: string | null;
+                to?: string | null;
+                bot_id?: string | null;
+                platform_id?: number | null;
+                account_id?: string | null;
+                group_id?: string | null;
+                campaign_id?: string | null;
+                niche_id?: number | null;
+                phone_id?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OverviewResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    metric_timeseries_api_metrics_timeseries_get: {
+        parameters: {
+            query: {
+                metric: string;
+                granularity?: string;
+                from?: string | null;
+                to?: string | null;
+                bot_id?: string | null;
+                platform_id?: number | null;
+                account_id?: string | null;
+                group_id?: string | null;
+                campaign_id?: string | null;
+                niche_id?: number | null;
+                phone_id?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TimeseriesResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    metrics_by_platform_api_metrics_by_platform_get: {
+        parameters: {
+            query?: {
+                sort?: string;
+                from?: string | null;
+                to?: string | null;
+                bot_id?: string | null;
+                platform_id?: number | null;
+                account_id?: string | null;
+                group_id?: string | null;
+                campaign_id?: string | null;
+                niche_id?: number | null;
+                phone_id?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MetricBreakdownResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    metrics_by_account_api_metrics_by_account_get: {
+        parameters: {
+            query?: {
+                sort?: string;
+                from?: string | null;
+                to?: string | null;
+                bot_id?: string | null;
+                platform_id?: number | null;
+                account_id?: string | null;
+                group_id?: string | null;
+                campaign_id?: string | null;
+                niche_id?: number | null;
+                phone_id?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MetricBreakdownResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    metrics_by_bot_api_metrics_by_bot_get: {
+        parameters: {
+            query?: {
+                sort?: string;
+                from?: string | null;
+                to?: string | null;
+                bot_id?: string | null;
+                platform_id?: number | null;
+                account_id?: string | null;
+                group_id?: string | null;
+                campaign_id?: string | null;
+                niche_id?: number | null;
+                phone_id?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MetricBreakdownResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    metrics_by_group_api_metrics_by_group_get: {
+        parameters: {
+            query?: {
+                sort?: string;
+                from?: string | null;
+                to?: string | null;
+                bot_id?: string | null;
+                platform_id?: number | null;
+                account_id?: string | null;
+                group_id?: string | null;
+                campaign_id?: string | null;
+                niche_id?: number | null;
+                phone_id?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MetricBreakdownResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    metrics_by_campaign_api_metrics_by_campaign_get: {
+        parameters: {
+            query?: {
+                sort?: string;
+                from?: string | null;
+                to?: string | null;
+                bot_id?: string | null;
+                platform_id?: number | null;
+                account_id?: string | null;
+                group_id?: string | null;
+                campaign_id?: string | null;
+                niche_id?: number | null;
+                phone_id?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MetricBreakdownResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    metrics_by_niche_api_metrics_by_niche_get: {
+        parameters: {
+            query?: {
+                sort?: string;
+                from?: string | null;
+                to?: string | null;
+                bot_id?: string | null;
+                platform_id?: number | null;
+                account_id?: string | null;
+                group_id?: string | null;
+                campaign_id?: string | null;
+                niche_id?: number | null;
+                phone_id?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MetricBreakdownResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    funnel_api_metrics_funnel_get: {
+        parameters: {
+            query?: {
+                from?: string | null;
+                to?: string | null;
+                bot_id?: string | null;
+                platform_id?: number | null;
+                account_id?: string | null;
+                group_id?: string | null;
+                campaign_id?: string | null;
+                niche_id?: number | null;
+                phone_id?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FunnelResponse"];
                 };
             };
             /** @description Validation Error */
