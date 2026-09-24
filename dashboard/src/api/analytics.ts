@@ -24,8 +24,8 @@ type OverviewQuery = NonNullable<operations['overview_api_metrics_overview_get']
 export type MetricFilters = OverviewQuery & { from: string; to: string }
 
 export const dimensionLabels: Record<MetricDimension, string> = {
-  platform: 'plataforma', account: 'conta', bot: 'bot', group: 'grupo',
-  campaign: 'campanha', niche: 'nicho',
+  platform: 'Plataforma', account: 'Conta', bot: 'Bot', group: 'Grupo',
+  campaign: 'Campanha', niche: 'Nicho',
 }
 
 export function granularityFor(from: string, to: string): 'day' | 'week' | 'month' {

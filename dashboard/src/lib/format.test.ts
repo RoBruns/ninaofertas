@@ -1,5 +1,18 @@
 import { describe, expect, it } from 'vitest'
-import { formatBRL, formatPercent, formatRatio } from './format'
+import { formatBRL, formatPercent, formatRatio, healthText } from './format'
+
+describe('healthText', () => {
+  it.each([
+    ['ok', null, 'Sem problemas'],
+    ['warning', null, 'Requer atenção'],
+    ['error', null, 'Com erro'],
+    ['unknown', null, 'Saúde desconhecida'],
+    [undefined, null, 'Saúde desconhecida'],
+    ['ok', 'Tudo certo', 'Tudo certo'],
+  ])('formata status %s com mensagem %s', (status, message, expected) => {
+    expect(healthText(status, message)).toBe(expected)
+  })
+})
 
 describe('formatBRL', () => {
   it.each([

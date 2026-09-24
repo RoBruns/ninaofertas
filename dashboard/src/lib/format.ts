@@ -1,5 +1,15 @@
 const NO_DATA = 'sem dados'
 
+const HEALTH_TEXT: Readonly<Record<string, string>> = {
+  ok: 'Sem problemas',
+  warning: 'Requer atenção',
+  error: 'Com erro',
+}
+
+export function healthText(status: string | null | undefined, message: string | null | undefined): string {
+  return message || HEALTH_TEXT[status || 'unknown'] || 'Saúde desconhecida'
+}
+
 export function formatBRL(value: string | null | undefined): string {
   if (value === null || value === undefined) return NO_DATA
   const match = value.trim().match(/^(-?)(\d+)(?:\.(\d+))?$/)

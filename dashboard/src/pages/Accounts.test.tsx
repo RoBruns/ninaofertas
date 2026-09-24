@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, expect, it, vi } from 'vitest'
@@ -73,7 +73,6 @@ it('limpa a credencial também quando o envio falha', async () => {
 })
 
 it('lista os bots no conflito ao excluir uma conta', async () => {
-  vi.spyOn(window, 'confirm').mockReturnValue(true)
   vi.stubGlobal('fetch', vi.fn(async (request: Request) => {
     const url = new URL(request.url)
     if (url.pathname === '/api/platforms') return json([platform])
@@ -81,7 +80,10 @@ it('lista os bots no conflito ao excluir uma conta', async () => {
     return json({ items: [account], total: 1, page: 1, page_size: 100 })
   }))
   renderAccounts()
-  await userEvent.setup().click(await screen.findByRole('button', { name: 'Excluir' }))
+  const user = userEvent.setup()
+  await user.click(await screen.findByRole('button', { name: 'Mais ações de Conta ML' }))
+  await user.click(await screen.findByRole('menuitem', { name: 'Excluir' }))
+  await user.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Excluir' }))
   expect(await screen.findByText(/Bots vinculados: Ofertas Casa, Ofertas Tech/)).toBeInTheDocument()
 })
 

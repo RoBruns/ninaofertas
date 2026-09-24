@@ -1,13 +1,16 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import { Copy, ExternalLink, Pause, Play, Plus, Power, Trash2 } from 'lucide-react'
 import { api, apiFailure, ApiError } from '../api/client'
 import { defaultSettings, errorMessage, type Bot, type BotCreate, type Niche, type Phone } from '../api/management'
 import { useAuth } from '../auth/useAuth'
-import { Field, Modal, StatusBadge, ConfirmButton } from '../components/Management'
+import { Field, Modal, StatusBadge } from '../components/Management'
+import { Menu } from '../components/Menu'
 import { EmptyState } from '../components/EmptyState'
 import { Spinner } from '../components/Spinner'
 import { useToast } from '../components/useToast'
+import { healthText } from '../lib/format'
 
 async function loadBots() {
   const result = await api.GET('/api/bots', { params: { query: { page: 1, page_size: 100, sort: 'name' } } })
@@ -33,8 +36,8 @@ function BotHealth({ botId }: { botId: string }) {
     if (!result.data) throw apiFailure(result.error, result.response)
     return result.data
   }, refetchInterval: 30_000 })
-  if (!health.data) return <span className="muted">Saúde desconhecida</span>
-  return <span className={`health health-${health.data.status}`}>{health.data.message}</span>
+  if (!health.data) return <span className="health health-unknown">{healthText(undefined, undefined)}</span>
+  return <span className={`health health-${health.data.status || 'unknown'}`}>{healthText(health.data.status, health.data.message)}</span>
 }
 
 function CreateBot({ niches, phones, onClose }: { niches: Niche[]; phones: Phone[]; onClose: () => void }) {
@@ -86,5 +89,5 @@ export function Bots() {
     if (variables.operation === 'duplicate' && copy && 'id' in copy) navigate(`/bots/${copy.id}`)
   }, onError: (error) => showToast(errorMessage(error), 'error') })
   if (bots.isLoading) return <Spinner label="Carregando bots" />
-  return <div><div className="page-heading"><div><p className="eyebrow">AUTOMAÇÕES</p><h1>Bots</h1><p>Operação, saúde e ritmo de publicação.</p></div>{isAdmin && <button className="button primary" onClick={() => setCreating(true)}>Novo bot</button>}</div>{bots.isError && <div className="page-error">{errorMessage(bots.error)}</div>}{!bots.data?.length ? <EmptyState title="Nenhum bot" description="Crie o primeiro bot para começar." /> : <div className="responsive-table"><table><thead><tr><th>Bot</th><th>Status</th><th>Nicho</th><th>Telefone</th><th>Grupos</th><th>Saúde</th><th>Ações</th></tr></thead><tbody>{bots.data.map((bot) => <tr key={bot.id}><td data-label="Bot"><Link to={`/bots/${bot.id}`}><strong>{bot.name}</strong></Link><small>{bot.slug}</small></td><td data-label="Status"><StatusBadge value={bot.status} /></td><td data-label="Nicho">{niches.data?.find((niche) => niche.id === bot.niche_id)?.name ?? '—'}</td><td data-label="Telefone">{phones.data?.find((phone) => phone.id === bot.phone_id)?.label ?? '—'}</td><td data-label="Grupos">{bot.group_ids.length}</td><td data-label="Saúde"><BotHealth botId={bot.id} /></td><td data-label="Ações"><div className="table-actions"><Link className="button ghost" to={`/bots/${bot.id}`}>Abrir</Link>{canOperate && <><button className="button ghost" onClick={() => act.mutate({ bot, operation: bot.status === 'active' ? 'pause' : 'activate' })}>{bot.status === 'active' ? 'Pausar' : 'Ativar'}</button><button className="button ghost" onClick={() => act.mutate({ bot, operation: 'run' })}>Rodar agora</button></>}{isAdmin && <><button className="button ghost" onClick={() => act.mutate({ bot, operation: 'duplicate' })}>Duplicar</button><ConfirmButton question={`Desativar ${bot.name}?`} onConfirm={() => act.mutate({ bot, operation: 'disable' })}>Desativar</ConfirmButton><ConfirmButton question={`Excluir definitivamente ${bot.name}?`} onConfirm={() => act.mutate({ bot, operation: 'delete' })}>Excluir</ConfirmButton></>}</div></td></tr>)}</tbody></table></div>}{creating && <CreateBot niches={niches.data ?? []} phones={phones.data ?? []} onClose={() => setCreating(false)} />}</div>
+  return <div><div className="page-heading"><div><h1>Bots</h1><p>Operação, saúde e ritmo de publicação.</p></div>{isAdmin && <button className="button primary" onClick={() => setCreating(true)}><Plus />Novo bot</button>}</div>{bots.isError && <div className="page-error">{errorMessage(bots.error)}</div>}{!bots.data?.length ? <EmptyState title="Nenhum bot" description="Crie o primeiro bot para começar." /> : <div className="responsive-table"><table><thead><tr><th>Bot</th><th>Status</th><th>Nicho</th><th>Telefone</th><th>Grupos</th><th>Saúde</th><th>Ações</th></tr></thead><tbody>{bots.data.map((bot) => <tr key={bot.id}><td data-label="Bot"><Link to={`/bots/${bot.id}`}><strong>{bot.name}</strong></Link><small>{bot.slug}</small></td><td data-label="Status"><StatusBadge value={bot.status} /></td><td data-label="Nicho">{niches.data?.find((niche) => niche.id === bot.niche_id)?.name ?? '—'}</td><td data-label="Telefone">{phones.data?.find((phone) => phone.id === bot.phone_id)?.label ?? '—'}</td><td data-label="Grupos">{bot.group_ids.length}</td><td data-label="Saúde"><BotHealth botId={bot.id} /></td><td data-label="Ações"><div className="table-actions">{canOperate && <button className="button ghost" onClick={() => act.mutate({ bot, operation: bot.status === 'active' ? 'pause' : 'activate' })}>{bot.status === 'active' ? <Pause /> : <Play />}{bot.status === 'active' ? 'Pausar' : 'Ativar'}</button>}<Menu label={`Mais ações de ${bot.name}`} items={[{ label: 'Abrir', icon: <ExternalLink />, href: `/bots/${bot.id}` }, ...(canOperate ? [{ label: 'Rodar agora', icon: <Play />, onClick: () => act.mutate({ bot, operation: 'run' as const }) }] : []), ...(isAdmin ? [{ label: 'Duplicar', icon: <Copy />, onClick: () => act.mutate({ bot, operation: 'duplicate' as const }) }, { separator: true }, { label: 'Desativar', icon: <Power />, confirm: `Desativar ${bot.name}?`, actionLabel: 'Desativar', onClick: () => act.mutate({ bot, operation: 'disable' as const }) }, { label: 'Excluir', icon: <Trash2 />, danger: true, confirm: `Excluir definitivamente ${bot.name}?`, consequence: 'Esta ação não pode ser desfeita.', actionLabel: 'Excluir', onClick: () => act.mutate({ bot, operation: 'delete' as const }) }] : [])]} /></div></td></tr>)}</tbody></table></div>}{creating && <CreateBot niches={niches.data ?? []} phones={phones.data ?? []} onClose={() => setCreating(false)} />}</div>
 }

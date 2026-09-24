@@ -55,7 +55,9 @@ it('navega para a cópia ao duplicar bot', async () => {
     return json({ items: [bot], total: 1, page: 1, page_size: 100 })
   }))
   render(<Providers><MemoryRouter initialEntries={['/bots']}><Routes><Route path="/bots" element={<Bots />} /><Route path="/bots/:id" element={<Destination />} /></Routes></MemoryRouter></Providers>)
-  await userEvent.setup().click(await screen.findByRole('button', { name: 'Duplicar' }))
+  const user = userEvent.setup()
+  await user.click(await screen.findByRole('button', { name: 'Mais ações de Bot Casa' }))
+  await user.click(await screen.findByRole('menuitem', { name: 'Duplicar' }))
   expect(await screen.findByText('/bots/bot-copy')).toBeInTheDocument()
 })
 

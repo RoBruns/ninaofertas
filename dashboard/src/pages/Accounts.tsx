@@ -1,13 +1,16 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useMemo, useState, type FormEvent } from 'react'
+import { Pause, Pencil, Play, Plus, Trash2 } from 'lucide-react'
 import { api, apiFailure, ApiError } from '../api/client'
 import type { Account, AccountCreate, Platform } from '../api/management'
 import { errorMessage } from '../api/management'
 import { useAuth } from '../auth/useAuth'
-import { ConfirmButton, Field, Modal, StatusBadge } from '../components/Management'
+import { Field, Modal, StatusBadge } from '../components/Management'
+import { Menu } from '../components/Menu'
 import { EmptyState } from '../components/EmptyState'
 import { Spinner } from '../components/Spinner'
 import { useToast } from '../components/useToast'
+import { healthText } from '../lib/format'
 
 function conflictBots(value: unknown): string[] {
   if (Array.isArray(value)) return value.flatMap((item) => {
@@ -44,6 +47,15 @@ const FALLBACK_KINDS = [{ kind: 'cookie', label: 'Cookie' }, { kind: 'token', la
 
 function credentialKindFor(slug: string): string {
   return PLATFORM_NEEDS[slug]?.credential.kind ?? 'cookie'
+}
+
+function credentialLabelFor(slug: string, kind: string): string {
+  const known = PLATFORM_NEEDS[slug]?.credential
+  if (known?.kind === kind) return known.label
+  const fallback = FALLBACK_KINDS.find((item) => item.kind === kind)?.label
+  if (fallback) return fallback
+  const humanized = kind.replaceAll('_', ' ')
+  return humanized.charAt(0).toUpperCase() + humanized.slice(1)
 }
 
 async function loadAccounts() {
@@ -156,5 +168,5 @@ export function Accounts() {
     return Object.entries(result)
   }, [accounts.data])
   if (accounts.isLoading || platforms.isLoading) return <Spinner label="Carregando contas" />
-  return <div><div className="page-heading"><div><p className="eyebrow">PLATAFORMAS</p><h1>Contas</h1><p>Credenciais e contas afiliadas em um só lugar.</p></div>{editable && <button className="button primary" onClick={() => setEditing('new')}>Nova conta</button>}</div>{blockedBots.length > 0 && <div className="inline-error" role="alert"><strong>Esta conta está em uso e não pode ser excluída.</strong><span>Bots vinculados: {blockedBots.join(', ')}</span></div>}{accounts.isError && <div className="page-error">{errorMessage(accounts.error)}</div>}{!accounts.data?.length ? <EmptyState title="Nenhuma conta" description="Cadastre a primeira conta de plataforma." /> : <div className="management-groups">{grouped.map(([platform, items]) => <section key={platform}><h2>{platform}</h2><div className="card-list">{items?.map((account) => <article className={`management-card ${account.credentials.some((credential) => credential.needs_renewal) ? 'needs-attention' : ''}`} key={account.id}><div className="card-title"><div><h3>{account.label}</h3><small>{account.external_id || 'Sem ID externo'}</small></div><StatusBadge value={account.status} /></div><p className={`health health-${account.health.status}`}>{account.health.message || 'Saúde desconhecida'}</p>{account.credentials.length === 0 && <p className="muted">Nenhuma credencial cadastrada.</p>}{account.credentials.map((credential) => <div className="credential-row" key={credential.kind}><div><strong>{credential.kind}</strong> <StatusBadge value={credential.status} />{credential.needs_renewal && <span className="renewal-flag">Renovação necessária</span>}<small>{credential.last_error}</small></div>{editable && <button className="button ghost" onClick={() => setRenewing({ account, kind: credential.kind })}>Renovar credencial</button>}</div>)}{editable && account.credentials.length === 0 && <button className="button ghost" onClick={() => setRenewing({ account, kind: credentialKindFor(account.platform.slug) })}>Cadastrar credencial</button>}<div className="card-actions">{editable && <><button className="button ghost" onClick={() => setEditing(account)}>Editar</button><button className="button ghost" onClick={() => action.mutate({ account, operation: account.status === 'active' ? 'pause' : 'activate' })}>{account.status === 'active' ? 'Pausar' : 'Ativar'}</button><ConfirmButton question={`Excluir a conta ${account.label}?`} onConfirm={() => action.mutate({ account, operation: 'delete' })}>Excluir</ConfirmButton></>}</div></article>)}</div></section>)}</div>}{editing && <AccountForm platforms={platforms.data ?? []} account={editing === 'new' ? undefined : editing} onClose={() => setEditing(null)} />}{renewing && <CredentialRenewal {...renewing} onClose={() => setRenewing(null)} />}</div>
+  return <div><div className="page-heading"><div><h1>Contas</h1><p>Credenciais e contas afiliadas em um só lugar.</p></div>{editable && <button className="button primary" onClick={() => setEditing('new')}><Plus />Nova conta</button>}</div>{blockedBots.length > 0 && <div className="inline-error" role="alert"><strong>Esta conta está em uso e não pode ser excluída.</strong><span>Bots vinculados: {blockedBots.join(', ')}</span></div>}{accounts.isError && <div className="page-error">{errorMessage(accounts.error)}</div>}{!accounts.data?.length ? <EmptyState title="Nenhuma conta" description="Cadastre a primeira conta de plataforma." /> : <div className="management-groups">{grouped.map(([platform, items]) => <section key={platform}><h2>{platform}</h2><div className="card-list">{items?.map((account) => <article className={`management-card ${account.credentials.some((credential) => credential.needs_renewal) ? 'needs-attention' : ''}`} key={account.id}><div className="card-title"><div><h3>{account.label}</h3><small>{account.external_id || 'Sem ID externo'}</small></div><div className="card-title-actions"><StatusBadge value={account.status} />{editable && <Menu label={`Mais ações de ${account.label}`} items={[{ label: 'Editar', icon: <Pencil />, onClick: () => setEditing(account) }, { label: account.status === 'active' ? 'Pausar' : 'Ativar', icon: account.status === 'active' ? <Pause /> : <Play />, onClick: () => action.mutate({ account, operation: account.status === 'active' ? 'pause' : 'activate' }) }, { separator: true }, { label: 'Excluir', icon: <Trash2 />, danger: true, confirm: `Excluir a conta ${account.label}?`, actionLabel: 'Excluir', onClick: () => action.mutate({ account, operation: 'delete' }) }]} />}</div></div><p className={`health health-${account.health?.status || 'unknown'}`}>{healthText(account.health?.status, account.health?.message)}</p>{account.credentials.length === 0 && <p className="muted">Nenhuma credencial cadastrada.</p>}{account.credentials.map((credential) => <div className="credential-row" key={credential.kind}><div><strong>{credentialLabelFor(account.platform.slug, credential.kind)}</strong> <StatusBadge value={credential.status} />{credential.needs_renewal && <span className="renewal-flag">Renovação necessária</span>}<small>{credential.last_error}</small></div>{editable && <button className="button ghost" onClick={() => setRenewing({ account, kind: credential.kind })}>Renovar credencial</button>}</div>)}{editable && account.credentials.length === 0 && <button className="button ghost" onClick={() => setRenewing({ account, kind: credentialKindFor(account.platform.slug) })}>Cadastrar credencial</button>}</article>)}</div></section>)}</div>}{editing && <AccountForm platforms={platforms.data ?? []} account={editing === 'new' ? undefined : editing} onClose={() => setEditing(null)} />}{renewing && <CredentialRenewal {...renewing} onClose={() => setRenewing(null)} />}</div>
 }
