@@ -11300,6 +11300,25 @@
     ],
     "title": "AlertTotals"
    },
+   "Attribution": {
+    "properties": {
+     "ml_tag": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Ml Tag",
+      "description": "Etiqueta de rastreamento do Mercado Livre: 3 a 40 caracteres, somente letras minusculas, numeros, _ e -."
+     }
+    },
+    "additionalProperties": false,
+    "type": "object",
+    "title": "Attribution"
+   },
    "AuditLogResponse": {
     "properties": {
      "id": {
@@ -11317,6 +11336,28 @@
        }
       ],
       "title": "User Id"
+     },
+     "user_email": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "User Email"
+     },
+     "user_name": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "User Name"
      },
      "entity_type": {
       "type": "string",
@@ -11375,6 +11416,8 @@
     "required": [
      "id",
      "user_id",
+     "user_email",
+     "user_name",
      "entity_type",
      "entity_id",
      "action",
@@ -11847,6 +11890,9 @@
      },
      "schedule": {
       "$ref": "#/components/schemas/Schedule"
+     },
+     "attribution": {
+      "$ref": "#/components/schemas/Attribution"
      }
     },
     "additionalProperties": true,
@@ -11988,6 +12034,22 @@
        }
       ],
       "title": "Message Template"
+     },
+     "status": {
+      "anyOf": [
+       {
+        "type": "string",
+        "enum": [
+         "active",
+         "paused",
+         "disabled"
+        ]
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Status"
      }
     },
     "type": "object",
@@ -14286,7 +14348,7 @@
      },
      "max_ofertas_por_dia": {
       "type": "integer",
-      "minimum": 1.0,
+      "minimum": 0.0,
       "title": "Max Ofertas Por Dia",
       "default": 80
      },
@@ -14298,7 +14360,7 @@
      },
      "max_ofertas_globais_por_dia": {
       "type": "integer",
-      "minimum": 1.0,
+      "minimum": 0.0,
       "title": "Max Ofertas Globais Por Dia",
       "default": 90
      }

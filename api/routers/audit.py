@@ -7,12 +7,13 @@ from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from api.deps import get_db, require_role
+from api.errors import APIError
 from api.schemas.audit import AuditLogResponse
-from api.schemas.common import PaginatedResponse, PaginationParams, paginate
+from api.schemas.common import PaginatedResponse, PaginationParams
 from core.models import AuditLog, User
 
 router = APIRouter(prefix="/audit-logs", tags=["audit"])
@@ -31,7 +32,10 @@ def list_audit_logs(
     page_size: Annotated[int, Query(ge=1, le=100)] = 50,
     sort: str = "-created_at",
 ) -> PaginatedResponse[AuditLogResponse]:
-    statement = select(AuditLog)
+    statement = (
+        select(AuditLog, User.email.label("user_email"), User.name.label("user_name"))
+        .outerjoin(User, AuditLog.user_id == User.id)
+    )
     if entity_type is not None:
         statement = statement.where(AuditLog.entity_type == entity_type)
     if entity_id is not None:
@@ -44,14 +48,43 @@ def list_audit_logs(
         statement = statement.where(AuditLog.created_at <= to)
 
     pagination = PaginationParams(page=page, page_size=page_size, sort=sort)
-    entries, total = paginate(
-        session,
-        statement,
-        pagination,
-        {"created_at": AuditLog.created_at, "id": AuditLog.id},
-    )
+    sort_columns = {"created_at": AuditLog.created_at, "id": AuditLog.id}
+    descending = pagination.sort.startswith("-")
+    sort_name = pagination.sort.removeprefix("-")
+    sort_column = sort_columns.get(sort_name)
+    if sort_column is None:
+        raise APIError(
+            422,
+            "VALIDATION_ERROR",
+            "Parametros invalidos",
+            {"sort": "campo de ordenacao invalido"},
+        )
+
+    count_statement = select(func.count()).select_from(statement.order_by(None).subquery())
+    total = int(session.scalar(count_statement) or 0)
+    ordering = sort_column.desc() if descending else sort_column.asc()
+    offset = (pagination.page - 1) * pagination.page_size
+    rows = session.execute(
+        statement.order_by(ordering).offset(offset).limit(pagination.page_size)
+    ).all()
+    items = [
+        AuditLogResponse(
+            id=entry.id,
+            user_id=entry.user_id,
+            user_email=user_email,
+            user_name=user_name,
+            entity_type=entry.entity_type,
+            entity_id=entry.entity_id,
+            action=entry.action,
+            before=entry.before,
+            after=entry.after,
+            ip=entry.ip,
+            created_at=entry.created_at,
+        )
+        for entry, user_email, user_name in rows
+    ]
     return PaginatedResponse(
-        items=[AuditLogResponse.model_validate(entry) for entry in entries],
+        items=items,
         total=total,
         page=page,
         page_size=page_size,

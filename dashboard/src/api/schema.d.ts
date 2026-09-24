@@ -1218,12 +1218,24 @@ export interface components {
             /** Warning */
             warning: number;
         };
+        /** Attribution */
+        Attribution: {
+            /**
+             * Ml Tag
+             * @description Etiqueta de rastreamento do Mercado Livre: 3 a 40 caracteres, somente letras minusculas, numeros, _ e -.
+             */
+            ml_tag?: string | null;
+        };
         /** AuditLogResponse */
         AuditLogResponse: {
             /** Id */
             id: number;
             /** User Id */
             user_id: string | null;
+            /** User Email */
+            user_email: string | null;
+            /** User Name */
+            user_name: string | null;
             /** Entity Type */
             entity_type: string;
             /** Entity Id */
@@ -1393,6 +1405,7 @@ export interface components {
             pacing?: components["schemas"]["Pacing"];
             content?: components["schemas"]["Content"];
             schedule?: components["schemas"]["Schedule"];
+            attribution?: components["schemas"]["Attribution"];
         } & {
             [key: string]: unknown;
         };
@@ -1427,6 +1440,8 @@ export interface components {
             settings?: components["schemas"]["BotSettings"] | null;
             /** Message Template */
             message_template?: string | null;
+            /** Status */
+            status?: ("active" | "paused" | "disabled") | null;
         };
         /** CampaignCreate */
         CampaignCreate: {

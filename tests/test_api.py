@@ -17,7 +17,7 @@ pytest.importorskip("jwt", reason="dependencias da API nao instaladas")
 
 from fastapi import Depends
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine, select, text
+from sqlalchemy import create_engine, event, select, text
 from sqlalchemy.orm import Session, sessionmaker
 
 os.environ.setdefault("JWT_SECRET", "segredo-exclusivo-da-suite-de-testes")
@@ -433,6 +433,106 @@ def test_redacao_remove_segredo_da_linha_gravada(
             "nome": "x",
             "nested": [{"ApiKey": "***"}],
         }
+
+
+def test_auditoria_identifica_autor_sistema_e_usuario_inativo(
+    client: TestClient, session_factory: sessionmaker[Session]
+) -> None:
+    admin = add_user(session_factory, email="admin@example.com", role="admin")
+    author = add_user(session_factory, email="author@example.com")
+    inactive = add_user(session_factory, email="inactive-author@example.com")
+    with session_factory.begin() as session:
+        stored_inactive = session.get(User, inactive.id)
+        assert stored_inactive is not None
+        stored_inactive.name = "Autora Inativa"
+        stored_inactive.is_active = False
+        session.add_all(
+            [
+                AuditLog(
+                    user_id=author.id,
+                    entity_type="test",
+                    entity_id="active-author",
+                    action="update",
+                    before=None,
+                    after={"status": "ok"},
+                    ip=None,
+                ),
+                AuditLog(
+                    user_id=None,
+                    entity_type="test",
+                    entity_id="system",
+                    action="sync",
+                    before=None,
+                    after=None,
+                    ip=None,
+                ),
+                AuditLog(
+                    user_id=inactive.id,
+                    entity_type="test",
+                    entity_id="inactive-author",
+                    action="update",
+                    before=None,
+                    after=None,
+                    ip=None,
+                ),
+            ]
+        )
+
+    token = str(login(client, admin.email)["access_token"])
+    response = client.get("/api/audit-logs", headers=auth_header(token))
+    assert response.status_code == 200, response.text
+    items = {item["entity_id"]: item for item in response.json()["items"]}
+    assert items["active-author"]["user_email"] == "author@example.com"
+    assert items["active-author"]["user_name"] == "Usuario"
+    assert items["system"]["user_id"] is None
+    assert items["system"]["user_email"] is None
+    assert items["system"]["user_name"] is None
+    assert items["inactive-author"]["user_email"] == "inactive-author@example.com"
+    assert items["inactive-author"]["user_name"] == "Autora Inativa"
+    assert "password_hash" not in response.text
+
+
+def test_listagem_de_auditoria_faz_numero_constante_de_consultas(
+    client: TestClient, session_factory: sessionmaker[Session]
+) -> None:
+    admin = add_user(session_factory, email="admin@example.com", role="admin")
+    author = add_user(session_factory, email="author@example.com")
+    with session_factory.begin() as session:
+        session.add_all(
+            [
+                AuditLog(
+                    user_id=author.id,
+                    entity_type="test",
+                    entity_id=str(index),
+                    action="update",
+                    before=None,
+                    after=None,
+                    ip=None,
+                )
+                for index in range(20)
+            ]
+        )
+
+    token = str(login(client, admin.email)["access_token"])
+    queries = {"count": 0}
+
+    def count_query(*_args: object, **_kwargs: object) -> None:
+        queries["count"] += 1
+
+    engine = session_factory.kw["bind"]
+    event.listen(engine, "before_cursor_execute", count_query)
+    try:
+        response = client.get(
+            "/api/audit-logs",
+            headers=auth_header(token),
+            params={"entity_type": "test", "page_size": 100},
+        )
+    finally:
+        event.remove(engine, "before_cursor_execute", count_query)
+
+    assert response.status_code == 200, response.text
+    assert len(response.json()["items"]) == 20
+    assert queries["count"] == 3
 
 
 def test_envelopes_de_erro(client: TestClient, session_factory: sessionmaker[Session]) -> None:

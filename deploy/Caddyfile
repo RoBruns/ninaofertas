@@ -1,0 +1,33 @@
+# nina-dashboard: serve o SPA e repassa /api para a API pela rede interna.
+# Para o navegador é uma origem só — sem CORS, e o cookie de sessão
+# (SameSite=Strict, path=/api/auth) funciona sem ajuste.
+{
+	admin off
+}
+
+:{$PORT:8080} {
+	encode gzip
+
+	respond /healthz 200
+
+	handle /api/* {
+		# API_UPSTREAM = nina-api.railway.internal:8000 (variável do serviço).
+		reverse_proxy {$API_UPSTREAM}
+	}
+
+	handle {
+		root * /srv
+		# Rotas do React Router: qualquer caminho que não é arquivo cai no index.
+		try_files {path} /index.html
+		file_server
+	}
+
+	header {
+		X-Content-Type-Options nosniff
+		X-Frame-Options DENY
+		Referrer-Policy strict-origin-when-cross-origin
+		Strict-Transport-Security "max-age=31536000"
+		Content-Security-Policy "default-src 'self'; img-src 'self' data: https:; style-src 'self' 'unsafe-inline'; connect-src 'self'; frame-ancestors 'none'"
+		-Server
+	}
+}

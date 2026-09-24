@@ -14,6 +14,8 @@ class AuditLogResponse(BaseModel):
 
     id: int
     user_id: UUID | None
+    user_email: str | None
+    user_name: str | None
     entity_type: str
     entity_id: str
     action: str

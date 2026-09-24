@@ -1,0 +1,11 @@
+# Config do serviço nina-dashboard na Railway.
+# No serviço: Settings → Config-as-code → caminho "deploy/railway.dashboard.toml".
+
+[build]
+builder = "DOCKERFILE"
+dockerfilePath = "deploy/dashboard.Dockerfile"
+
+[deploy]
+healthcheckPath = "/healthz"
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 10

@@ -244,7 +244,7 @@ POST   /api/expenses/import      multipart CSV → {imported, skipped, errors[]}
 
 ```
 GET/POST/PATCH/DELETE /api/campaigns
-GET    /api/campaigns/{id}/metrics
+GET    /api/campaigns/{id}/metrics   → gasto, entradas em grupo e custo por entrada (ROAS da campanha: /api/metrics/by-campaign)
 ```
 
 ## Vendas e comissões
@@ -252,8 +252,9 @@ GET    /api/campaigns/{id}/metrics
 ```
 GET    /api/sales?from=&to=&platform_id=&bot_id=&status=
 POST   /api/sales/import         multipart CSV + platform_id → {imported, skipped, errors[]}
+       // CSV inválido: 422 com o envelope de erro e `fields.line_N` — nada é importado
 POST   /api/sales/sync           {account_id} → 202  (API ou painel autenticado suportado)
-GET    /api/sales/imports        → histórico de importações
+GET    /api/sales/imports        → [SalesImportHistory] (lista simples, não paginada)
 ```
 
 O CSV é mapeado por plataforma em `core/importers/<slug>.py`. Dedup por
@@ -268,16 +269,16 @@ diariamente às 06:00 em `America/Sao_Paulo`.
 ## Observabilidade
 
 ```
-GET    /api/alerts?status=open&severity=       → [Alert]
+GET    /api/alerts?status=open&severity=       → {items,total,page,page_size} de Alert
 POST   /api/alerts/{id}/acknowledge | /resolve
-GET    /api/events?level=&bot_id=&type=&from=  → [Event]   (área técnica)
+GET    /api/events?level=&bot_id=&type=&from=  → {items,...} de Event   (área técnica)
 GET    /api/health                             → {status, db, worker_last_seen}
 GET    /api/system/status                      → visão consolidada por bot/conta/telefone
 GET    /api/audit-logs?entity_type=&entity_id=&user_id=&from=&to=
                                                → {items,total,page,page_size}
 ```
 
-`/api/audit-logs` exige papel `admin` e também aceita `page`, `page_size` e
+Cada item traz `user_email` e `user_name` do autor (ambos `null` em ação do sistema; usuário desativado continua identificado). `/api/audit-logs` exige papel `admin` e também aceita `page`, `page_size` e
 `sort`. O health desta fase deliberadamente não consulta serviços externos; o
 estado consolidado deles pertence a `/api/system/status`.
 

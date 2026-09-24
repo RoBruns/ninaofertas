@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "ninaofertas"
 version = "0.1.0"
 description = "Worker de captura e publicação de ofertas"
-requires-python = ">=3.10"
+requires-python = ">=3.12"
 dependencies = [
     "alembic",
     "apscheduler",

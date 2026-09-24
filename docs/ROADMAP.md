@@ -268,11 +268,33 @@ Apontados para produção por engano, destruiriam `ofertas` e `envios`.
 chamado `railway` (ou sem nome). Validado chamando a função diretamente —
 nunca rodando a suíte contra produção.
 
-### V5 — Pendente: resolver o mesmo alerta duas vezes
+### V5 — Resolver o mesmo alerta duas vezes ✅ verificado (2026-09-24)
 
 O cenário que motivou o ADR-016 (alerta que resolve, reabre e resolve de novo)
 está coberto só pelos testes do agente. A verificação independente foi
-interrompida a pedido do usuário. Refazer antes do deploy.
+interrompida a pedido do usuário e refeita em 2026-09-24: expirado ×5 → 1 aberto;
+renovado → 1 resolvido; expira de novo → 1 aberto + 1 resolvido; renovado de novo
+→ 2 resolvidos. O índice parcial da 0004 aceita a segunda resolução.
+
+### V6 — Topologia de deploy validada localmente (2026-09-24)
+
+Os arquivos de `deploy/` foram exercitados antes de existir qualquer serviço:
+o Caddy oficial (2.11.4) validou o `Caddyfile` e serviu o build do dashboard com
+proxy de `/api` para a API subida com o `startCommand` **lido do próprio
+`deploy/railway.api.toml`**. Resultado: SPA na raiz e em rota profunda (fallback
+para o index), cabeçalhos de segurança, login e refresh pelo proxy, API em
+IPv6 (`[::]`), e um `X-Forwarded-For` forjado pelo cliente **ignorado** (a
+auditoria gravou o IP real).
+
+Dois defeitos achados e corrigidos no caminho: `--forwarded-allow-ips '*'` era
+expandido pelo shell para a lista de arquivos (a API não subia) — virou
+`--forwarded-allow-ips=*`; e `pyproject.toml` declarava Python `>=3.10`, mas o
+código usa `typing.Self` (3.11+). Agora `>=3.12`, com `.python-version` fixando
+3.12 na Railway; imports e testes rodados de fato em 3.12.10.
+
+O README foi seguido do zero num ambiente limpo (venv novo, `npm ci` numa cópia
+só dos arquivos versionados): instalação, migrations, seed, API, worker,
+testes e build funcionaram como descrito.
 
 ---
 
