@@ -61,7 +61,7 @@ def list_sales(
     bot_id: UUID | None = None,
     status: SaleStatus | None = None,
     page: Annotated[int, Query(ge=1)] = 1,
-    page_size: Annotated[int, Query(ge=1, le=100)] = 50,
+    page_size: Annotated[int, Query(ge=1, le=200)] = 50,
     sort: str = "-ordered_at",
 ) -> PaginatedResponse[SaleResponse]:
     statement = select(Sale).where(Sale.owner_id == user.id)

@@ -38,7 +38,7 @@ def list_alerts(
     status: AlertStatus | None = None,
     severity: AlertSeverity | None = None,
     page: Annotated[int, Query(ge=1)] = 1,
-    page_size: Annotated[int, Query(ge=1, le=100)] = 50,
+    page_size: Annotated[int, Query(ge=1, le=200)] = 50,
 ) -> PaginatedResponse[AlertResponse]:
     statement = select(Alert).where(Alert.owner_id == user.id)
     if status is None:

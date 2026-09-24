@@ -30,7 +30,7 @@ class PaginatedResponse(BaseModel, Generic[T]):
 
 class PaginationParams(BaseModel):
     page: int = Field(default=1, ge=1)
-    page_size: int = Field(default=50, ge=1, le=100)
+    page_size: int = Field(default=50, ge=1, le=200)
     sort: str = "-created_at"
 
 

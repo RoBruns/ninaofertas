@@ -27,7 +27,7 @@ def list_events(
     from_at: Annotated[datetime | None, Query(alias="from")] = None,
     to_at: Annotated[datetime | None, Query(alias="to")] = None,
     page: Annotated[int, Query(ge=1)] = 1,
-    page_size: Annotated[int, Query(ge=1, le=100)] = 50,
+    page_size: Annotated[int, Query(ge=1, le=200)] = 50,
 ) -> PaginatedResponse[EventResponse]:
     statement = select(Event)
     # Cada condição só é montada quando o filtro foi informado: `coluna >= None`

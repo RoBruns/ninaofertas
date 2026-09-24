@@ -48,7 +48,7 @@ def list_phones(
     user: Annotated[User, Depends(get_current_user)],
     session: Annotated[Session, Depends(get_db)],
     page: Annotated[int, Query(ge=1)] = 1,
-    page_size: Annotated[int, Query(ge=1, le=100)] = 50,
+    page_size: Annotated[int, Query(ge=1, le=200)] = 50,
     sort: str = "-created_at",
 ) -> PaginatedResponse[PhoneResponse]:
     items, total = paginate(

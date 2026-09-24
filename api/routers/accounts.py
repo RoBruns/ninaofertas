@@ -121,7 +121,7 @@ def list_accounts(
     platform_id: int | None = None,
     status: str | None = None,
     page: Annotated[int, Query(ge=1)] = 1,
-    page_size: Annotated[int, Query(ge=1, le=100)] = 50,
+    page_size: Annotated[int, Query(ge=1, le=200)] = 50,
     sort: str = "-created_at",
 ) -> PaginatedResponse[AccountResponse]:
     statement = select(PlatformAccount).where(PlatformAccount.owner_id == current_user.id)

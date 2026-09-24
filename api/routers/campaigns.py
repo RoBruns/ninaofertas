@@ -65,7 +65,7 @@ def list_campaigns(
     bot_id: UUID | None = None,
     niche_id: int | None = None,
     page: Annotated[int, Query(ge=1)] = 1,
-    page_size: Annotated[int, Query(ge=1, le=100)] = 50,
+    page_size: Annotated[int, Query(ge=1, le=200)] = 50,
     sort: str = "name",
 ) -> PaginatedResponse[CampaignResponse]:
     statement = select(Campaign).where(Campaign.owner_id == user.id)

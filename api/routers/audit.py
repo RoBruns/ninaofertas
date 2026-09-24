@@ -29,7 +29,7 @@ def list_audit_logs(
     from_: Annotated[datetime | None, Query(alias="from")] = None,
     to: datetime | None = None,
     page: Annotated[int, Query(ge=1)] = 1,
-    page_size: Annotated[int, Query(ge=1, le=100)] = 50,
+    page_size: Annotated[int, Query(ge=1, le=200)] = 50,
     sort: str = "-created_at",
 ) -> PaginatedResponse[AuditLogResponse]:
     statement = (

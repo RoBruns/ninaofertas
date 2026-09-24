@@ -31,7 +31,7 @@ def list_users(
     _admin: AdminUser,
     session: Annotated[Session, Depends(get_db)],
     page: Annotated[int, Query(ge=1)] = 1,
-    page_size: Annotated[int, Query(ge=1, le=100)] = 50,
+    page_size: Annotated[int, Query(ge=1, le=200)] = 50,
     sort: str = "-created_at",
 ) -> PaginatedResponse[UserResponse]:
     pagination = PaginationParams(page=page, page_size=page_size, sort=sort)

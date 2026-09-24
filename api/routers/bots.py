@@ -179,7 +179,7 @@ def list_bots(
     niche_id: int | None = None,
     phone_id: UUID | None = None,
     page: Annotated[int, Query(ge=1)] = 1,
-    page_size: Annotated[int, Query(ge=1, le=100)] = 50,
+    page_size: Annotated[int, Query(ge=1, le=200)] = 50,
     sort: str = "-created_at",
 ) -> PaginatedResponse[BotResponse]:
     statement = select(Bot).where(Bot.owner_id == user.id)
@@ -385,7 +385,7 @@ def list_runs(
     user: Annotated[User, Depends(get_current_user)],
     session: Annotated[Session, Depends(get_db)],
     page: Annotated[int, Query(ge=1)] = 1,
-    page_size: Annotated[int, Query(ge=1, le=100)] = 50,
+    page_size: Annotated[int, Query(ge=1, le=200)] = 50,
     sort: str = "-started_at",
 ) -> PaginatedResponse[AutomationRunResponse]:
     bot = _owned(session, bot_id, user.id)
