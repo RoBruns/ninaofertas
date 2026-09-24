@@ -2,6 +2,7 @@ import { NavLink } from 'react-router-dom'
 import { useAuth } from '../auth/useAuth'
 
 const items = [
+  ['/desempenho', 'Desempenho', '↗'],
   ['/', 'Visão geral', '◦'], ['/bots', 'Bots', '◉'], ['/contas', 'Contas', '▣'],
   ['/telefones', 'Telefones e grupos', '◫'], ['/vendas', 'Vendas', '◈'],
   ['/despesas', 'Despesas', '◒'], ['/campanhas', 'Campanhas', '◎'], ['/alertas', 'Alertas', '△'],
