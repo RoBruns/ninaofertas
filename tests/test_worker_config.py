@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from core import config_provider, db
 from core.alerts import DETECTORS, detect_alerts
-from core.models import Alert, AutomationRun, Bot, BotGroup, Command, Event
+from core.models import Alert, AutomationRun, Bot, BotGroup, Command, Envio, Event, Oferta
 from core.seed import run_seed
 from core.settings import settings
 from tests.test_api import add_user, session_factory
@@ -326,6 +326,11 @@ def test_ciclo_grava_automation_run(
     runtime = config_provider.bots_ativos(ttl=0)[0]
     token = f"db:{runtime.id}:{runtime.group_ids[0]}"
     monkeypatch.setattr(monitor, "FONTES", [])
+    # Em produção ofertas/envios sempre existem (ADR-012: as migrations não as
+    # criam). O ciclo consulta envios (grupo_ja_enviou), então o teste as cria.
+    with session_factory.begin() as session:
+        Oferta.__table__.create(session.connection(), checkfirst=True)
+        Envio.__table__.create(session.connection(), checkfirst=True)
 
     with channels.usar_canal(token):
         monitor.ciclo()

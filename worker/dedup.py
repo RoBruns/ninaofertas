@@ -60,8 +60,8 @@ def deve_enviar(
     envio_anterior = repositories.ultimo_envio(session, oferta_id, grupo=grupo)
 
     if envio_anterior is None:
-        if repositories.ja_conhecida(session, oferta_id, grupo=grupo):
-            return False, "já conhecida no baseline (antes do bot subir)"
+        # `visto` da baseline não pode travar envio (restart/Postgres vazio no Railway).
+        # Só conta o que já foi blipado de verdade.
 
         # Mesmo SKU já foi enviado em outra linha de oferta.
         if sku and repositories.sku_ja_enviado(

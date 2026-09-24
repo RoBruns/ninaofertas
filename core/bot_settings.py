@@ -74,9 +74,10 @@ class Pacing(BaseModel):
     janela_rajada_minutos: int = Field(default=15, ge=1)
     pausa_entre_rajadas_minutos: int = Field(default=35, ge=0)
     max_ofertas_por_hora: int = Field(default=6, ge=1)
-    max_ofertas_por_dia: int = Field(default=80, ge=1)
+    # 0 = sem teto diário (ADR-018); o ritmo por hora e o intervalo continuam obrigatórios.
+    max_ofertas_por_dia: int = Field(default=80, ge=0)
     max_ofertas_globais_por_hora: int = Field(default=8, ge=1)
-    max_ofertas_globais_por_dia: int = Field(default=90, ge=1)
+    max_ofertas_globais_por_dia: int = Field(default=90, ge=0)
 
     @model_validator(mode="after")
     def safe_limits(self) -> Self:

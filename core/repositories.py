@@ -113,6 +113,14 @@ def registrar_envio(
     return envio
 
 
+def grupo_ja_enviou(session: Session, grupo: str | None = None) -> bool:
+    """True se este grupo já teve envio de verdade (não só baseline)."""
+    q = session.query(Envio.id).filter(Envio.status == "sucesso")
+    if grupo:
+        q = q.filter(Envio.grupo == grupo)
+    return q.first() is not None
+
+
 def contar_envios_desde(session: Session, desde: datetime, grupo: str | None = None) -> int:
     q = session.query(func.count(Envio.id)).filter(
         Envio.enviado_em >= desde, Envio.status == "sucesso"
@@ -131,6 +139,17 @@ def contar_envios_hoje(session: Session, grupo: str | None = None) -> int:
     return contar_envios_desde(session, inicio_do_dia, grupo=grupo)
 
 
+def _minutos_desde(quando: datetime | None) -> float | None:
+    if quando is None:
+        return None
+    agora = datetime.now()
+    if quando.tzinfo is not None and agora.tzinfo is None:
+        quando = quando.replace(tzinfo=None)
+    elif quando.tzinfo is None and agora.tzinfo is not None:
+        agora = agora.replace(tzinfo=None)
+    return (agora - quando).total_seconds() / 60.0
+
+
 def minutos_desde_ultimo_envio(session: Session, grupo: str | None = None) -> float | None:
     """Minutos desde o último envio com sucesso. None se nunca enviou."""
     q = session.query(Envio.enviado_em).filter(Envio.status == "sucesso")
@@ -139,7 +158,7 @@ def minutos_desde_ultimo_envio(session: Session, grupo: str | None = None) -> fl
     ultimo = q.order_by(Envio.enviado_em.desc()).first()
     if not ultimo or not ultimo[0]:
         return None
-    return (datetime.now() - ultimo[0]).total_seconds() / 60.0
+    return _minutos_desde(ultimo[0])
 
 
 def contar_cupons_hoje(session: Session, grupo: str | None = None) -> int:
@@ -171,7 +190,7 @@ def minutos_desde_ultimo_sku(
     ultimo = q.order_by(Envio.enviado_em.desc()).first()
     if not ultimo or not ultimo[0]:
         return None
-    return (datetime.now() - ultimo[0]).total_seconds() / 60.0
+    return _minutos_desde(ultimo[0])
 
 
 def sku_ja_enviado(

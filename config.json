@@ -175,7 +175,7 @@
   "aceitar_cupons": true,
   "max_cupons_por_dia": 2,
   "cupons_meli": [],
-  "baseline_ciclos": 5,
+  "baseline_ciclos": 0,
   "max_vendas": 20,
   "max_idade_oferta_horas": 0,
   "max_ofertas_por_ciclo": 1,
@@ -184,8 +184,8 @@
   "janela_rajada_minutos": 15,
   "pausa_entre_rajadas_minutos": 35,
   "max_ofertas_por_hora": 6,
-  "max_ofertas_por_dia": 80,
+  "max_ofertas_por_dia": 0,
   "max_ofertas_globais_por_hora": 8,
-  "max_ofertas_globais_por_dia": 90,
+  "max_ofertas_globais_por_dia": 0,
   "mensagem_template": "🔥 A vó achou mais uma!\n\n🛒 {nome}\n\n💰 De: R$ {preco_anterior}\n🔥 Por: R$ {preco}\n📉 {desconto}% OFF\n\n🏪 {loja}\n\n👉 COMPRAR:\n{url}\n\n⏰ {hora}"
 }

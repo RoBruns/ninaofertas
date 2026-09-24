@@ -13,12 +13,17 @@ MAX_PACING: dict[str, int] = {
     "max_ofertas_por_rajada": 5,
 }
 MIN_PACING: dict[str, int] = {"intervalo_minutos_entre_ofertas": 2}
+# Tetos diários que aceitam 0 como "desligado". Os de hora/intervalo/rajada, não.
+OPTIONAL_DAILY_CAPS = frozenset({"max_ofertas_por_dia", "max_ofertas_globais_por_dia"})
 
 
 def validate_safe_pacing(values: dict[str, Any]) -> dict[str, Any]:
     """Recusa configuracoes que podem queimar o chip e fazer perder os grupos."""
     for field, ceiling in MAX_PACING.items():
         value = values.get(field)
+        # 0 desliga os tetos diários (ADR-018); só valor positivo é comparado ao teto.
+        if field in OPTIONAL_DAILY_CAPS and value == 0:
+            continue
         if value is not None and value > ceiling:
             raise ValueError(
                 f"{field} deve ser <= {ceiling}: ultrapassar este teto aumenta o risco de "

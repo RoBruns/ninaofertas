@@ -140,13 +140,15 @@ def _freio_anti_ban(session, filtros: dict, grupo: str, oferta: OfertaCapturada 
         return False, f"freio: limite {max_hora_global}/hora na conta (os dois grupos juntos)"
 
     max_dia_grupo = filtros.get("max_ofertas_por_dia")
-    if max_dia_grupo and repositories.contar_envios_hoje(session, grupo=grupo) >= int(
-        max_dia_grupo
-    ):
+    if max_dia_grupo not in (None, 0, "0") and repositories.contar_envios_hoje(
+        session, grupo=grupo
+    ) >= int(max_dia_grupo):
         return False, f"freio: limite {max_dia_grupo}/dia neste grupo"
 
     max_dia_global = filtros.get("max_ofertas_globais_por_dia")
-    if max_dia_global and repositories.contar_envios_hoje(session) >= int(max_dia_global):
+    if max_dia_global not in (None, 0, "0") and repositories.contar_envios_hoje(
+        session
+    ) >= int(max_dia_global):
         return False, f"freio: limite {max_dia_global}/dia na conta (os dois grupos juntos)"
 
     if oferta and (oferta.categoria or "").lower() == "cupom":
@@ -251,8 +253,9 @@ def _executar_ciclo() -> tuple[int, int, bool]:
 
     logger.info(f"[{nome_canal()}] Buscando novas ofertas...")
     filtros = load_filtros()
-    baseline_alvo = int(filtros.get("baseline_ciclos") or 5)
+    baseline_alvo = int(filtros.get("baseline_ciclos") or 0)
     max_por_ciclo = int(filtros.get("max_ofertas_por_ciclo") or 1)
+    grupo = grupo_whatsapp()
 
     todas_ofertas: list[OfertaCapturada] = []
     for fonte in FONTES:
@@ -265,9 +268,19 @@ def _executar_ciclo() -> tuple[int, int, bool]:
 
     logger.info(f"[{nome_canal()}] {len(todas_ofertas)} ofertas encontradas na varredura.")
 
-    em_baseline = feitos < baseline_alvo
     enviadas_ciclo = 0
     with db.get_session() as session:
+        # Restart no Railway zera a memória; se o grupo já blipou, não marca o catálogo de novo.
+        if feitos < baseline_alvo and repositories.grupo_ja_enviou(session, grupo):
+            feitos = baseline_alvo
+            if runtime is None:
+                _baseline_ciclos_feitos[canal] = feitos
+            logger.info(
+                f"[{nome_canal()}] Baseline pulada (banco já tem envios). Seguindo com ofertas novas."
+            )
+        # Depois do ajuste acima: senão a telemetria marcaria como baseline um ciclo que envia.
+        em_baseline = feitos < baseline_alvo
+
         if feitos < baseline_alvo:
             feitos += 1
             if runtime is None:

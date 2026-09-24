@@ -179,8 +179,8 @@
   "janela_rajada_minutos": 15,
   "pausa_entre_rajadas_minutos": 35,
   "max_ofertas_por_hora": 6,
-  "max_ofertas_por_dia": 50,
+  "max_ofertas_por_dia": 0,
   "max_ofertas_globais_por_hora": 8,
-  "max_ofertas_globais_por_dia": 90,
+  "max_ofertas_globais_por_dia": 0,
   "mensagem_template": "🔥 Mais uma saindo do forno\n\n🛒 {nome}\n\n💰 De: R$ {preco_anterior}\n🔥 Por: R$ {preco}\n📉 {desconto}% OFF\n\n🏪 {loja}\n\n👉 COMPRAR:\n{url}\n\n⏰ {hora}"
 }

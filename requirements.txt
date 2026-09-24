@@ -14,3 +14,4 @@ python-dotenv
 lxml
 pillow
 psycopg[binary]
+tzdata
