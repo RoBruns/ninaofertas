@@ -421,7 +421,6 @@ def ciclo() -> None:
             bot_id=runtime.id if runtime else None,
             detail={"error": str(exc)[:1000]},
         )
-        _telemetria_best_effort(telemetry.heartbeat, [runtime.id] if runtime else [])
         raise
     _telemetria_best_effort(
         telemetry.finalizar_ciclo,
@@ -432,4 +431,3 @@ def ciclo() -> None:
         offers_sent=sent,
         baseline=baseline,
     )
-    _telemetria_best_effort(telemetry.heartbeat, [runtime.id] if runtime else [])

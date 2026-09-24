@@ -8,17 +8,20 @@ from __future__ import annotations
 
 import time
 from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
 
 from apscheduler.schedulers.background import BackgroundScheduler
 
 from core import db
 from core.alerts import cleanup_events, detect_alerts
+from core.config_provider import bots_ativos
 from core.sales_sync import sync_all_active_accounts
 from core.settings import settings
-from worker import commands, monitor, promo_instagram
+from worker import commands, monitor, promo_instagram, telemetry
 from worker.channels import canais_ativos, usar_canal
 from worker.logger import logger
 
+FUSO_AGENDADOR = ZoneInfo("America/Sao_Paulo")
 _avisou_sem_bots = False
 
 
@@ -72,8 +75,17 @@ def _comandos_imediatos() -> None:
                 monitor.ciclo()
 
 
-def _registrar_jobs(scheduler: BackgroundScheduler, agora: datetime) -> None:
+def _enviar_heartbeat() -> None:
+    """Sinaliza o worker mesmo quando ainda nao ha bot pronto para executar."""
+    try:
+        telemetry.heartbeat([runtime.id for runtime in bots_ativos()])
+    except Exception as exc:
+        logger.exception(f"Job de heartbeat falhou: {exc}")
+
+
+def _registrar_jobs(scheduler: BackgroundScheduler) -> None:
     """Registra jobs para permitir validar a agenda sem iniciar o processo."""
+    agora = datetime.now(FUSO_AGENDADOR)
     scheduler.add_job(
         _ciclos_banco,
         "interval",
@@ -89,6 +101,15 @@ def _registrar_jobs(scheduler: BackgroundScheduler, agora: datetime) -> None:
         seconds=5,
         next_run_time=agora,
         id="commands",
+        max_instances=1,
+        coalesce=True,
+    )
+    scheduler.add_job(
+        _enviar_heartbeat,
+        "interval",
+        seconds=60,
+        next_run_time=agora,
+        id="heartbeat",
         max_instances=1,
         coalesce=True,
     )
@@ -141,8 +162,8 @@ def main() -> None:
 
     whatsapp.avisar_permissao_grupos()
 
-    scheduler = BackgroundScheduler(timezone="America/Sao_Paulo")
-    _registrar_jobs(scheduler, datetime.now())
+    scheduler = BackgroundScheduler(timezone=FUSO_AGENDADOR)
+    _registrar_jobs(scheduler)
     logger.info("Recado do Instagram (foto da vó) a cada 4h nos grupos dos bots ativos.")
     scheduler.start()
 
