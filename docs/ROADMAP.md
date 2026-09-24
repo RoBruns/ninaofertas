@@ -14,6 +14,7 @@ conclusão. Nenhuma fase pode deixar o bot fora do ar.
 | 4 | API: plataformas, contas, credenciais | ✅ | 3 | Codex A |
 | 5 | API: bots, telefones, grupos | ✅ | 4 | Codex A |
 | 6 | Worker lê config do banco | ✅ | 5 | Codex B (**sozinho**) |
+| 6b | Bot ativo sem grupo não silencia a operação | ⬜ | 6 | Codex B |
 | 7 | Atribuição: sub_id + redirect | ⬜ | 6 | Codex B |
 | 8 | API: despesas, campanhas, vendas | ✅ | 4 | Codex C ∥ 6 |
 | 8b | Sincronização real de vendas (Shopee API, ML painel) | ✅ | 8 | Codex C |
@@ -315,6 +316,21 @@ no corpo da resposta, já que o handler 500 (corretamente) não vaza detalhe.
 **Corrigido nesta fase:** `_ip_valido()` valida com `ipaddress.ip_address()` e
 grava `NULL` quando não reconhece. Auditoria não pode derrubar a operação que
 ela registra.
+
+### B9 — Seed + worker silenciariam a operação no deploy ⬜ fase 6b ⚠️ bloqueia deploy
+
+Achado lendo seed e worker juntos. `core/seed.py` cria o bot `achadinhos`
+**ativo** (porque `CANAIS["achadinhos"]["ativo"]` é True), mas **sem telefone e
+sem grupos**. O `config_provider` passa a devolver esse bot, o worker sai do
+modo legado, e `canais_ativos()` itera os grupos do bot — nenhum. Resultado:
+**nenhum canal, nenhum envio, nenhum erro.** Os testes passavam porque cada
+peça funciona isolada.
+
+Correção em três camadas (fase 6b): seed cria bots pausados; a API recusa
+ativar bot sem telefone e grupo; o worker só considera bot com grupo como
+rodável e, sem nenhum rodável, permanece no legado — com alerta explicando.
+
+**Não aplicar migrations + seed em produção antes da 6b.**
 
 ### B6 — `/api/events` dava 500 sem filtro de data ✅ corrigido (fase 10)
 
