@@ -10,6 +10,7 @@ from pathlib import Path
 from uuid import uuid4
 
 import pytest
+import jwt
 
 fastapi = pytest.importorskip("fastapi", reason="dependencias da API nao instaladas")
 pytest.importorskip("jwt", reason="dependencias da API nao instaladas")
@@ -24,7 +25,7 @@ os.environ.setdefault("JWT_SECRET", "segredo-exclusivo-da-suite-de-testes")
 from api.audit import record_audit
 from api.deps import get_current_user, get_db
 from api.main import app
-from api.security import create_access_token, hash_password
+from api.security import REFRESH_COOKIE_NAME, create_access_token, hash_password
 from core.db import normalize_database_url
 from core.models import AuditLog, User
 
@@ -111,7 +112,9 @@ def client(session_factory: sessionmaker[Session]) -> Generator[TestClient, None
                 raise
 
     app.dependency_overrides[get_db] = override_db
-    with TestClient(app, base_url="https://testserver", raise_server_exceptions=False) as test_client:
+    with TestClient(
+        app, base_url="https://testserver", raise_server_exceptions=False
+    ) as test_client:
         yield test_client
     app.dependency_overrides.clear()
 
@@ -187,9 +190,7 @@ def test_login_correto_e_senha_errada_nao_enumera_usuario(
     assert wrong_password.json() == unknown_email.json()
 
 
-def test_protecao_e_rbac(
-    client: TestClient, session_factory: sessionmaker[Session]
-) -> None:
+def test_protecao_e_rbac(client: TestClient, session_factory: sessionmaker[Session]) -> None:
     add_user(session_factory, email="viewer@example.com")
     assert_error(client.get("/api/auth/me"), 401, "UNAUTHORIZED")
     token = str(login(client, "viewer@example.com")["access_token"])
@@ -205,12 +206,182 @@ def test_refresh_renova_e_token_expirado_falha(
     assert refreshed.status_code == 200
     assert refreshed.json()["access_token"] != original
 
-    expired = create_access_token(str(user.id), expires_delta=timedelta(seconds=-1))
+    expired = create_access_token(
+        str(user.id),
+        expires_delta=timedelta(seconds=-1),
+        session_version=user.session_version,
+    )
     assert_error(
         client.get("/api/auth/me", headers=auth_header(expired)),
         401,
         "UNAUTHORIZED",
     )
+
+
+def test_logout_invalida_cookie_copiado_access_antigo_e_permite_novo_login(
+    client: TestClient, session_factory: sessionmaker[Session]
+) -> None:
+    user = add_user(session_factory, email="viewer@example.com")
+    login_response = client.post(
+        "/api/auth/login",
+        json={"email": user.email, "password": "senha-segura"},
+    )
+    assert login_response.status_code == 200
+    access_token = login_response.json()["access_token"]
+    copied_refresh = login_response.cookies[REFRESH_COOKIE_NAME]
+
+    logout_response = client.post(
+        "/api/auth/logout",
+        headers=auth_header(access_token),
+    )
+    assert logout_response.status_code == 204
+    assert REFRESH_COOKIE_NAME not in client.cookies
+
+    assert_error(
+        client.post(
+            "/api/auth/refresh",
+            headers={"cookie": f"{REFRESH_COOKIE_NAME}={copied_refresh}"},
+        ),
+        401,
+        "UNAUTHORIZED",
+    )
+    assert_error(
+        client.get("/api/auth/me", headers=auth_header(access_token)),
+        401,
+        "UNAUTHORIZED",
+    )
+
+    new_login = client.post(
+        "/api/auth/login",
+        json={"email": user.email, "password": "senha-segura"},
+    )
+    assert new_login.status_code == 200
+    assert (
+        client.get(
+            "/api/auth/me",
+            headers=auth_header(new_login.json()["access_token"]),
+        ).status_code
+        == 200
+    )
+
+
+def test_logout_em_um_aparelho_invalida_tokens_do_outro(
+    client: TestClient, session_factory: sessionmaker[Session]
+) -> None:
+    user = add_user(session_factory, email="viewer@example.com")
+    first = client.post(
+        "/api/auth/login",
+        json={"email": user.email, "password": "senha-segura"},
+    )
+    second = client.post(
+        "/api/auth/login",
+        json={"email": user.email, "password": "senha-segura"},
+    )
+    first_access = first.json()["access_token"]
+    second_access = second.json()["access_token"]
+    second_refresh = second.cookies[REFRESH_COOKIE_NAME]
+
+    assert (
+        client.post(
+            "/api/auth/logout",
+            headers=auth_header(first_access),
+        ).status_code
+        == 204
+    )
+    assert_error(
+        client.get("/api/auth/me", headers=auth_header(second_access)),
+        401,
+        "UNAUTHORIZED",
+    )
+    assert_error(
+        client.post(
+            "/api/auth/refresh",
+            headers={"cookie": f"{REFRESH_COOKIE_NAME}={second_refresh}"},
+        ),
+        401,
+        "UNAUTHORIZED",
+    )
+
+
+def test_token_sem_session_version_e_recusado(
+    client: TestClient, session_factory: sessionmaker[Session]
+) -> None:
+    user = add_user(session_factory, email="viewer@example.com")
+    token = create_access_token(str(user.id), session_version=user.session_version)
+    claims = jwt.decode(token, options={"verify_signature": False})
+    claims.pop("sv")
+    legacy_token = jwt.encode(claims, os.environ["JWT_SECRET"], algorithm="HS256")
+
+    assert_error(
+        client.get("/api/auth/me", headers=auth_header(legacy_token)),
+        401,
+        "UNAUTHORIZED",
+    )
+
+
+def test_troca_de_senha_e_desativacao_invalidam_tokens(
+    client: TestClient, session_factory: sessionmaker[Session]
+) -> None:
+    admin = add_user(session_factory, email="admin@example.com", role="admin")
+    password_user = add_user(session_factory, email="password@example.com")
+    inactive_user = add_user(session_factory, email="inactive@example.com")
+    admin_token = str(login(client, admin.email)["access_token"])
+    password_token = str(login(client, password_user.email)["access_token"])
+    password_refresh = client.cookies[REFRESH_COOKIE_NAME]
+    inactive_token = str(login(client, inactive_user.email)["access_token"])
+    inactive_refresh = client.cookies[REFRESH_COOKIE_NAME]
+
+    changed = client.patch(
+        f"/api/users/{password_user.id}",
+        headers=auth_header(admin_token),
+        json={"password": "senha-nova-segura"},
+    )
+    assert changed.status_code == 200
+    assert_error(
+        client.get("/api/auth/me", headers=auth_header(password_token)),
+        401,
+        "UNAUTHORIZED",
+    )
+    assert_error(
+        client.post(
+            "/api/auth/refresh",
+            headers={"cookie": f"{REFRESH_COOKIE_NAME}={password_refresh}"},
+        ),
+        401,
+        "UNAUTHORIZED",
+    )
+
+    deactivated = client.delete(
+        f"/api/users/{inactive_user.id}",
+        headers=auth_header(admin_token),
+    )
+    assert deactivated.status_code == 204
+    assert_error(
+        client.get("/api/auth/me", headers=auth_header(inactive_token)),
+        401,
+        "UNAUTHORIZED",
+    )
+    assert_error(
+        client.post(
+            "/api/auth/refresh",
+            headers={"cookie": f"{REFRESH_COOKIE_NAME}={inactive_refresh}"},
+        ),
+        401,
+        "UNAUTHORIZED",
+    )
+
+
+def test_logout_sem_token_retorna_204_e_limpa_cookie(client: TestClient) -> None:
+    client.cookies.clear()
+    response = client.post(
+        "/api/auth/logout",
+        headers={"cookie": f"{REFRESH_COOKIE_NAME}=token-invalido"},
+    )
+
+    assert response.status_code == 204
+    set_cookie = response.headers["set-cookie"].lower()
+    assert f"{REFRESH_COOKIE_NAME}=" in set_cookie
+    assert "max-age=0" in set_cookie
 
 
 def test_password_hash_nunca_aparece_em_respostas(
@@ -264,9 +435,7 @@ def test_redacao_remove_segredo_da_linha_gravada(
         }
 
 
-def test_envelopes_de_erro(
-    client: TestClient, session_factory: sessionmaker[Session]
-) -> None:
+def test_envelopes_de_erro(client: TestClient, session_factory: sessionmaker[Session]) -> None:
     admin = add_user(session_factory, email="admin@example.com", role="admin")
     viewer = add_user(session_factory, email="viewer@example.com")
     admin_token = str(login(client, admin.email)["access_token"])

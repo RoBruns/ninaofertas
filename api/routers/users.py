@@ -6,7 +6,7 @@ from typing import Annotated
 from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Depends, Query, Request
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.orm import Session
 
 from api.audit import record_audit
@@ -104,8 +104,7 @@ def update_user(
         raise APIError(404, "NOT_FOUND", "Usuario nao encontrado")
     changes = payload.model_dump(exclude_unset=True)
     if user.id == admin.id and (
-        ("role" in changes and changes["role"] != admin.role)
-        or changes.get("is_active") is False
+        ("role" in changes and changes["role"] != admin.role) or changes.get("is_active") is False
     ):
         raise APIError(409, "CONFLICT", "Nao e permitido remover seu proprio acesso admin")
     if "email" in changes:
@@ -117,9 +116,14 @@ def update_user(
     password = changes.pop("password", None)
     if password is not None:
         user.password_hash = hash_password(password)
+    invalidate_sessions = password is not None or changes.get("is_active") is False
     for field, value in changes.items():
         setattr(user, field, value)
     session.flush()
+    if invalidate_sessions:
+        session.execute(
+            update(User).where(User.id == user.id).values(session_version=User.session_version + 1)
+        )
     record_audit(
         session,
         admin,
@@ -154,6 +158,9 @@ def delete_user(
     # Remocao logica preserva a autoria dos audit_logs, cuja FK nao permite
     # apagar fisicamente um usuario que ja executou acoes.
     user.is_active = False
+    session.execute(
+        update(User).where(User.id == user.id).values(session_version=User.session_version + 1)
+    )
     record_audit(
         session,
         admin,

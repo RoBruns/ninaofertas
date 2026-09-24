@@ -55,7 +55,7 @@ def get_current_user(
     except (TokenError, ValueError, KeyError):
         raise APIError(401, "UNAUTHORIZED", "Token invalido ou expirado") from None
     user = session.scalar(select(User).where(User.id == user_id))
-    if user is None or not user.is_active:
+    if user is None or not user.is_active or payload["sv"] != user.session_version:
         raise APIError(401, "UNAUTHORIZED", "Token invalido ou expirado")
     return user
 

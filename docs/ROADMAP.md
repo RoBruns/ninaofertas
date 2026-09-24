@@ -20,8 +20,8 @@ conclusão. Nenhuma fase pode deixar o bot fora do ar.
 | 9 | API: métricas e agregações | ✅ | 8 | Codex C |
 | 10 | Alertas e observabilidade | ✅ | 6, 9 | Codex C |
 | 11 | Frontend: base, auth, layout | ✅ | 3 | Codex D ∥ 6–10 |
-| 3b | Logout que encerra a sessão no servidor | ⬜ | 3 | Codex A |
-| 12 | Frontend: gestão (contas, bots, grupos) | ⬜ | 5, 11 | Codex D |
+| 3b | Logout que encerra a sessão no servidor | ✅ | 3 | Codex A |
+| 12 | Frontend: gestão (contas, bots, grupos) | ✅ | 5, 11 | Codex D |
 | 13 | Frontend: dashboard, métricas, despesas | ⬜ | 9, 11 | Codex D |
 | 14 | Deploy, hardening, testes E2E | ⬜ | todas | Claude + Codex |
 
@@ -329,7 +329,7 @@ o uso mais comum da área técnica, respondia 500.
 `dict()` do Python o trata como mapping e tenta indexá-lo. A resposta para
 "está tudo funcionando?" falhava em toda chamada. Corrigido com `.tuples().all()`.
 
-### B8 — Logout não encerrava a sessão no servidor ⬜ fase 3b
+### B8 — Logout não encerrava a sessão no servidor ✅ corrigido (fase 3b)
 
 Verificado ponta a ponta: um cookie de refresh copiado antes do logout
 continuava renovando a sessão (200), e o access token antigo seguia válido.

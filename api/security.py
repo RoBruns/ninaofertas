@@ -52,11 +52,17 @@ def consume_dummy_password_check(password: str) -> None:
     verify_password(password, _dummy_password_hash)
 
 
-def _encode_token(subject: str, token_type: Literal["access", "refresh"], ttl: timedelta) -> str:
+def _encode_token(
+    subject: str,
+    token_type: Literal["access", "refresh"],
+    ttl: timedelta,
+    session_version: int,
+) -> str:
     now = datetime.now(timezone.utc)
     payload = {
         "sub": subject,
         "type": token_type,
+        "sv": session_version,
         "iat": now,
         "exp": now + ttl,
         "jti": str(uuid4()),
@@ -66,12 +72,32 @@ def _encode_token(subject: str, token_type: Literal["access", "refresh"], ttl: t
     return jwt.encode(payload, _jwt_secret(), algorithm=JWT_ALGORITHM)
 
 
-def create_access_token(subject: str, expires_delta: timedelta | None = None) -> str:
-    return _encode_token(subject, "access", expires_delta or ACCESS_TOKEN_TTL)
+def create_access_token(
+    subject: str,
+    expires_delta: timedelta | None = None,
+    *,
+    session_version: int,
+) -> str:
+    return _encode_token(
+        subject,
+        "access",
+        expires_delta or ACCESS_TOKEN_TTL,
+        session_version,
+    )
 
 
-def create_refresh_token(subject: str, expires_delta: timedelta | None = None) -> str:
-    return _encode_token(subject, "refresh", expires_delta or REFRESH_TOKEN_TTL)
+def create_refresh_token(
+    subject: str,
+    expires_delta: timedelta | None = None,
+    *,
+    session_version: int,
+) -> str:
+    return _encode_token(
+        subject,
+        "refresh",
+        expires_delta or REFRESH_TOKEN_TTL,
+        session_version,
+    )
 
 
 def decode_token(token: str, expected_type: Literal["access", "refresh"]) -> dict[str, Any]:
@@ -82,10 +108,12 @@ def decode_token(token: str, expected_type: Literal["access", "refresh"]) -> dic
             algorithms=[JWT_ALGORITHM],
             audience=JWT_AUDIENCE,
             issuer=JWT_ISSUER,
-            options={"require": ["sub", "type", "iat", "exp", "jti"]},
+            options={"require": ["sub", "type", "sv", "iat", "exp", "jti"]},
         )
     except jwt.PyJWTError as exc:
         raise TokenError("token invalido ou expirado") from exc
     if payload.get("type") != expected_type:
         raise TokenError("tipo de token invalido")
+    if type(payload.get("sv")) is not int or payload["sv"] < 0:
+        raise TokenError("versao de sessao invalida")
     return payload

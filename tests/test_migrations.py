@@ -121,6 +121,36 @@ def test_upgrade_head_em_schema_vazio_e_downgrade_base(postgres_schema) -> None:
     assert "users" not in inspect(engine).get_table_names()
 
 
+def test_0005_aplica_e_reverte_somente_em_users(postgres_schema) -> None:
+    _, engine = postgres_schema
+    config = _config()
+    command.upgrade(config, "0004")
+    inspector = inspect(engine)
+    before = {
+        table: [column["name"] for column in inspector.get_columns(table)]
+        for table in inspector.get_table_names()
+    }
+
+    command.upgrade(config, "0005")
+    inspector = inspect(engine)
+    after = {
+        table: [column["name"] for column in inspector.get_columns(table)]
+        for table in inspector.get_table_names()
+    }
+    assert after["users"] == before["users"] + ["session_version"]
+    assert {table: columns for table, columns in after.items() if table != "users"} == {
+        table: columns for table, columns in before.items() if table != "users"
+    }
+
+    command.downgrade(config, "0004")
+    inspector = inspect(engine)
+    reverted = {
+        table: [column["name"] for column in inspector.get_columns(table)]
+        for table in inspector.get_table_names()
+    }
+    assert reverted == before
+
+
 def test_revisions_legado_seed_e_preservacao(
     postgres_schema, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -139,6 +169,14 @@ def test_revisions_legado_seed_e_preservacao(
     envio_columns = [column["name"] for column in db_inspector.get_columns("envios")]
     assert oferta_columns == ORIGINAL_OFERTAS + ["platform_account_id"]
     assert envio_columns == ORIGINAL_ENVIOS + ["bot_id", "group_id", "sub_id"]
+    with engine.connect() as connection:
+        assert connection.scalar(text("SELECT count(*) FROM ofertas")) == 1
+        assert connection.scalar(text("SELECT count(*) FROM envios")) == 1
+
+    # O seed usa os models atuais, então roda contra o schema completo — como no
+    # deploy (migrations até head, depois seed). Fixar uma revision aqui quebra
+    # a cada migration nova que mexa numa tabela usada pelo seed.
+    command.upgrade(config, "head")
     with engine.connect() as connection:
         assert connection.scalar(text("SELECT count(*) FROM ofertas")) == 1
         assert connection.scalar(text("SELECT count(*) FROM envios")) == 1

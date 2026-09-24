@@ -3,15 +3,16 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from typing import Annotated
+from typing import Annotated, Literal
 from uuid import UUID
 
 from fastapi import APIRouter, Cookie, Depends, Request, Response
-from sqlalchemy import select
+from fastapi.security import HTTPAuthorizationCredentials
+from sqlalchemy import select, update
 from sqlalchemy.orm import Session
 
 from api.audit import record_audit
-from api.deps import get_current_user, get_db, limit_authenticated_write
+from api.deps import bearer_scheme, get_current_user, get_db
 from api.errors import APIError
 from api.ratelimit import client_ip, limit_login
 from api.schemas.auth import AccessTokenResponse, LoginRequest, LoginResponse
@@ -41,6 +42,17 @@ def _set_refresh_cookie(response: Response, token: str) -> None:
         samesite="strict",
         path="/api/auth",
     )
+
+
+def _token_identity(
+    token: str,
+    expected_type: Literal["access", "refresh"],
+) -> tuple[UUID, int] | None:
+    try:
+        payload = decode_token(token, expected_type)
+        return UUID(str(payload["sub"])), payload["sv"]
+    except (TokenError, ValueError, KeyError):
+        return None
 
 
 @router.post(
@@ -88,8 +100,8 @@ def login(
         client_ip(request),
     )
     session.commit()
-    access_token = create_access_token(str(user.id))
-    refresh_token = create_refresh_token(str(user.id))
+    access_token = create_access_token(str(user.id), session_version=user.session_version)
+    refresh_token = create_refresh_token(str(user.id), session_version=user.session_version)
     _set_refresh_cookie(response, refresh_token)
     return LoginResponse(access_token=access_token, user=UserResponse.model_validate(user))
 
@@ -101,26 +113,55 @@ def refresh(
 ) -> AccessTokenResponse:
     if refresh_token is None:
         raise APIError(401, "UNAUTHORIZED", "Refresh token ausente")
-    try:
-        payload = decode_token(refresh_token, "refresh")
-        user_id = UUID(str(payload["sub"]))
-    except (TokenError, ValueError, KeyError):
+    identity = _token_identity(refresh_token, "refresh")
+    if identity is None:
         raise APIError(401, "UNAUTHORIZED", "Refresh token invalido ou expirado") from None
+    user_id, session_version = identity
     user = session.scalar(select(User).where(User.id == user_id))
-    if user is None or not user.is_active:
+    if user is None or not user.is_active or session_version != user.session_version:
         raise APIError(401, "UNAUTHORIZED", "Refresh token invalido ou expirado")
-    return AccessTokenResponse(access_token=create_access_token(str(user.id)))
+    return AccessTokenResponse(
+        access_token=create_access_token(
+            str(user.id),
+            session_version=user.session_version,
+        )
+    )
 
 
 @router.post(
     "/logout",
     status_code=204,
-    dependencies=[Depends(limit_authenticated_write)],
 )
 def logout(
     response: Response,
-    _current_user: Annotated[User, Depends(get_current_user)],
+    session: Annotated[Session, Depends(get_db)],
+    credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer_scheme)],
+    refresh_token: Annotated[str | None, Cookie(alias=REFRESH_COOKIE_NAME)] = None,
 ) -> None:
+    identities: list[tuple[UUID, int]] = []
+    if credentials is not None and credentials.scheme.casefold() == "bearer":
+        identity = _token_identity(credentials.credentials, "access")
+        if identity is not None:
+            identities.append(identity)
+    if refresh_token is not None:
+        identity = _token_identity(refresh_token, "refresh")
+        if identity is not None and identity not in identities:
+            identities.append(identity)
+
+    for user_id, session_version in identities:
+        result = session.execute(
+            update(User)
+            .where(
+                User.id == user_id,
+                User.is_active.is_(True),
+                User.session_version == session_version,
+            )
+            .values(session_version=User.session_version + 1)
+        )
+        if result.rowcount:
+            session.commit()
+            break
+
     response.delete_cookie(
         REFRESH_COOKIE_NAME,
         path="/api/auth",

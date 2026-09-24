@@ -43,6 +43,14 @@ POST   /api/auth/logout
 GET    /api/auth/me                           → User
 ```
 
+Todo access token e refresh token carrega a versão de sessão do usuário. `POST
+/api/auth/logout` incrementa essa versão no servidor e, portanto, encerra
+imediatamente a sessão em **todos os aparelhos**, além de apagar o refresh
+cookie. Trocar a senha ou desativar o usuário tem o mesmo efeito. Tokens
+emitidos antes desse mecanismo são recusados e exigem um novo login. Mesmo sem
+token válido, logout responde `204` e limpa o cookie sem revelar se a sessão
+existia.
+
 ## Usuários
 
 Todas as rotas abaixo exigem papel `admin`. As listagens usam o envelope

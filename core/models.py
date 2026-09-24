@@ -52,6 +52,7 @@ class User(Base):
     name: Mapped[str | None] = mapped_column(Text)
     role: Mapped[str] = mapped_column(Text, server_default=text("'admin'"))
     is_active: Mapped[bool] = mapped_column(Boolean, server_default=text("true"))
+    session_version: Mapped[int] = mapped_column(Integer, server_default=text("0"))
     last_login_at: Mapped[datetime | None] = mapped_column(TIMESTAMPTZ)
     created_at: Mapped[datetime] = mapped_column(TIMESTAMPTZ, server_default=text("now()"))
 
