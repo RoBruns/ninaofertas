@@ -23,22 +23,41 @@ export function onSessionExpired(handler: (() => void) | null) {
   }
 }
 
-type ErrorEnvelope = { error?: { message?: unknown } }
-
 export class ApiError extends Error {
   readonly status: number
+  readonly fields: Readonly<Record<string, string>>
+  readonly details: unknown
 
-  constructor(message: string, status: number) {
+  constructor(message: string, status: number, fields: Readonly<Record<string, string>> = {}, details?: unknown) {
     super(message)
     this.name = 'ApiError'
     this.status = status
+    this.fields = fields
+    this.details = details
   }
 }
 
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return typeof value === 'object' && value !== null ? value as Record<string, unknown> : null
+}
+
+export function getApiFields(data: unknown) {
+  const error = asRecord(asRecord(data)?.error)
+  const rawFields = asRecord(error?.fields)
+  if (!rawFields) return {}
+  return Object.fromEntries(Object.entries(rawFields).flatMap(([key, value]) =>
+    typeof value === 'string' ? [[key, value]] : [],
+  ))
+}
+
 export function getApiError(data: unknown, fallback = 'Não foi possível concluir a solicitação.') {
-  if (typeof data !== 'object' || data === null) return fallback
-  const message = (data as ErrorEnvelope).error?.message
+  const message = asRecord(asRecord(data)?.error)?.message
   return typeof message === 'string' && message.trim() ? message : fallback
+}
+
+
+export function apiFailure(error: unknown, response: Response, fallback?: string): ApiError {
+  return new ApiError(getApiError(error, fallback), response.status, getApiFields(error), error)
 }
 
 async function readRefreshToken(): Promise<string | null> {
