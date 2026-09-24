@@ -196,9 +196,23 @@ def _processar_oferta(session, oferta: OfertaCapturada, filtros: dict) -> str:
         logger.info(f"Desconto: {oferta.desconto}%")
     logger.info(f"Motivo: {motivo_dedup}")
 
-    oferta.url = affiliate.garantir_afiliado(oferta.loja, oferta.url)
+    current_group_id = grupo_db_id()
+    affiliate_link = affiliate.garantir_afiliado(
+        oferta.loja,
+        oferta.url,
+        group_id=current_group_id,
+        origin_url=oferta.product_url,
+    )
+    oferta.url = str(affiliate_link)
+    envio_sub_id = getattr(affiliate_link, "sub_id", None)
     if oferta.url_carrinho:
-        oferta.url_carrinho = affiliate.garantir_afiliado(oferta.loja, oferta.url_carrinho)
+        oferta.url_carrinho = str(
+            affiliate.garantir_afiliado(
+                oferta.loja,
+                oferta.url_carrinho,
+                group_id=current_group_id,
+            )
+        )
     if (oferta.categoria or "").lower() == "cupom":
         try:
             card = cupom_card.gerar_card(oferta)
@@ -220,7 +234,8 @@ def _processar_oferta(session, oferta: OfertaCapturada, filtros: dict) -> str:
         preco=oferta.preco,
         status="sucesso" if sucesso else "falha",
         bot_id=bot_atual().id if bot_atual() else None,
-        group_id=grupo_db_id(),
+        group_id=current_group_id,
+        sub_id=envio_sub_id,
     )
 
     if sucesso:

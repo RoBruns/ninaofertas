@@ -11,15 +11,24 @@ from uuid import UUID, uuid4
 from zoneinfo import ZoneInfo
 
 import httpx
-from sqlalchemy import select
+from sqlalchemy import String, cast, select
 from sqlalchemy.orm import Session
 
 from core import db
 from core.credentials import mark_account_credentials_invalid, read_account_credentials
 from core.importers.base import SaleImportRow
 from core.importers.mercadolivre import ExpiredDashboardSession, parse_dashboard
-from core.importers.shopee import fetch_conversion_report
-from core.models import Event, Platform, PlatformAccount, PlatformCredential, Sale
+from core.importers.shopee import fetch_conversion_report, parse_attribution_sub_ids
+from core.models import (
+    Bot,
+    Event,
+    Group,
+    MetricSnapshot,
+    Platform,
+    PlatformAccount,
+    PlatformCredential,
+    Sale,
+)
 
 ML_DASHBOARD_URL = "https://www.mercadolivre.com.br/afiliados/dashboard"
 SAO_PAULO = ZoneInfo("America/Sao_Paulo")
@@ -75,6 +84,67 @@ def _values(row: SaleImportRow, account: PlatformAccount, source: str) -> dict[s
     }
 
 
+def _resolve_uuid_prefix(
+    session: Session,
+    model: type[Bot] | type[Group],
+    owner_id: UUID,
+    prefix: str | None,
+) -> tuple[UUID | None, str | None]:
+    if prefix is None:
+        return None, "missing"
+    matches = list(
+        session.scalars(
+            select(model.id)
+            .where(model.owner_id == owner_id, cast(model.id, String).like(f"{prefix}%"))
+            .limit(2)
+        )
+    )
+    if len(matches) == 1:
+        return matches[0], None
+    return None, "ambiguous" if len(matches) > 1 else "not_found"
+
+
+def _resolve_shopee_attribution(
+    session: Session,
+    account: PlatformAccount,
+    row: SaleImportRow,
+) -> tuple[UUID | None, UUID | None]:
+    bot_prefix, group_prefix = parse_attribution_sub_ids(row.sub_id)
+    if bot_prefix is None and group_prefix is None:
+        return row.bot_id, row.group_id
+    bot_id, bot_error = _resolve_uuid_prefix(session, Bot, account.owner_id, bot_prefix)
+    group_id, group_error = _resolve_uuid_prefix(session, Group, account.owner_id, group_prefix)
+    failures = {
+        key: value
+        for key, value in (("bot", bot_error), ("group", group_error))
+        if value is not None
+    }
+    existing_event = None
+    if failures:
+        existing_event = session.scalar(
+            select(Event.id).where(
+                Event.entity_type == "platform_account",
+                Event.entity_id == str(account.id),
+                Event.type == "attribution_resolution_failed",
+                Event.detail["external_id"].as_string() == row.external_id,
+                Event.detail["sub_id"].as_string() == row.sub_id,
+            )
+        )
+    if failures and existing_event is None:
+        _event(
+            session,
+            account.id,
+            "attribution_resolution_failed",
+            "SubIds da venda Shopee nao puderam ser resolvidos de forma univoca",
+            {
+                "external_id": row.external_id,
+                "sub_id": row.sub_id,
+                "failures": failures,
+            },
+        )
+    return bot_id, group_id
+
+
 def _upsert(account_id: UUID, rows: list[SaleImportRow], source: str) -> SyncResult:
     imported = skipped = 0
     with db.get_session() as session:
@@ -82,8 +152,13 @@ def _upsert(account_id: UUID, rows: list[SaleImportRow], source: str) -> SyncRes
         if account is None:
             raise ValueError("Conta de plataforma nao encontrada")
         now = datetime.now(timezone.utc)
+        platform = session.get(Platform, account.platform_id)
         for row in rows:
             values = _values(row, account, source)
+            if platform is not None and platform.slug == "shopee":
+                bot_id, group_id = _resolve_shopee_attribution(session, account, row)
+                values["bot_id"] = bot_id
+                values["group_id"] = group_id
             sale = session.scalar(
                 select(Sale).where(
                     Sale.platform_id == account.platform_id,
@@ -168,6 +243,66 @@ def _day_range(day: date) -> str:
     return f"{start.isoformat(timespec='milliseconds')}--{end.isoformat(timespec='milliseconds')}"
 
 
+def _ml_bot_for_tag(session: Session, owner_id: UUID, tag: str) -> UUID | None:
+    matches = []
+    for bot in session.scalars(select(Bot).where(Bot.owner_id == owner_id)):
+        attribution = (bot.settings or {}).get("attribution") or {}
+        if attribution.get("ml_tag") == tag:
+            matches.append(bot.id)
+    return matches[0] if len(matches) == 1 else None
+
+
+def _upsert_ml_earnings(
+    account_id: UUID,
+    day: date,
+    earnings: list[dict[str, object]],
+) -> None:
+    with db.get_session() as session:
+        account = session.get(PlatformAccount, account_id)
+        if account is None:
+            raise ValueError("Conta de plataforma nao encontrada")
+        aggregated: dict[UUID | None, dict[str, object]] = {}
+        for item in earnings:
+            bot_id = _ml_bot_for_tag(session, account.owner_id, str(item["tag"]))
+            values = aggregated.setdefault(
+                bot_id,
+                {"clicks": 0, "orders": 0, "commission": Decimal("0.00")},
+            )
+            values["clicks"] = int(values["clicks"]) + int(item["clicks"])
+            values["orders"] = int(values["orders"]) + int(item["orders"])
+            values["commission"] = Decimal(values["commission"]) + Decimal(item["commission"])
+
+        now = datetime.now(timezone.utc)
+        for bot_id, values in aggregated.items():
+            query = select(MetricSnapshot).where(
+                MetricSnapshot.owner_id == account.owner_id,
+                MetricSnapshot.day == day,
+                MetricSnapshot.platform_id == account.platform_id,
+                MetricSnapshot.account_id == account.id,
+                MetricSnapshot.group_id.is_(None),
+                MetricSnapshot.campaign_id.is_(None),
+            )
+            query = (
+                query.where(MetricSnapshot.bot_id == bot_id)
+                if bot_id is not None
+                else query.where(MetricSnapshot.bot_id.is_(None))
+            )
+            snapshot = session.scalar(query)
+            if snapshot is None:
+                snapshot = MetricSnapshot(
+                    owner_id=account.owner_id,
+                    day=day,
+                    bot_id=bot_id,
+                    platform_id=account.platform_id,
+                    account_id=account.id,
+                )
+                session.add(snapshot)
+            snapshot.clicks = int(values["clicks"])
+            snapshot.orders = int(values["orders"])
+            snapshot.commission = Decimal(values["commission"]).quantize(MONEY)
+            snapshot.computed_at = now
+
+
 def _sync_ml(account_id: UUID, credentials: dict[str, str]) -> SyncResult:
     cookie = credentials.get("cookie") or ""
     if not cookie:
@@ -201,6 +336,7 @@ def _sync_ml(account_id: UUID, credentials: dict[str, str]) -> SyncResult:
                 mark_account_credentials_invalid(account_id, "Sessao do Mercado Livre expirada")
                 return SyncResult(imported, skipped, auth_expired=True)
             result = _upsert(account_id, rows, "scrape")
+            _upsert_ml_earnings(account_id, day, meta["earnings"])
             imported += result.imported
             skipped += result.skipped
             row_commission = sum((row.commission for row in rows), Decimal("0.00")).quantize(MONEY)

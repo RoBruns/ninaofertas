@@ -24,7 +24,17 @@ from core import db
 from core.credentials import store_credential
 from core.importers.mercadolivre import parse_dashboard
 from core.importers.shopee import fetch_conversion_report
-from core.models import Command, Event, Platform, PlatformAccount, PlatformCredential, Sale, User
+from core.models import (
+    Bot,
+    Command,
+    Event,
+    MetricSnapshot,
+    Platform,
+    PlatformAccount,
+    PlatformCredential,
+    Sale,
+    User,
+)
 from core.sales_sync import sync_account
 from tests.test_api import add_user, auth_header, client, login, session_factory
 from worker import channels, commands, monitor
@@ -139,6 +149,14 @@ def test_ml_fixture_real_extrai_oito_vendas_e_purchase_id_nao_e_chave() -> None:
     assert sum((row.gross_amount for row in rows), Decimal("0.00")) == Decimal("3198.80")
     assert meta["commission_total"] == Decimal("238.30")
     assert meta["sales_total"] == Decimal("3198.80")
+    assert meta["earnings"] == [
+        {
+            "tag": "midi5623028",
+            "clicks": 48,
+            "orders": 8,
+            "commission": Decimal("238.30"),
+        }
+    ]
     without_purchase_id = [row for row in rows if "purchaseId" not in row.raw]
     assert len(without_purchase_id) == 3
     assert all(row.external_id for row in without_purchase_id)
@@ -195,6 +213,18 @@ def test_ml_reimporta_sem_duplicar_e_atualiza_status(
 ) -> None:
     sentinel = "SENTINELA-cookie-ml-nao-vazar"
     account = _account(session_factory, "mercadolivre", "cookie", sentinel)
+    bot_id = uuid4()
+    with session_factory.begin() as session:
+        session.add(
+            Bot(
+                id=bot_id,
+                owner_id=account.owner_id,
+                name="Bot ML",
+                slug="bot-ml",
+                status="active",
+                settings={"attribution": {"ml_tag": "midi5623028"}},
+            )
+        )
     _patch_sessions(monkeypatch, session_factory)
     MLDashboardClient.html = (FIXTURES / "ml_dashboard.html").read_text(encoding="utf-8")
     MLDashboardClient.ranges = []
@@ -216,6 +246,12 @@ def test_ml_reimporta_sem_duplicar_e_atualiza_status(
     )
     with session_factory() as session:
         assert session.scalar(select(func.count()).select_from(Sale)) == 8
+        snapshots = list(session.scalars(select(MetricSnapshot).order_by(MetricSnapshot.day)))
+        assert len(snapshots) == 14
+        assert {snapshot.bot_id for snapshot in snapshots} == {bot_id}
+        assert {snapshot.clicks for snapshot in snapshots} == {48}
+        assert {snapshot.orders for snapshot in snapshots} == {8}
+        assert {snapshot.commission for snapshot in snapshots} == {Decimal("238.30")}
 
     MLDashboardClient.html = MLDashboardClient.html.replace(
         '"status": "IN_REVIEW"', '"status": "APPROVED"', 1

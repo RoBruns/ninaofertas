@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 import time
 from datetime import datetime, timezone
 from decimal import Decimal
@@ -22,6 +23,26 @@ STATUS_MAP = {
     "PENDING": "pending",
     "UNPAID": "pending",
 }
+_BOT_SUB_ID = re.compile(r"^b([0-9a-fA-F]{8})$")
+_GROUP_SUB_ID = re.compile(r"^g([0-9a-fA-F]{8})$")
+
+
+def parse_attribution_sub_ids(utm_content: str | None) -> tuple[str | None, str | None]:
+    """Extrai os prefixos UUID dos SubIds unidos por `-` no utmContent da Shopee.
+
+    O Help Center da Shopee documenta o utm_content como os SubIds concatenados
+    por hífen. O parse fica isolado para que uma mudança desse contrato não
+    contamine a sincronização de vendas.
+    """
+    bot_prefix = group_prefix = None
+    for token in (utm_content or "").removeprefix("shopee:").split("-"):
+        bot_match = _BOT_SUB_ID.fullmatch(token)
+        group_match = _GROUP_SUB_ID.fullmatch(token)
+        if bot_match:
+            bot_prefix = bot_match.group(1).lower()
+        elif group_match:
+            group_prefix = group_match.group(1).lower()
+    return bot_prefix, group_prefix
 
 
 class ShopeeCSVImporter(BaseCSVImporter):

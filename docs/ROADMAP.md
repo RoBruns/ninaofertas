@@ -15,7 +15,8 @@ conclusão. Nenhuma fase pode deixar o bot fora do ar.
 | 5 | API: bots, telefones, grupos | ✅ | 4 | Codex A |
 | 6 | Worker lê config do banco | ✅ | 5 | Codex B (**sozinho**) |
 | 6b | Bot ativo sem grupo não silencia a operação | ✅ | 6 | Codex B |
-| 7 | Atribuição: sub_id + redirect | ⬜ | 6 | Codex B |
+| 7 | Atribuição: sub_id + redirect | ✅ | 6 | Codex B |
+| 7b | Atribuição de vendas do ML por etiqueta | ⬜ | 7 | spike com cookie válido |
 | 8 | API: despesas, campanhas, vendas | ✅ | 4 | Codex C ∥ 6 |
 | 8b | Sincronização real de vendas (Shopee API, ML painel) | ✅ | 8 | Codex C |
 | 9 | API: métricas e agregações | ✅ | 8 | Codex C |

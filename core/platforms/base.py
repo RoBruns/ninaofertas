@@ -35,6 +35,9 @@ class OfertaCapturada:
     url_carrinho: Optional[str] = None
     beneficio: Optional[str] = None
     validade: Optional[str] = None
+    # URL original usada para gerar tracking; `url` continua sendo o offerLink
+    # afiliado entregue pela fonte e serve de fallback seguro.
+    product_url: Optional[str] = None
 
     def __post_init__(self):
         if self.capturado_em is None:

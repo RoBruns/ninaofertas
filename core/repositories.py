@@ -98,6 +98,7 @@ def registrar_envio(
     *,
     bot_id: UUID | None = None,
     group_id: UUID | None = None,
+    sub_id: str | None = None,
 ) -> Envio:
     envio = Envio(
         oferta_id=oferta_id,
@@ -107,6 +108,7 @@ def registrar_envio(
         status=status,
         bot_id=bot_id,
         group_id=group_id,
+        sub_id=sub_id,
     )
     session.add(envio)
     session.flush()

@@ -1,25 +1,42 @@
-"""Conversão de URLs para links de afiliado.
+"""Conversão de URLs para links de afiliado, com atribuição best-effort."""
 
-- Shopee: productOfferV2 / shopeeOfferV2 já entregam `offerLink` com tracking.
-  Se cair um link cru, tentamos `generateShortLink`.
-- Mercado Livre: endpoint interno createLink (tag + cookie de sessão).
-"""
 from __future__ import annotations
 
 import hashlib
 import json
 import time
+from dataclasses import dataclass
+from typing import Any
+from uuid import UUID
 
 import httpx
 from loguru import logger
 
-from core.config_provider import bot_runtime_atual
+from core.config_provider import bot_runtime_atual, registrar_evento_runtime
 from core.credentials import mark_account_credentials_invalid, runtime_account_credentials
 from core.settings import settings
 
 ML_CREATE_LINK = "https://www.mercadolivre.com.br/affiliate-program/api/v2/affiliates/createLink"
 ML_LINKBUILDER = "https://www.mercadolivre.com.br/afiliados/linkbuilder"
 SHOPEE_API = "https://open-api.affiliate.shopee.com.br/graphql"
+
+
+class AffiliateLink(str):
+    """String compatível com o contrato legado, acrescida do sub_id persistível."""
+
+    sub_id: str | None
+
+    def __new__(cls, value: str, sub_id: str | None = None):
+        instance = super().__new__(cls, value)
+        instance.sub_id = sub_id
+        return instance
+
+
+@dataclass(frozen=True)
+class _MLAuth:
+    account_id: UUID | None
+    account_tag: str
+    cookie: str
 
 
 def _runtime_auth(platform_slug: str):
@@ -50,116 +67,152 @@ def _shopee_sign(app_id: str, secret: str, timestamp: int, payload: str) -> str:
 
 
 def _ja_parece_afiliado_ml(url: str) -> bool:
-    u = url.lower()
-    return (
-        "meli.la/" in u
-        or "matt_tool=" in u
-        or "matt_word=" in u
-        or "/sec/" in u
-        or "click1.mercadolivre" in u
+    lowered = url.lower()
+    return any(
+        marker in lowered
+        for marker in ("meli.la/", "matt_tool=", "matt_word=", "/sec/", "click1.mercadolivre")
     )
 
 
-def _extrair_url_afiliada(data) -> str | None:
+def _extrair_url_afiliada(data: Any) -> str | None:
     """createLink devolve snake_case: urls[].short_url (ex.: https://meli.la/xxxx)."""
-    chaves = (
-        "short_url",
-        "shortUrl",
-        "affiliateLink",
-        "affineLink",
-        "url",
-        "link",
-    )
+    keys = ("short_url", "shortUrl", "affiliateLink", "affineLink", "url", "link")
     if isinstance(data, dict):
-        for key in chaves:
-            val = data.get(key)
-            if isinstance(val, str) and val.startswith("http") and key != "text":
-                if "meli.la/" in val.lower() or key in ("short_url", "shortUrl", "affiliateLink"):
-                    return val
+        for key in keys:
+            value = data.get(key)
+            if isinstance(value, str) and value.startswith("http") and key != "text":
+                if "meli.la/" in value.lower() or key in (
+                    "short_url",
+                    "shortUrl",
+                    "affiliateLink",
+                ):
+                    return value
         if isinstance(data.get("urls"), list) and data["urls"]:
             return _extrair_url_afiliada(data["urls"][0])
-        # fallback: pega meli.la dentro do texto
         text = data.get("text")
         if isinstance(text, str) and "meli.la/" in text:
-            for parte in text.split():
-                if "meli.la/" in parte and parte.startswith("http"):
-                    return parte.strip()
+            for part in text.split():
+                if "meli.la/" in part and part.startswith("http"):
+                    return part.strip()
     return None
 
 
 def _ja_parece_afiliado_shopee(url: str) -> bool:
-    u = url.lower()
-    return "s.shopee.com.br" in u or "shope.ee/" in u or "an_re=" in u or "utm_content=" in u
+    lowered = url.lower()
+    return any(
+        marker in lowered
+        for marker in ("s.shopee.com.br", "shope.ee/", "an_re=", "utm_content=")
+    )
 
 
-def converter_mercadolivre(url: str) -> str | None:
+def _ml_auth() -> tuple[Any, _MLAuth]:
     runtime, account = _runtime_auth("mercadolivre")
     if runtime is not None and runtime.account_ids:
         if account is None:
             logger.warning("[afiliado] MELI sem conta/credencial vinculada")
-            return None
+            return runtime, _MLAuth(None, "", "")
         account_id, config, values = account
         tag = str(config.get("affiliate_tag") or config.get("tag") or "")
         cookie = _credential_value(values, "cookie", "affiliate_cookie")
-    else:
-        account_id = None
-        tag = settings.mercadolivre_affiliate_tag
-        cookie = settings.mercadolivre_affiliate_cookie
-    if not tag or not cookie:
-        logger.warning("[afiliado] MELI sem TAG/COOKIE no .env — mantendo URL original")
+        return runtime, _MLAuth(account_id, tag, cookie)
+    return runtime, _MLAuth(
+        None,
+        settings.mercadolivre_affiliate_tag,
+        settings.mercadolivre_affiliate_cookie,
+    )
+
+
+def _converter_mercadolivre_com_tag(
+    url: str, tag: str, auth: _MLAuth, runtime: Any
+) -> str | None:
+    if not tag or not auth.cookie:
+        logger.warning("[afiliado] MELI sem TAG/COOKIE — mantendo URL original")
         return None
     if _ja_parece_afiliado_ml(url):
         return url
 
-    csrf = _cookie_value(cookie, "_csrf") or _cookie_value(cookie, "csrf") or ""
+    csrf = _cookie_value(auth.cookie, "_csrf") or _cookie_value(auth.cookie, "csrf") or ""
     headers = {
         "accept": "application/json, text/plain, */*",
         "content-type": "application/json",
         "origin": "https://www.mercadolivre.com.br",
-        "referer": "https://www.mercadolivre.com.br/afiliados/linkbuilder",
+        "referer": ML_LINKBUILDER,
         "user-agent": (
             "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
             "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
         ),
-        "cookie": cookie,
+        "cookie": auth.cookie,
     }
     if csrf:
         headers["x-csrf-token"] = csrf
 
     try:
         with httpx.Client(timeout=20.0, follow_redirects=True) as client:
-            # refresca cookies de sessão do linkbuilder quando possível
             try:
-                client.get(ML_LINKBUILDER, headers={"cookie": cookie, "user-agent": headers["user-agent"]})
+                client.get(
+                    ML_LINKBUILDER,
+                    headers={"cookie": auth.cookie, "user-agent": headers["user-agent"]},
+                )
             except httpx.HTTPError:
                 pass
-
-            resp = client.post(ML_CREATE_LINK, headers=headers, json={"urls": [url], "tag": tag})
-            if resp.status_code >= 400:
-                if resp.status_code in {401, 403} and account_id is not None:
+            response = client.post(
+                ML_CREATE_LINK,
+                headers=headers,
+                json={"urls": [url], "tag": tag},
+            )
+            if response.status_code >= 400:
+                if response.status_code in {401, 403} and auth.account_id is not None:
                     mark_account_credentials_invalid(
-                        account_id,
-                        f"HTTP {resp.status_code}",
+                        auth.account_id,
+                        f"HTTP {response.status_code}",
                         bot_id=runtime.id if runtime else None,
                     )
-                logger.error(f"[afiliado] MELI createLink HTTP {resp.status_code}: {resp.text[:200]}")
+                logger.error(
+                    f"[afiliado] MELI createLink HTTP {response.status_code}: "
+                    f"{response.text[:200]}"
+                )
                 return None
-            data = resp.json()
-    except Exception as e:
-        logger.error(f"[afiliado] MELI createLink falhou: {e}")
+            data = response.json()
+    except Exception as exc:
+        logger.error(f"[afiliado] MELI createLink falhou: {exc}")
         return None
 
-    convertida = _extrair_url_afiliada(data)
-    if convertida:
-        logger.info(f"[afiliado] MELI convertida: {convertida}")
-        return convertida
+    converted = _extrair_url_afiliada(data)
+    if converted:
+        logger.info(f"[afiliado] MELI convertida: {converted}")
+        return converted
     logger.error(f"[afiliado] MELI createLink resposta inesperada: {str(data)[:240]}")
     return None
 
 
-def converter_shopee(url: str) -> str | None:
-    if _ja_parece_afiliado_shopee(url):
+def converter_mercadolivre(url: str) -> str | None:
+    runtime, auth = _ml_auth()
+    if runtime is None:
+        tag = settings.mercadolivre_affiliate_tag
+    else:
+        tag = (
+            runtime.settings.attribution.ml_tag
+            or auth.account_tag
+            or settings.mercadolivre_affiliate_tag
+        )
+    return _converter_mercadolivre_com_tag(url, tag, auth, runtime)
+
+
+def _tracking_ids(bot_id: UUID, group_id: UUID) -> tuple[str, str]:
+    return f"b{bot_id.hex[:8]}", f"g{group_id.hex[:8]}"
+
+
+def converter_shopee(
+    url: str,
+    *,
+    group_id: UUID | None = None,
+    origin_url: str | None = None,
+) -> str | None:
+    runtime = bot_runtime_atual()
+    attributed = runtime is not None and group_id is not None
+    if not attributed and _ja_parece_afiliado_shopee(url):
         return url
+
     runtime, account = _runtime_auth("shopee")
     if runtime is not None and runtime.account_ids:
         if account is None:
@@ -181,55 +234,103 @@ def converter_shopee(url: str) -> str | None:
     if not app_id or not secret:
         return None
 
+    sub_ids = _tracking_ids(runtime.id, group_id) if attributed else ()
+    sub_ids_arg = f", subIds: {json.dumps(list(sub_ids))}" if sub_ids else ""
     query = (
         "mutation {\n"
-        f'  generateShortLink(input: {{ originUrl: "{url}" }}) {{\n'
+        f"  generateShortLink(input: {{ originUrl: {json.dumps(origin_url or url)}"
+        f"{sub_ids_arg} }}) {{\n"
         "    shortLink\n"
         "  }\n"
         "}"
     )
-    payload_obj = {"query": query}
-    payload = json.dumps(payload_obj, separators=(",", ":"), ensure_ascii=False)
-    ts = int(time.time())
-    sig = _shopee_sign(app_id, secret, ts, payload)
+    payload = json.dumps({"query": query}, separators=(",", ":"), ensure_ascii=False)
+    timestamp = int(time.time())
+    signature = _shopee_sign(app_id, secret, timestamp, payload)
     headers = {
         "Content-Type": "application/json",
-        "Authorization": f"SHA256 Credential={app_id}, Timestamp={ts}, Signature={sig}",
+        "Authorization": (
+            f"SHA256 Credential={app_id}, Timestamp={timestamp}, Signature={signature}"
+        ),
     }
     try:
         with httpx.Client(timeout=20.0) as client:
-            resp = client.post(SHOPEE_API, content=payload.encode("utf-8"), headers=headers)
-            if resp.status_code in {401, 403} and account_id is not None:
+            response = client.post(SHOPEE_API, content=payload.encode("utf-8"), headers=headers)
+            if response.status_code in {401, 403} and account_id is not None:
                 mark_account_credentials_invalid(
                     account_id,
-                    f"HTTP {resp.status_code}",
+                    f"HTTP {response.status_code}",
                     bot_id=runtime.id if runtime else None,
                 )
-            resp.raise_for_status()
-            data = resp.json()
+            response.raise_for_status()
+            data = response.json()
         if data.get("errors"):
             logger.error(f"[afiliado] Shopee shortLink: {data['errors']}")
             return None
         short = ((data.get("data") or {}).get("generateShortLink") or {}).get("shortLink")
-        return short if short else None
-    except Exception as e:
-        logger.error(f"[afiliado] Shopee shortLink falhou: {e}")
+        return str(short) if short else None
+    except Exception as exc:
+        logger.error(f"[afiliado] Shopee shortLink falhou: {exc}")
         return None
 
 
-def garantir_afiliado(oferta_loja: str, url: str) -> str:
-    """Retorna URL afiliada quando possível; senão a original (com log)."""
+def garantir_afiliado(
+    oferta_loja: str,
+    url: str,
+    *,
+    group_id: UUID | None = None,
+    origin_url: str | None = None,
+) -> AffiliateLink:
+    """Mantém o retorno string legado e anexa a atribuição quando ela foi aplicada."""
     loja = (oferta_loja or "").lower()
     if "mercado" in loja:
-        convertida = converter_mercadolivre(url)
-        if convertida:
-            return convertida
+        runtime, auth = _ml_auth()
+        legacy_tag = settings.mercadolivre_affiliate_tag
+        account_tag = auth.account_tag or legacy_tag
+        bot_tag = runtime.settings.attribution.ml_tag if runtime is not None else None
+        tag = bot_tag or account_tag
+        converted = _converter_mercadolivre_com_tag(url, tag, auth, runtime)
+        if converted:
+            return AffiliateLink(converted, f"ml:{tag}")
+        if bot_tag and bot_tag != account_tag:
+            registrar_evento_runtime(
+                "attribution_link_failed",
+                "Falha ao gerar link atribuido do Mercado Livre; usando fallback afiliado",
+                detail={"platform": "mercadolivre", "tag": bot_tag},
+                level="warning",
+            )
+            fallback = _converter_mercadolivre_com_tag(url, account_tag, auth, runtime)
+            if fallback:
+                return AffiliateLink(fallback)
         logger.warning("[afiliado] MELI sem conversão — enviando URL original")
-        return url
+        return AffiliateLink(url)
+
     if "shopee" in loja:
-        convertida = converter_shopee(url)
-        if convertida:
-            return convertida
-        # offerLink da API já costuma ser afiliado
-        return url
-    return url
+        runtime = bot_runtime_atual()
+        attributed = runtime is not None and group_id is not None
+        converted = converter_shopee(url, group_id=group_id, origin_url=origin_url)
+        if converted:
+            sub_id = None
+            if attributed:
+                bot_sub, group_sub = _tracking_ids(runtime.id, group_id)
+                sub_id = f"shopee:{bot_sub}-{group_sub}"
+            return AffiliateLink(converted, sub_id)
+        if attributed:
+            bot_sub, group_sub = _tracking_ids(runtime.id, group_id)
+            registrar_evento_runtime(
+                "attribution_link_failed",
+                "Falha ao gerar link atribuido da Shopee; usando offerLink afiliado",
+                detail={"platform": "shopee", "sub_ids": [bot_sub, group_sub]},
+                level="warning",
+            )
+            return AffiliateLink(url, f"shopee:{bot_sub}-{group_sub}")
+        return AffiliateLink(url)
+    return AffiliateLink(url)
+
+
+__all__ = [
+    "AffiliateLink",
+    "converter_mercadolivre",
+    "converter_shopee",
+    "garantir_afiliado",
+]

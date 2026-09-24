@@ -144,9 +144,22 @@ def parse_dashboard(html: str) -> tuple[list[SaleImportRow], dict[str, Any]]:
             )
         )
     general_kpis = page_props.get("generalKpis") or {}
+    earnings = []
+    for item in (page_props.get("earnings") or {}).get("item_list") or []:
+        if not isinstance(item, dict) or not item.get("tag"):
+            continue
+        earnings.append(
+            {
+                "tag": str(item["tag"]),
+                "clicks": int(item.get("clicks") or 0),
+                "orders": int(item.get("quantity") or 0),
+                "commission": _money(item.get("earnings")),
+            }
+        )
     meta = {
         "total_results": int(sales_block.get("total_results") or 0),
         "commission_total": _kpi(general_kpis.get("commissions"), "summary"),
         "sales_total": _kpi(general_kpis.get("data"), "sales"),
+        "earnings": earnings,
     }
     return rows, meta

@@ -260,6 +260,7 @@ class ShopeeScraper(Scraper):
             desconto=desconto,
             loja="Shopee",
             url=url,
+            product_url=item.get("productLink"),
             imagem=item.get("imageUrl"),
             sku=str(item["itemId"]) if item.get("itemId") is not None else None,
             vendas=vendas,

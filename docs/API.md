@@ -174,9 +174,15 @@ operador deve pausá-lo antes de remover esses vínculos.
                "max_ofertas_globais_por_hora": 8, "max_ofertas_globais_por_dia": 90 },
   "content": { "aceitar_cupons": true, "aceitar_campanhas": false,
                "max_cupons_por_dia": 2, "baseline_ciclos": 5 },
-  "schedule":{ "check_interval": 60, "quiet_hours": {"start":"23:00","end":"07:00"} }
+  "schedule":{ "check_interval": 60, "quiet_hours": {"start":"23:00","end":"07:00"} },
+  "attribution": { "ml_tag": "nina_casa" }
 }
 ```
+
+`attribution.ml_tag` é opcional e identifica o bot nos agregados do Mercado
+Livre. Aceita de 3 a 40 caracteres (`a-z`, `0-9`, `_` e `-`). A etiqueta precisa
+ser criada previamente no painel de afiliados do Mercado Livre; a API do ML não
+oferece uma operação para criá-la nem para validar sua existência.
 
 **Guarda de segurança no `pacing`.** A API valida contra tetos definidos em
 `core/safety.py` (ex.: `max_ofertas_por_hora ≤ 15`, `intervalo ≥ 2 min`). Acima

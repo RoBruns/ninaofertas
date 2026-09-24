@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any, Literal, Self
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 from pydantic.json_schema import SkipJsonSchema
 
 from core.safety import validate_safe_pacing
@@ -106,6 +106,30 @@ class Schedule(BaseModel):
     quiet_hours: QuietHours = Field(default_factory=lambda: QuietHours(start="23:00", end="07:00"))
 
 
+class Attribution(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    ml_tag: str | None = Field(
+        default=None,
+        description=(
+            "Etiqueta de rastreamento do Mercado Livre: 3 a 40 caracteres, "
+            "somente letras minusculas, numeros, _ e -."
+        ),
+    )
+
+    @field_validator("ml_tag")
+    @classmethod
+    def validate_ml_tag(cls, value: str | None) -> str | None:
+        import re
+
+        if value is not None and re.fullmatch(r"[a-z0-9_-]{3,40}", value) is None:
+            raise ValueError(
+                "ml_tag deve ter de 3 a 40 caracteres: apenas letras minusculas, "
+                "numeros, _ e -"
+            )
+        return value
+
+
 class BotSettings(BaseModel):
     """Formato novo aninhado, com leitura e escrita lossless do config legado.
 
@@ -121,6 +145,7 @@ class BotSettings(BaseModel):
     pacing: Pacing = Field(default_factory=Pacing)
     content: Content = Field(default_factory=Content)
     schedule: Schedule = Field(default_factory=Schedule)
+    attribution: Attribution = Field(default_factory=Attribution)
     # Internos do round-trip do config.json legado: fora da saída (exclude) e
     # fora do schema publicado (SkipJsonSchema), senão o contrato os exporia
     # como campos que o cliente precisa enviar.
@@ -133,7 +158,7 @@ class BotSettings(BaseModel):
     @classmethod
     def accept_legacy_config(cls, value: Any) -> Any:
         if not isinstance(value, dict) or any(
-            key in value for key in ("filters", "pacing", "content", "schedule")
+            key in value for key in ("filters", "pacing", "content", "schedule", "attribution")
         ):
             return value
         if not (set(value) & LEGACY_KEYS):

@@ -405,6 +405,27 @@ def test_round_trip_dos_arquivos_reais_preserva_as_30_chaves(filename: str) -> N
     assert flattened == source
 
 
+def test_ml_tag_invalida_retorna_422_com_regra_clara(
+    client: object,
+    session_factory: sessionmaker[Session],
+) -> None:
+    admin = add_user(session_factory, email="ml-tag@example.com", role="admin")
+    headers = auth_header(str(login(client, admin.email)["access_token"]))
+    bot_settings = safe_settings()
+    bot_settings["attribution"] = {"ml_tag": "Tag com espaços"}
+
+    response = client.post(
+        "/api/bots",
+        headers=headers,
+        json={"name": "Tag invalida", "slug": "tag-invalida", "settings": bot_settings},
+    )
+
+    assert_error(response, 422, "VALIDATION_ERROR")
+    serialized = json.dumps(response.json(), ensure_ascii=False)
+    assert "3 a 40" in serialized
+    assert "letras minusculas" in serialized
+
+
 class OfflineHTTPClient:
     calls = 0
 
