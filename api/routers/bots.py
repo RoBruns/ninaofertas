@@ -263,7 +263,10 @@ def update_bot(
         phone_id=changes.get("phone_id") if "phone_id" in changes else None,
     )
     if "settings" in changes:
-        changes["settings"] = changes["settings"].model_dump(mode="json")
+        # model_dump(exclude_unset) já virou dict e só com as chaves enviadas;
+        # o settings gravado precisa ser o objeto validado inteiro.
+        assert payload.settings is not None
+        changes["settings"] = payload.settings.model_dump(mode="json")
     for field, value in changes.items():
         setattr(bot, field, value)
     if changes.get("status") == "active" or (
