@@ -11,6 +11,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from api.errors import install_error_handlers
 from api.ratelimit import limiter
+from api.schemas.common import ErrorEnvelope
 from api.routers import (
     accounts,
     alerts,
@@ -41,6 +42,23 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     yield
 
 
+# Toda resposta de erro usa o envelope {"error": {code, message, fields}}
+# (api/errors.py). Declarar aqui publica esse formato no OpenAPI, de onde o
+# dashboard gera os tipos — sem isso o contrato mostrava só o 422 padrão do
+# FastAPI, que a API nunca devolve.
+_ERROR_RESPONSES: dict[int | str, dict[str, object]] = {
+    status: {"model": ErrorEnvelope, "description": description}
+    for status, description in (
+        (401, "Não autenticado"),
+        (403, "Sem permissão"),
+        (404, "Não encontrado"),
+        (409, "Conflito (ex.: entidade em uso)"),
+        (422, "Dados inválidos"),
+        (429, "Limite de requisições"),
+        (500, "Erro interno"),
+    )
+}
+
 app = FastAPI(
     title="Nina Ofertas API",
     version="0.5.0",
@@ -48,6 +66,7 @@ app = FastAPI(
     openapi_url="/api/openapi.json",
     redoc_url=None,
     lifespan=lifespan,
+    responses=_ERROR_RESPONSES,
 )
 
 origins = [

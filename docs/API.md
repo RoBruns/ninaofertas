@@ -28,6 +28,11 @@ onde façam sentido — é o conjunto que o produto pede:
 **Rate limiting.** `/api/auth/login`: 5/min por IP. Rotas de escrita: 60/min por
 usuário. `/r/{code}`: 600/min por IP.
 
+**Erros no OpenAPI.** Todas as rotas declaram 401, 403, 404, 409, 422, 429 e 500
+com o schema `ErrorEnvelope`, que é o que a API realmente devolve. O `fields`
+carrega o detalhe por campo; nos 409 de entidade em uso, os nomes de quem a usa
+vêm na `message`.
+
 **Regra absoluta.** Nenhuma resposta contém cookie, token, secret, senha ou
 string de conexão. Não há rota que devolva o valor de uma credencial — nem para
 o admin. Credencial é write-only.
@@ -37,8 +42,8 @@ o admin. Credencial é write-only.
 ## Auth
 
 ```
-POST   /api/auth/login      {email, password} → {access_token, user}
-POST   /api/auth/refresh    (cookie)          → {access_token}
+POST   /api/auth/login      {email, password} → {access_token, token_type, user}
+POST   /api/auth/refresh    (cookie)          → {access_token, token_type}
 POST   /api/auth/logout
 GET    /api/auth/me                           → User
 ```
@@ -133,7 +138,7 @@ não serão entregues"`. Hoje isso só existe como log na partida do bot.
 ```
 GET    /api/bots?status=&niche_id=&phone_id=  → [Bot]
 POST   /api/bots                              → Bot
-GET    /api/bots/{id}                         → BotDetail
+GET    /api/bots/{id}                         → Bot
 PATCH  /api/bots/{id}
 DELETE /api/bots/{id}
 POST   /api/bots/{id}/duplicate               → Bot   (copia settings, grupos e contas)
@@ -188,6 +193,7 @@ GET /api/metrics/anomalies     → quedas de conversão e custos fora da curva
   "kpis": {
     "revenue":      {"value":"12450.00","previous":"9800.00","change_pct":27.0},
     "commission":   {"value":"934.00","previous":"720.00","change_pct":29.7},
+    "commission_pending": {"value":"112.00","previous":"80.00","change_pct":40.0},
     "orders":       {"value":312,"previous":250,"change_pct":24.8},
     "buyers":       {"value":287,"previous":230,"change_pct":24.8},
     "spend":        {"value":"400.00","previous":"400.00","change_pct":0.0},
@@ -199,6 +205,7 @@ GET /api/metrics/anomalies     → quedas de conversão e custos fora da curva
     "cost_per_buyer":  {"value":"1.39","previous":"1.74","change_pct":-20.0},
     "cost_per_join":   {"value":"0.85","previous":null,"change_pct":null},
     "group_joins":  {"value":352,"previous":null,"change_pct":null},
+    "clicks":       {"value":null,"previous":null,"change_pct":null},
     "conversion":   {"value":0.041,"previous":0.038,"change_pct":7.9},
     "sends":        {"value":1680,"previous":1540,"change_pct":9.1}
   },

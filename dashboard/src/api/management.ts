@@ -4,7 +4,7 @@ export type Account = components['schemas']['AccountResponse']
 export type AccountCreate = components['schemas']['AccountCreate']
 export type Bot = components['schemas']['BotResponse']
 export type BotCreate = components['schemas']['BotCreate']
-export type BotSettings = components['schemas']['BotSettings-Input']
+export type BotSettings = components['schemas']['BotSettings']
 export type CredentialStatus = components['schemas']['CredentialStatus']
 export type Group = components['schemas']['GroupResponse']
 export type Niche = components['schemas']['NicheResponse']
@@ -14,7 +14,6 @@ export type UserResponse = components['schemas']['UserResponse']
 
 export const defaultSettings: BotSettings = {
   schema_version: 1,
-  _legacy_input: false,
   filters: {
     preco_minimo: 20, preco_maximo: 5000, desconto_minimo: 15,
     lojas: [], categorias_meli: [], termos_busca: [], palavras_chave: [],

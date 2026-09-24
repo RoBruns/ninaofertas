@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any, Literal, Self
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic.json_schema import SkipJsonSchema
 
 from core.safety import validate_safe_pacing
 
@@ -119,8 +120,13 @@ class BotSettings(BaseModel):
     pacing: Pacing = Field(default_factory=Pacing)
     content: Content = Field(default_factory=Content)
     schedule: Schedule = Field(default_factory=Schedule)
-    legacy_input: bool = Field(default=False, exclude=True, alias="_legacy_input")
-    legacy_keys: list[str] = Field(default_factory=list, exclude=True, alias="_legacy_keys")
+    # Internos do round-trip do config.json legado: fora da saída (exclude) e
+    # fora do schema publicado (SkipJsonSchema), senão o contrato os exporia
+    # como campos que o cliente precisa enviar.
+    legacy_input: SkipJsonSchema[bool] = Field(default=False, exclude=True, alias="_legacy_input")
+    legacy_keys: SkipJsonSchema[list[str]] = Field(
+        default_factory=list, exclude=True, alias="_legacy_keys"
+    )
 
     @model_validator(mode="before")
     @classmethod

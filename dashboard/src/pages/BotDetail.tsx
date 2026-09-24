@@ -29,11 +29,10 @@ const tagFields: ReadonlyArray<readonly [keyof Filters, string]> = [
   ['excecoes_bloqueio', 'Exceções de bloqueio'],
 ]
 
-function editableSettings(source: components['schemas']['BotSettings-Output']): BotSettings {
+function editableSettings(source: components['schemas']['BotSettings']): BotSettings {
   return {
     ...source,
     schema_version: 1,
-    _legacy_input: false,
     filters: { ...defaultSettings.filters, ...source.filters },
     pacing: { ...defaultSettings.pacing, ...source.pacing },
     content: { ...defaultSettings.content, ...source.content },

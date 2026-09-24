@@ -22,6 +22,76 @@
         }
        }
       }
+     },
+     "401": {
+      "description": "Não autenticado",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "403": {
+      "description": "Sem permissão",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "404": {
+      "description": "Não encontrado",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "409": {
+      "description": "Conflito (ex.: entidade em uso)",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Dados inválidos",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "429": {
+      "description": "Limite de requisições",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "500": {
+      "description": "Erro interno",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
      }
     }
    }
@@ -65,12 +135,72 @@
      "204": {
       "description": "Successful Response"
      },
-     "422": {
-      "description": "Validation Error",
+     "401": {
+      "description": "Não autenticado",
       "content": {
        "application/json": {
         "schema": {
-         "$ref": "#/components/schemas/HTTPValidationError"
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "403": {
+      "description": "Sem permissão",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "404": {
+      "description": "Não encontrado",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "409": {
+      "description": "Conflito (ex.: entidade em uso)",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Dados inválidos",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "429": {
+      "description": "Limite de requisições",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "500": {
+      "description": "Erro interno",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
         }
        }
       }
@@ -109,15 +239,55 @@
      "401": {
       "description": "Credenciais invalidas"
      },
-     "429": {
-      "description": "Limite"
-     },
-     "422": {
-      "description": "Validation Error",
+     "403": {
+      "description": "Sem permissão",
       "content": {
        "application/json": {
         "schema": {
-         "$ref": "#/components/schemas/HTTPValidationError"
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "404": {
+      "description": "Não encontrado",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "409": {
+      "description": "Conflito (ex.: entidade em uso)",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Dados inválidos",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "429": {
+      "description": "Limite"
+     },
+     "500": {
+      "description": "Erro interno",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
         }
        }
       }
@@ -161,12 +331,72 @@
        }
       }
      },
-     "422": {
-      "description": "Validation Error",
+     "401": {
+      "description": "Não autenticado",
       "content": {
        "application/json": {
         "schema": {
-         "$ref": "#/components/schemas/HTTPValidationError"
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "403": {
+      "description": "Sem permissão",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "404": {
+      "description": "Não encontrado",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "409": {
+      "description": "Conflito (ex.: entidade em uso)",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Dados inválidos",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "429": {
+      "description": "Limite de requisições",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "500": {
+      "description": "Erro interno",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
         }
        }
       }
@@ -181,16 +411,104 @@
     ],
     "summary": "Logout",
     "operationId": "logout_api_auth_logout_post",
-    "responses": {
-     "204": {
-      "description": "Successful Response"
-     }
-    },
     "security": [
      {
       "HTTPBearer": []
      }
-    ]
+    ],
+    "parameters": [
+     {
+      "name": "refresh_token",
+      "in": "cookie",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Refresh Token"
+      }
+     }
+    ],
+    "responses": {
+     "204": {
+      "description": "Successful Response"
+     },
+     "401": {
+      "description": "Não autenticado",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "403": {
+      "description": "Sem permissão",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "404": {
+      "description": "Não encontrado",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "409": {
+      "description": "Conflito (ex.: entidade em uso)",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Dados inválidos",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "429": {
+      "description": "Limite de requisições",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "500": {
+      "description": "Erro interno",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     }
+    }
    }
   },
   "/api/auth/me": {
@@ -207,6 +525,76 @@
        "application/json": {
         "schema": {
          "$ref": "#/components/schemas/UserResponse"
+        }
+       }
+      }
+     },
+     "401": {
+      "description": "Não autenticado",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "403": {
+      "description": "Sem permissão",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "404": {
+      "description": "Não encontrado",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "409": {
+      "description": "Conflito (ex.: entidade em uso)",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Dados inválidos",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "429": {
+      "description": "Limite de requisições",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "500": {
+      "description": "Erro interno",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
         }
        }
       }
@@ -277,12 +665,72 @@
        }
       }
      },
-     "422": {
-      "description": "Validation Error",
+     "401": {
+      "description": "Não autenticado",
       "content": {
        "application/json": {
         "schema": {
-         "$ref": "#/components/schemas/HTTPValidationError"
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "403": {
+      "description": "Sem permissão",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "404": {
+      "description": "Não encontrado",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "409": {
+      "description": "Conflito (ex.: entidade em uso)",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Dados inválidos",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "429": {
+      "description": "Limite de requisições",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "500": {
+      "description": "Erro interno",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
         }
        }
       }
@@ -321,12 +769,72 @@
        }
       }
      },
-     "422": {
-      "description": "Validation Error",
+     "401": {
+      "description": "Não autenticado",
       "content": {
        "application/json": {
         "schema": {
-         "$ref": "#/components/schemas/HTTPValidationError"
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "403": {
+      "description": "Sem permissão",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "404": {
+      "description": "Não encontrado",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "409": {
+      "description": "Conflito (ex.: entidade em uso)",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Dados inválidos",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "429": {
+      "description": "Limite de requisições",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "500": {
+      "description": "Erro interno",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
         }
        }
       }
@@ -379,12 +887,72 @@
        }
       }
      },
-     "422": {
-      "description": "Validation Error",
+     "401": {
+      "description": "Não autenticado",
       "content": {
        "application/json": {
         "schema": {
-         "$ref": "#/components/schemas/HTTPValidationError"
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "403": {
+      "description": "Sem permissão",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "404": {
+      "description": "Não encontrado",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "409": {
+      "description": "Conflito (ex.: entidade em uso)",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Dados inválidos",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "429": {
+      "description": "Limite de requisições",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "500": {
+      "description": "Erro interno",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
         }
        }
       }
@@ -418,12 +986,72 @@
      "204": {
       "description": "Successful Response"
      },
-     "422": {
-      "description": "Validation Error",
+     "401": {
+      "description": "Não autenticado",
       "content": {
        "application/json": {
         "schema": {
-         "$ref": "#/components/schemas/HTTPValidationError"
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "403": {
+      "description": "Sem permissão",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "404": {
+      "description": "Não encontrado",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "409": {
+      "description": "Conflito (ex.: entidade em uso)",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Dados inválidos",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "429": {
+      "description": "Limite de requisições",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "500": {
+      "description": "Erro interno",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
         }
        }
       }
@@ -572,12 +1200,72 @@
        }
       }
      },
-     "422": {
-      "description": "Validation Error",
+     "401": {
+      "description": "Não autenticado",
       "content": {
        "application/json": {
         "schema": {
-         "$ref": "#/components/schemas/HTTPValidationError"
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "403": {
+      "description": "Sem permissão",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "404": {
+      "description": "Não encontrado",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "409": {
+      "description": "Conflito (ex.: entidade em uso)",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Dados inválidos",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "429": {
+      "description": "Limite de requisições",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "500": {
+      "description": "Erro interno",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
         }
        }
       }
@@ -603,6 +1291,76 @@
          },
          "type": "array",
          "title": "Response List Platforms Api Platforms Get"
+        }
+       }
+      }
+     },
+     "401": {
+      "description": "Não autenticado",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "403": {
+      "description": "Sem permissão",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "404": {
+      "description": "Não encontrado",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "409": {
+      "description": "Conflito (ex.: entidade em uso)",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Dados inválidos",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "429": {
+      "description": "Limite de requisições",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "500": {
+      "description": "Erro interno",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
         }
        }
       }
@@ -705,12 +1463,72 @@
        }
       }
      },
-     "422": {
-      "description": "Validation Error",
+     "401": {
+      "description": "Não autenticado",
       "content": {
        "application/json": {
         "schema": {
-         "$ref": "#/components/schemas/HTTPValidationError"
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "403": {
+      "description": "Sem permissão",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "404": {
+      "description": "Não encontrado",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "409": {
+      "description": "Conflito (ex.: entidade em uso)",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Dados inválidos",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "429": {
+      "description": "Limite de requisições",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "500": {
+      "description": "Erro interno",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
         }
        }
       }
@@ -749,12 +1567,72 @@
        }
       }
      },
-     "422": {
-      "description": "Validation Error",
+     "401": {
+      "description": "Não autenticado",
       "content": {
        "application/json": {
         "schema": {
-         "$ref": "#/components/schemas/HTTPValidationError"
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "403": {
+      "description": "Sem permissão",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "404": {
+      "description": "Não encontrado",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "409": {
+      "description": "Conflito (ex.: entidade em uso)",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Dados inválidos",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "429": {
+      "description": "Limite de requisições",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "500": {
+      "description": "Erro interno",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
         }
        }
       }
@@ -797,12 +1675,72 @@
        }
       }
      },
-     "422": {
-      "description": "Validation Error",
+     "401": {
+      "description": "Não autenticado",
       "content": {
        "application/json": {
         "schema": {
-         "$ref": "#/components/schemas/HTTPValidationError"
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "403": {
+      "description": "Sem permissão",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "404": {
+      "description": "Não encontrado",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "409": {
+      "description": "Conflito (ex.: entidade em uso)",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Dados inválidos",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "429": {
+      "description": "Limite de requisições",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "500": {
+      "description": "Erro interno",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
         }
        }
       }
@@ -853,12 +1791,72 @@
        }
       }
      },
-     "422": {
-      "description": "Validation Error",
+     "401": {
+      "description": "Não autenticado",
       "content": {
        "application/json": {
         "schema": {
-         "$ref": "#/components/schemas/HTTPValidationError"
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "403": {
+      "description": "Sem permissão",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "404": {
+      "description": "Não encontrado",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "409": {
+      "description": "Conflito (ex.: entidade em uso)",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Dados inválidos",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "429": {
+      "description": "Limite de requisições",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "500": {
+      "description": "Erro interno",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
         }
        }
       }
@@ -892,12 +1890,72 @@
      "204": {
       "description": "Successful Response"
      },
-     "422": {
-      "description": "Validation Error",
+     "401": {
+      "description": "Não autenticado",
       "content": {
        "application/json": {
         "schema": {
-         "$ref": "#/components/schemas/HTTPValidationError"
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "403": {
+      "description": "Sem permissão",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "404": {
+      "description": "Não encontrado",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "409": {
+      "description": "Conflito (ex.: entidade em uso)",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Dados inválidos",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "429": {
+      "description": "Limite de requisições",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "500": {
+      "description": "Erro interno",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
         }
        }
       }
@@ -940,12 +1998,72 @@
        }
       }
      },
-     "422": {
-      "description": "Validation Error",
+     "401": {
+      "description": "Não autenticado",
       "content": {
        "application/json": {
         "schema": {
-         "$ref": "#/components/schemas/HTTPValidationError"
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "403": {
+      "description": "Sem permissão",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "404": {
+      "description": "Não encontrado",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "409": {
+      "description": "Conflito (ex.: entidade em uso)",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Dados inválidos",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "429": {
+      "description": "Limite de requisições",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "500": {
+      "description": "Erro interno",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
         }
        }
       }
@@ -988,12 +2106,72 @@
        }
       }
      },
-     "422": {
-      "description": "Validation Error",
+     "401": {
+      "description": "Não autenticado",
       "content": {
        "application/json": {
         "schema": {
-         "$ref": "#/components/schemas/HTTPValidationError"
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "403": {
+      "description": "Sem permissão",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "404": {
+      "description": "Não encontrado",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "409": {
+      "description": "Conflito (ex.: entidade em uso)",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Dados inválidos",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "429": {
+      "description": "Limite de requisições",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "500": {
+      "description": "Erro interno",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
         }
        }
       }
@@ -1090,12 +2268,72 @@
        }
       }
      },
-     "422": {
-      "description": "Validation Error",
+     "401": {
+      "description": "Não autenticado",
       "content": {
        "application/json": {
         "schema": {
-         "$ref": "#/components/schemas/HTTPValidationError"
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "403": {
+      "description": "Sem permissão",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "404": {
+      "description": "Não encontrado",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "409": {
+      "description": "Conflito (ex.: entidade em uso)",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Dados inválidos",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "429": {
+      "description": "Limite de requisições",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "500": {
+      "description": "Erro interno",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
         }
        }
       }
@@ -1138,12 +2376,72 @@
        }
       }
      },
-     "422": {
-      "description": "Validation Error",
+     "401": {
+      "description": "Não autenticado",
       "content": {
        "application/json": {
         "schema": {
-         "$ref": "#/components/schemas/HTTPValidationError"
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "403": {
+      "description": "Sem permissão",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "404": {
+      "description": "Não encontrado",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "409": {
+      "description": "Conflito (ex.: entidade em uso)",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Dados inválidos",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "429": {
+      "description": "Limite de requisições",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "500": {
+      "description": "Erro interno",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
         }
        }
       }
@@ -1186,12 +2484,72 @@
        }
       }
      },
-     "422": {
-      "description": "Validation Error",
+     "401": {
+      "description": "Não autenticado",
       "content": {
        "application/json": {
         "schema": {
-         "$ref": "#/components/schemas/HTTPValidationError"
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "403": {
+      "description": "Sem permissão",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "404": {
+      "description": "Não encontrado",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "409": {
+      "description": "Conflito (ex.: entidade em uso)",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Dados inválidos",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "429": {
+      "description": "Limite de requisições",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "500": {
+      "description": "Erro interno",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
         }
        }
       }
@@ -1336,12 +2694,72 @@
        }
       }
      },
-     "422": {
-      "description": "Validation Error",
+     "401": {
+      "description": "Não autenticado",
       "content": {
        "application/json": {
         "schema": {
-         "$ref": "#/components/schemas/HTTPValidationError"
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "403": {
+      "description": "Sem permissão",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "404": {
+      "description": "Não encontrado",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "409": {
+      "description": "Conflito (ex.: entidade em uso)",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Dados inválidos",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "429": {
+      "description": "Limite de requisições",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "500": {
+      "description": "Erro interno",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
         }
        }
       }
@@ -1388,12 +2806,72 @@
        }
       }
      },
-     "422": {
-      "description": "Validation Error",
+     "401": {
+      "description": "Não autenticado",
       "content": {
        "application/json": {
         "schema": {
-         "$ref": "#/components/schemas/HTTPValidationError"
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "403": {
+      "description": "Sem permissão",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "404": {
+      "description": "Não encontrado",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "409": {
+      "description": "Conflito (ex.: entidade em uso)",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Dados inválidos",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "429": {
+      "description": "Limite de requisições",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "500": {
+      "description": "Erro interno",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
         }
        }
       }
@@ -1448,12 +2926,72 @@
      "204": {
       "description": "Successful Response"
      },
-     "422": {
-      "description": "Validation Error",
+     "401": {
+      "description": "Não autenticado",
       "content": {
        "application/json": {
         "schema": {
-         "$ref": "#/components/schemas/HTTPValidationError"
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "403": {
+      "description": "Sem permissão",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "404": {
+      "description": "Não encontrado",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "409": {
+      "description": "Conflito (ex.: entidade em uso)",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Dados inválidos",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "429": {
+      "description": "Limite de requisições",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "500": {
+      "description": "Erro interno",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
         }
        }
       }
@@ -1496,12 +3034,72 @@
      "204": {
       "description": "Successful Response"
      },
-     "422": {
-      "description": "Validation Error",
+     "401": {
+      "description": "Não autenticado",
       "content": {
        "application/json": {
         "schema": {
-         "$ref": "#/components/schemas/HTTPValidationError"
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "403": {
+      "description": "Sem permissão",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "404": {
+      "description": "Não encontrado",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "409": {
+      "description": "Conflito (ex.: entidade em uso)",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Dados inválidos",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "429": {
+      "description": "Limite de requisições",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "500": {
+      "description": "Erro interno",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
         }
        }
       }
@@ -1553,12 +3151,72 @@
        }
       }
      },
-     "422": {
-      "description": "Validation Error",
+     "401": {
+      "description": "Não autenticado",
       "content": {
        "application/json": {
         "schema": {
-         "$ref": "#/components/schemas/HTTPValidationError"
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "403": {
+      "description": "Sem permissão",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "404": {
+      "description": "Não encontrado",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "409": {
+      "description": "Conflito (ex.: entidade em uso)",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Dados inválidos",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "429": {
+      "description": "Limite de requisições",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "500": {
+      "description": "Erro interno",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
         }
        }
       }
@@ -1584,6 +3242,76 @@
          },
          "type": "array",
          "title": "Response List Niches Api Niches Get"
+        }
+       }
+      }
+     },
+     "401": {
+      "description": "Não autenticado",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "403": {
+      "description": "Sem permissão",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "404": {
+      "description": "Não encontrado",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "409": {
+      "description": "Conflito (ex.: entidade em uso)",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Dados inválidos",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "429": {
+      "description": "Limite de requisições",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "500": {
+      "description": "Erro interno",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
         }
        }
       }
@@ -1622,12 +3350,72 @@
        }
       }
      },
-     "422": {
-      "description": "Validation Error",
+     "401": {
+      "description": "Não autenticado",
       "content": {
        "application/json": {
         "schema": {
-         "$ref": "#/components/schemas/HTTPValidationError"
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "403": {
+      "description": "Sem permissão",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "404": {
+      "description": "Não encontrado",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "409": {
+      "description": "Conflito (ex.: entidade em uso)",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Dados inválidos",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "429": {
+      "description": "Limite de requisições",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "500": {
+      "description": "Erro interno",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
         }
        }
       }
@@ -1684,12 +3472,72 @@
        }
       }
      },
-     "422": {
-      "description": "Validation Error",
+     "401": {
+      "description": "Não autenticado",
       "content": {
        "application/json": {
         "schema": {
-         "$ref": "#/components/schemas/HTTPValidationError"
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "403": {
+      "description": "Sem permissão",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "404": {
+      "description": "Não encontrado",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "409": {
+      "description": "Conflito (ex.: entidade em uso)",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Dados inválidos",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "429": {
+      "description": "Limite de requisições",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "500": {
+      "description": "Erro interno",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
         }
        }
       }
@@ -1722,12 +3570,72 @@
      "204": {
       "description": "Successful Response"
      },
-     "422": {
-      "description": "Validation Error",
+     "401": {
+      "description": "Não autenticado",
       "content": {
        "application/json": {
         "schema": {
-         "$ref": "#/components/schemas/HTTPValidationError"
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "403": {
+      "description": "Sem permissão",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "404": {
+      "description": "Não encontrado",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "409": {
+      "description": "Conflito (ex.: entidade em uso)",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Dados inválidos",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "429": {
+      "description": "Limite de requisições",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "500": {
+      "description": "Erro interno",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
         }
        }
       }
@@ -1793,12 +3701,72 @@
        }
       }
      },
-     "422": {
-      "description": "Validation Error",
+     "401": {
+      "description": "Não autenticado",
       "content": {
        "application/json": {
         "schema": {
-         "$ref": "#/components/schemas/HTTPValidationError"
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "403": {
+      "description": "Sem permissão",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "404": {
+      "description": "Não encontrado",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "409": {
+      "description": "Conflito (ex.: entidade em uso)",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Dados inválidos",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "429": {
+      "description": "Limite de requisições",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "500": {
+      "description": "Erro interno",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
         }
        }
       }
@@ -1837,12 +3805,72 @@
        }
       }
      },
-     "422": {
-      "description": "Validation Error",
+     "401": {
+      "description": "Não autenticado",
       "content": {
        "application/json": {
         "schema": {
-         "$ref": "#/components/schemas/HTTPValidationError"
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "403": {
+      "description": "Sem permissão",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "404": {
+      "description": "Não encontrado",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "409": {
+      "description": "Conflito (ex.: entidade em uso)",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Dados inválidos",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "429": {
+      "description": "Limite de requisições",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "500": {
+      "description": "Erro interno",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
         }
        }
       }
@@ -1895,12 +3923,72 @@
        }
       }
      },
-     "422": {
-      "description": "Validation Error",
+     "401": {
+      "description": "Não autenticado",
       "content": {
        "application/json": {
         "schema": {
-         "$ref": "#/components/schemas/HTTPValidationError"
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "403": {
+      "description": "Sem permissão",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "404": {
+      "description": "Não encontrado",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "409": {
+      "description": "Conflito (ex.: entidade em uso)",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Dados inválidos",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "429": {
+      "description": "Limite de requisições",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "500": {
+      "description": "Erro interno",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
         }
        }
       }
@@ -1934,12 +4022,72 @@
      "204": {
       "description": "Successful Response"
      },
-     "422": {
-      "description": "Validation Error",
+     "401": {
+      "description": "Não autenticado",
       "content": {
        "application/json": {
         "schema": {
-         "$ref": "#/components/schemas/HTTPValidationError"
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "403": {
+      "description": "Sem permissão",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "404": {
+      "description": "Não encontrado",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "409": {
+      "description": "Conflito (ex.: entidade em uso)",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Dados inválidos",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "429": {
+      "description": "Limite de requisições",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "500": {
+      "description": "Erro interno",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
         }
        }
       }
@@ -1982,12 +4130,72 @@
        }
       }
      },
-     "422": {
-      "description": "Validation Error",
+     "401": {
+      "description": "Não autenticado",
       "content": {
        "application/json": {
         "schema": {
-         "$ref": "#/components/schemas/HTTPValidationError"
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "403": {
+      "description": "Sem permissão",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "404": {
+      "description": "Não encontrado",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "409": {
+      "description": "Conflito (ex.: entidade em uso)",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Dados inválidos",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "429": {
+      "description": "Limite de requisições",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "500": {
+      "description": "Erro interno",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
         }
        }
       }
@@ -2030,12 +4238,72 @@
        }
       }
      },
-     "422": {
-      "description": "Validation Error",
+     "401": {
+      "description": "Não autenticado",
       "content": {
        "application/json": {
         "schema": {
-         "$ref": "#/components/schemas/HTTPValidationError"
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "403": {
+      "description": "Sem permissão",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "404": {
+      "description": "Não encontrado",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "409": {
+      "description": "Conflito (ex.: entidade em uso)",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Dados inválidos",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "429": {
+      "description": "Limite de requisições",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "500": {
+      "description": "Erro interno",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
         }
        }
       }
@@ -2151,12 +4419,72 @@
        }
       }
      },
-     "422": {
-      "description": "Validation Error",
+     "401": {
+      "description": "Não autenticado",
       "content": {
        "application/json": {
         "schema": {
-         "$ref": "#/components/schemas/HTTPValidationError"
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "403": {
+      "description": "Sem permissão",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "404": {
+      "description": "Não encontrado",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "409": {
+      "description": "Conflito (ex.: entidade em uso)",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Dados inválidos",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "429": {
+      "description": "Limite de requisições",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "500": {
+      "description": "Erro interno",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
         }
        }
       }
@@ -2195,12 +4523,72 @@
        }
       }
      },
-     "422": {
-      "description": "Validation Error",
+     "401": {
+      "description": "Não autenticado",
       "content": {
        "application/json": {
         "schema": {
-         "$ref": "#/components/schemas/HTTPValidationError"
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "403": {
+      "description": "Sem permissão",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "404": {
+      "description": "Não encontrado",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "409": {
+      "description": "Conflito (ex.: entidade em uso)",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Dados inválidos",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "429": {
+      "description": "Limite de requisições",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "500": {
+      "description": "Erro interno",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
         }
        }
       }
@@ -2253,12 +4641,72 @@
        }
       }
      },
-     "422": {
-      "description": "Validation Error",
+     "401": {
+      "description": "Não autenticado",
       "content": {
        "application/json": {
         "schema": {
-         "$ref": "#/components/schemas/HTTPValidationError"
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "403": {
+      "description": "Sem permissão",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "404": {
+      "description": "Não encontrado",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "409": {
+      "description": "Conflito (ex.: entidade em uso)",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Dados inválidos",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "429": {
+      "description": "Limite de requisições",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "500": {
+      "description": "Erro interno",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
         }
        }
       }
@@ -2292,12 +4740,72 @@
      "204": {
       "description": "Successful Response"
      },
-     "422": {
-      "description": "Validation Error",
+     "401": {
+      "description": "Não autenticado",
       "content": {
        "application/json": {
         "schema": {
-         "$ref": "#/components/schemas/HTTPValidationError"
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "403": {
+      "description": "Sem permissão",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "404": {
+      "description": "Não encontrado",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "409": {
+      "description": "Conflito (ex.: entidade em uso)",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Dados inválidos",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "429": {
+      "description": "Limite de requisições",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "500": {
+      "description": "Erro interno",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
         }
        }
       }
@@ -2412,12 +4920,72 @@
        }
       }
      },
-     "422": {
-      "description": "Validation Error",
+     "401": {
+      "description": "Não autenticado",
       "content": {
        "application/json": {
         "schema": {
-         "$ref": "#/components/schemas/HTTPValidationError"
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "403": {
+      "description": "Sem permissão",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "404": {
+      "description": "Não encontrado",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "409": {
+      "description": "Conflito (ex.: entidade em uso)",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Dados inválidos",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "429": {
+      "description": "Limite de requisições",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "500": {
+      "description": "Erro interno",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
         }
        }
       }
@@ -2456,12 +5024,72 @@
        }
       }
      },
-     "422": {
-      "description": "Validation Error",
+     "401": {
+      "description": "Não autenticado",
       "content": {
        "application/json": {
         "schema": {
-         "$ref": "#/components/schemas/HTTPValidationError"
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "403": {
+      "description": "Sem permissão",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "404": {
+      "description": "Não encontrado",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "409": {
+      "description": "Conflito (ex.: entidade em uso)",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Dados inválidos",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "429": {
+      "description": "Limite de requisições",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "500": {
+      "description": "Erro interno",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
         }
        }
       }
@@ -2504,12 +5132,72 @@
        }
       }
      },
-     "422": {
-      "description": "Validation Error",
+     "401": {
+      "description": "Não autenticado",
       "content": {
        "application/json": {
         "schema": {
-         "$ref": "#/components/schemas/HTTPValidationError"
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "403": {
+      "description": "Sem permissão",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "404": {
+      "description": "Não encontrado",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "409": {
+      "description": "Conflito (ex.: entidade em uso)",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Dados inválidos",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "429": {
+      "description": "Limite de requisições",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "500": {
+      "description": "Erro interno",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
         }
        }
       }
@@ -2560,12 +5248,72 @@
        }
       }
      },
-     "422": {
-      "description": "Validation Error",
+     "401": {
+      "description": "Não autenticado",
       "content": {
        "application/json": {
         "schema": {
-         "$ref": "#/components/schemas/HTTPValidationError"
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "403": {
+      "description": "Sem permissão",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "404": {
+      "description": "Não encontrado",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "409": {
+      "description": "Conflito (ex.: entidade em uso)",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Dados inválidos",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "429": {
+      "description": "Limite de requisições",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "500": {
+      "description": "Erro interno",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
         }
        }
       }
@@ -2599,12 +5347,72 @@
      "204": {
       "description": "Successful Response"
      },
-     "422": {
-      "description": "Validation Error",
+     "401": {
+      "description": "Não autenticado",
       "content": {
        "application/json": {
         "schema": {
-         "$ref": "#/components/schemas/HTTPValidationError"
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "403": {
+      "description": "Sem permissão",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "404": {
+      "description": "Não encontrado",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "409": {
+      "description": "Conflito (ex.: entidade em uso)",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Dados inválidos",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "429": {
+      "description": "Limite de requisições",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "500": {
+      "description": "Erro interno",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
         }
        }
       }
@@ -2647,12 +5455,72 @@
        }
       }
      },
-     "422": {
-      "description": "Validation Error",
+     "401": {
+      "description": "Não autenticado",
       "content": {
        "application/json": {
         "schema": {
-         "$ref": "#/components/schemas/HTTPValidationError"
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "403": {
+      "description": "Sem permissão",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "404": {
+      "description": "Não encontrado",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "409": {
+      "description": "Conflito (ex.: entidade em uso)",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Dados inválidos",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "429": {
+      "description": "Limite de requisições",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "500": {
+      "description": "Erro interno",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
         }
        }
       }
@@ -2695,12 +5563,72 @@
        }
       }
      },
-     "422": {
-      "description": "Validation Error",
+     "401": {
+      "description": "Não autenticado",
       "content": {
        "application/json": {
         "schema": {
-         "$ref": "#/components/schemas/HTTPValidationError"
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "403": {
+      "description": "Sem permissão",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "404": {
+      "description": "Não encontrado",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "409": {
+      "description": "Conflito (ex.: entidade em uso)",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Dados inválidos",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "429": {
+      "description": "Limite de requisições",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "500": {
+      "description": "Erro interno",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
         }
        }
       }
@@ -2743,12 +5671,72 @@
        }
       }
      },
-     "422": {
-      "description": "Validation Error",
+     "401": {
+      "description": "Não autenticado",
       "content": {
        "application/json": {
         "schema": {
-         "$ref": "#/components/schemas/HTTPValidationError"
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "403": {
+      "description": "Sem permissão",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "404": {
+      "description": "Não encontrado",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "409": {
+      "description": "Conflito (ex.: entidade em uso)",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Dados inválidos",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "429": {
+      "description": "Limite de requisições",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "500": {
+      "description": "Erro interno",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
         }
        }
       }
@@ -2791,12 +5779,72 @@
        }
       }
      },
-     "422": {
-      "description": "Validation Error",
+     "401": {
+      "description": "Não autenticado",
       "content": {
        "application/json": {
         "schema": {
-         "$ref": "#/components/schemas/HTTPValidationError"
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "403": {
+      "description": "Sem permissão",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "404": {
+      "description": "Não encontrado",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "409": {
+      "description": "Conflito (ex.: entidade em uso)",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Dados inválidos",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "429": {
+      "description": "Limite de requisições",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "500": {
+      "description": "Erro interno",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
         }
        }
       }
@@ -2839,12 +5887,72 @@
        }
       }
      },
-     "422": {
-      "description": "Validation Error",
+     "401": {
+      "description": "Não autenticado",
       "content": {
        "application/json": {
         "schema": {
-         "$ref": "#/components/schemas/HTTPValidationError"
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "403": {
+      "description": "Sem permissão",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "404": {
+      "description": "Não encontrado",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "409": {
+      "description": "Conflito (ex.: entidade em uso)",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Dados inválidos",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "429": {
+      "description": "Limite de requisições",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "500": {
+      "description": "Erro interno",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
         }
        }
       }
@@ -2920,12 +6028,72 @@
        }
       }
      },
-     "422": {
-      "description": "Validation Error",
+     "401": {
+      "description": "Não autenticado",
       "content": {
        "application/json": {
         "schema": {
-         "$ref": "#/components/schemas/HTTPValidationError"
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "403": {
+      "description": "Sem permissão",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "404": {
+      "description": "Não encontrado",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "409": {
+      "description": "Conflito (ex.: entidade em uso)",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Dados inválidos",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "429": {
+      "description": "Limite de requisições",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "500": {
+      "description": "Erro interno",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
         }
        }
       }
@@ -2968,12 +6136,72 @@
        }
       }
      },
-     "422": {
-      "description": "Validation Error",
+     "401": {
+      "description": "Não autenticado",
       "content": {
        "application/json": {
         "schema": {
-         "$ref": "#/components/schemas/HTTPValidationError"
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "403": {
+      "description": "Sem permissão",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "404": {
+      "description": "Não encontrado",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "409": {
+      "description": "Conflito (ex.: entidade em uso)",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Dados inválidos",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "429": {
+      "description": "Limite de requisições",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "500": {
+      "description": "Erro interno",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
         }
        }
       }
@@ -3026,12 +6254,72 @@
        }
       }
      },
-     "422": {
-      "description": "Validation Error",
+     "401": {
+      "description": "Não autenticado",
       "content": {
        "application/json": {
         "schema": {
-         "$ref": "#/components/schemas/HTTPValidationError"
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "403": {
+      "description": "Sem permissão",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "404": {
+      "description": "Não encontrado",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "409": {
+      "description": "Conflito (ex.: entidade em uso)",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Dados inválidos",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "429": {
+      "description": "Limite de requisições",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "500": {
+      "description": "Erro interno",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
         }
        }
       }
@@ -3084,12 +6372,72 @@
        }
       }
      },
-     "422": {
-      "description": "Validation Error",
+     "401": {
+      "description": "Não autenticado",
       "content": {
        "application/json": {
         "schema": {
-         "$ref": "#/components/schemas/HTTPValidationError"
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "403": {
+      "description": "Sem permissão",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "404": {
+      "description": "Não encontrado",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "409": {
+      "description": "Conflito (ex.: entidade em uso)",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Dados inválidos",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "429": {
+      "description": "Limite de requisições",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "500": {
+      "description": "Erro interno",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
         }
        }
       }
@@ -3255,12 +6603,72 @@
        }
       }
      },
-     "422": {
-      "description": "Validation Error",
+     "401": {
+      "description": "Não autenticado",
       "content": {
        "application/json": {
         "schema": {
-         "$ref": "#/components/schemas/HTTPValidationError"
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "403": {
+      "description": "Sem permissão",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "404": {
+      "description": "Não encontrado",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "409": {
+      "description": "Conflito (ex.: entidade em uso)",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Dados inválidos",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "429": {
+      "description": "Limite de requisições",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "500": {
+      "description": "Erro interno",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
         }
        }
       }
@@ -3299,12 +6707,72 @@
        }
       }
      },
-     "422": {
-      "description": "Validation Error",
+     "401": {
+      "description": "Não autenticado",
       "content": {
        "application/json": {
         "schema": {
-         "$ref": "#/components/schemas/HTTPValidationError"
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "403": {
+      "description": "Sem permissão",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "404": {
+      "description": "Não encontrado",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "409": {
+      "description": "Conflito (ex.: entidade em uso)",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Dados inválidos",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "429": {
+      "description": "Limite de requisições",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "500": {
+      "description": "Erro interno",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
         }
        }
       }
@@ -3357,12 +6825,72 @@
        }
       }
      },
-     "422": {
-      "description": "Validation Error",
+     "401": {
+      "description": "Não autenticado",
       "content": {
        "application/json": {
         "schema": {
-         "$ref": "#/components/schemas/HTTPValidationError"
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "403": {
+      "description": "Sem permissão",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "404": {
+      "description": "Não encontrado",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "409": {
+      "description": "Conflito (ex.: entidade em uso)",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Dados inválidos",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "429": {
+      "description": "Limite de requisições",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "500": {
+      "description": "Erro interno",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
         }
        }
       }
@@ -3396,12 +6924,72 @@
      "204": {
       "description": "Successful Response"
      },
-     "422": {
-      "description": "Validation Error",
+     "401": {
+      "description": "Não autenticado",
       "content": {
        "application/json": {
         "schema": {
-         "$ref": "#/components/schemas/HTTPValidationError"
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "403": {
+      "description": "Sem permissão",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "404": {
+      "description": "Não encontrado",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "409": {
+      "description": "Conflito (ex.: entidade em uso)",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Dados inválidos",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "429": {
+      "description": "Limite de requisições",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "500": {
+      "description": "Erro interno",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
         }
        }
       }
@@ -3427,6 +7015,76 @@
          },
          "type": "array",
          "title": "Response List Categories Api Expense Categories Get"
+        }
+       }
+      }
+     },
+     "401": {
+      "description": "Não autenticado",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "403": {
+      "description": "Sem permissão",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "404": {
+      "description": "Não encontrado",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "409": {
+      "description": "Conflito (ex.: entidade em uso)",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Dados inválidos",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "429": {
+      "description": "Limite de requisições",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "500": {
+      "description": "Erro interno",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
         }
        }
       }
@@ -3465,12 +7123,72 @@
        }
       }
      },
-     "422": {
-      "description": "Validation Error",
+     "401": {
+      "description": "Não autenticado",
       "content": {
        "application/json": {
         "schema": {
-         "$ref": "#/components/schemas/HTTPValidationError"
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "403": {
+      "description": "Sem permissão",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "404": {
+      "description": "Não encontrado",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "409": {
+      "description": "Conflito (ex.: entidade em uso)",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Dados inválidos",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "429": {
+      "description": "Limite de requisições",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "500": {
+      "description": "Erro interno",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
         }
        }
       }
@@ -3511,12 +7229,72 @@
        }
       }
      },
-     "422": {
-      "description": "Validation Error",
+     "401": {
+      "description": "Não autenticado",
       "content": {
        "application/json": {
         "schema": {
-         "$ref": "#/components/schemas/HTTPValidationError"
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "403": {
+      "description": "Sem permissão",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "404": {
+      "description": "Não encontrado",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "409": {
+      "description": "Conflito (ex.: entidade em uso)",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Dados inválidos",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "429": {
+      "description": "Limite de requisições",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "500": {
+      "description": "Erro interno",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
         }
        }
       }
@@ -3636,12 +7414,72 @@
        }
       }
      },
-     "422": {
-      "description": "Validation Error",
+     "401": {
+      "description": "Não autenticado",
       "content": {
        "application/json": {
         "schema": {
-         "$ref": "#/components/schemas/HTTPValidationError"
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "403": {
+      "description": "Sem permissão",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "404": {
+      "description": "Não encontrado",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "409": {
+      "description": "Conflito (ex.: entidade em uso)",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Dados inválidos",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "429": {
+      "description": "Limite de requisições",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "500": {
+      "description": "Erro interno",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
         }
        }
       }
@@ -3680,12 +7518,72 @@
        }
       }
      },
-     "422": {
-      "description": "Validation Error",
+     "401": {
+      "description": "Não autenticado",
       "content": {
        "application/json": {
         "schema": {
-         "$ref": "#/components/schemas/HTTPValidationError"
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "403": {
+      "description": "Sem permissão",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "404": {
+      "description": "Não encontrado",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "409": {
+      "description": "Conflito (ex.: entidade em uso)",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Dados inválidos",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "429": {
+      "description": "Limite de requisições",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "500": {
+      "description": "Erro interno",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
         }
        }
       }
@@ -3738,12 +7636,72 @@
        }
       }
      },
-     "422": {
-      "description": "Validation Error",
+     "401": {
+      "description": "Não autenticado",
       "content": {
        "application/json": {
         "schema": {
-         "$ref": "#/components/schemas/HTTPValidationError"
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "403": {
+      "description": "Sem permissão",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "404": {
+      "description": "Não encontrado",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "409": {
+      "description": "Conflito (ex.: entidade em uso)",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Dados inválidos",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "429": {
+      "description": "Limite de requisições",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "500": {
+      "description": "Erro interno",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
         }
        }
       }
@@ -3777,12 +7735,72 @@
      "204": {
       "description": "Successful Response"
      },
-     "422": {
-      "description": "Validation Error",
+     "401": {
+      "description": "Não autenticado",
       "content": {
        "application/json": {
         "schema": {
-         "$ref": "#/components/schemas/HTTPValidationError"
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "403": {
+      "description": "Sem permissão",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "404": {
+      "description": "Não encontrado",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "409": {
+      "description": "Conflito (ex.: entidade em uso)",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Dados inválidos",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "429": {
+      "description": "Limite de requisições",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "500": {
+      "description": "Erro interno",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
         }
        }
       }
@@ -3859,12 +7877,72 @@
        }
       }
      },
-     "422": {
-      "description": "Validation Error",
+     "401": {
+      "description": "Não autenticado",
       "content": {
        "application/json": {
         "schema": {
-         "$ref": "#/components/schemas/HTTPValidationError"
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "403": {
+      "description": "Sem permissão",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "404": {
+      "description": "Não encontrado",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "409": {
+      "description": "Conflito (ex.: entidade em uso)",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Dados inválidos",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "429": {
+      "description": "Limite de requisições",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "500": {
+      "description": "Erro interno",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
         }
        }
       }
@@ -4019,12 +8097,72 @@
        }
       }
      },
-     "422": {
-      "description": "Validation Error",
+     "401": {
+      "description": "Não autenticado",
       "content": {
        "application/json": {
         "schema": {
-         "$ref": "#/components/schemas/HTTPValidationError"
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "403": {
+      "description": "Sem permissão",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "404": {
+      "description": "Não encontrado",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "409": {
+      "description": "Conflito (ex.: entidade em uso)",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Dados inválidos",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "429": {
+      "description": "Limite de requisições",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "500": {
+      "description": "Erro interno",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
         }
        }
       }
@@ -4060,12 +8198,72 @@
        }
       }
      },
-     "422": {
-      "description": "Validation Error",
+     "401": {
+      "description": "Não autenticado",
       "content": {
        "application/json": {
         "schema": {
-         "$ref": "#/components/schemas/HTTPValidationError"
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "403": {
+      "description": "Sem permissão",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "404": {
+      "description": "Não encontrado",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "409": {
+      "description": "Conflito (ex.: entidade em uso)",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Dados inválidos",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "429": {
+      "description": "Limite de requisições",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "500": {
+      "description": "Erro interno",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
         }
        }
       }
@@ -4096,6 +8294,76 @@
          },
          "type": "array",
          "title": "Response List Imports Api Sales Imports Get"
+        }
+       }
+      }
+     },
+     "401": {
+      "description": "Não autenticado",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "403": {
+      "description": "Sem permissão",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "404": {
+      "description": "Não encontrado",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "409": {
+      "description": "Conflito (ex.: entidade em uso)",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Dados inválidos",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "429": {
+      "description": "Limite de requisições",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "500": {
+      "description": "Erro interno",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
         }
        }
       }
@@ -4136,12 +8404,72 @@
        }
       }
      },
-     "422": {
-      "description": "Validation Error",
+     "401": {
+      "description": "Não autenticado",
       "content": {
        "application/json": {
         "schema": {
-         "$ref": "#/components/schemas/HTTPValidationError"
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "403": {
+      "description": "Sem permissão",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "404": {
+      "description": "Não encontrado",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "409": {
+      "description": "Conflito (ex.: entidade em uso)",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Dados inválidos",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "429": {
+      "description": "Limite de requisições",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "500": {
+      "description": "Erro interno",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
         }
        }
       }
@@ -4330,12 +8658,72 @@
        }
       }
      },
-     "422": {
-      "description": "Validation Error",
+     "401": {
+      "description": "Não autenticado",
       "content": {
        "application/json": {
         "schema": {
-         "$ref": "#/components/schemas/HTTPValidationError"
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "403": {
+      "description": "Sem permissão",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "404": {
+      "description": "Não encontrado",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "409": {
+      "description": "Conflito (ex.: entidade em uso)",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Dados inválidos",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "429": {
+      "description": "Limite de requisições",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "500": {
+      "description": "Erro interno",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
         }
        }
       }
@@ -4538,12 +8926,72 @@
        }
       }
      },
-     "422": {
-      "description": "Validation Error",
+     "401": {
+      "description": "Não autenticado",
       "content": {
        "application/json": {
         "schema": {
-         "$ref": "#/components/schemas/HTTPValidationError"
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "403": {
+      "description": "Sem permissão",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "404": {
+      "description": "Não encontrado",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "409": {
+      "description": "Conflito (ex.: entidade em uso)",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Dados inválidos",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "429": {
+      "description": "Limite de requisições",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "500": {
+      "description": "Erro interno",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
         }
        }
       }
@@ -4737,12 +9185,72 @@
        }
       }
      },
-     "422": {
-      "description": "Validation Error",
+     "401": {
+      "description": "Não autenticado",
       "content": {
        "application/json": {
         "schema": {
-         "$ref": "#/components/schemas/HTTPValidationError"
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "403": {
+      "description": "Sem permissão",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "404": {
+      "description": "Não encontrado",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "409": {
+      "description": "Conflito (ex.: entidade em uso)",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Dados inválidos",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "429": {
+      "description": "Limite de requisições",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "500": {
+      "description": "Erro interno",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
         }
        }
       }
@@ -4936,12 +9444,72 @@
        }
       }
      },
-     "422": {
-      "description": "Validation Error",
+     "401": {
+      "description": "Não autenticado",
       "content": {
        "application/json": {
         "schema": {
-         "$ref": "#/components/schemas/HTTPValidationError"
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "403": {
+      "description": "Sem permissão",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "404": {
+      "description": "Não encontrado",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "409": {
+      "description": "Conflito (ex.: entidade em uso)",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Dados inválidos",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "429": {
+      "description": "Limite de requisições",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "500": {
+      "description": "Erro interno",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
         }
        }
       }
@@ -5135,12 +9703,72 @@
        }
       }
      },
-     "422": {
-      "description": "Validation Error",
+     "401": {
+      "description": "Não autenticado",
       "content": {
        "application/json": {
         "schema": {
-         "$ref": "#/components/schemas/HTTPValidationError"
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "403": {
+      "description": "Sem permissão",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "404": {
+      "description": "Não encontrado",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "409": {
+      "description": "Conflito (ex.: entidade em uso)",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Dados inválidos",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "429": {
+      "description": "Limite de requisições",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "500": {
+      "description": "Erro interno",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
         }
        }
       }
@@ -5334,12 +9962,72 @@
        }
       }
      },
-     "422": {
-      "description": "Validation Error",
+     "401": {
+      "description": "Não autenticado",
       "content": {
        "application/json": {
         "schema": {
-         "$ref": "#/components/schemas/HTTPValidationError"
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "403": {
+      "description": "Sem permissão",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "404": {
+      "description": "Não encontrado",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "409": {
+      "description": "Conflito (ex.: entidade em uso)",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Dados inválidos",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "429": {
+      "description": "Limite de requisições",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "500": {
+      "description": "Erro interno",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
         }
        }
       }
@@ -5533,12 +10221,72 @@
        }
       }
      },
-     "422": {
-      "description": "Validation Error",
+     "401": {
+      "description": "Não autenticado",
       "content": {
        "application/json": {
         "schema": {
-         "$ref": "#/components/schemas/HTTPValidationError"
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "403": {
+      "description": "Sem permissão",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "404": {
+      "description": "Não encontrado",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "409": {
+      "description": "Conflito (ex.: entidade em uso)",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Dados inválidos",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "429": {
+      "description": "Limite de requisições",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "500": {
+      "description": "Erro interno",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
         }
        }
       }
@@ -5732,12 +10480,72 @@
        }
       }
      },
-     "422": {
-      "description": "Validation Error",
+     "401": {
+      "description": "Não autenticado",
       "content": {
        "application/json": {
         "schema": {
-         "$ref": "#/components/schemas/HTTPValidationError"
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "403": {
+      "description": "Sem permissão",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "404": {
+      "description": "Não encontrado",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "409": {
+      "description": "Conflito (ex.: entidade em uso)",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Dados inválidos",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "429": {
+      "description": "Limite de requisições",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "500": {
+      "description": "Erro interno",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
         }
        }
       }
@@ -5921,12 +10729,72 @@
        }
       }
      },
-     "422": {
-      "description": "Validation Error",
+     "401": {
+      "description": "Não autenticado",
       "content": {
        "application/json": {
         "schema": {
-         "$ref": "#/components/schemas/HTTPValidationError"
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "403": {
+      "description": "Sem permissão",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "404": {
+      "description": "Não encontrado",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "409": {
+      "description": "Conflito (ex.: entidade em uso)",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Dados inválidos",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "429": {
+      "description": "Limite de requisições",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "500": {
+      "description": "Erro interno",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
         }
        }
       }
@@ -5948,6 +10816,76 @@
        "application/json": {
         "schema": {
          "$ref": "#/components/schemas/SystemStatusResponse"
+        }
+       }
+      }
+     },
+     "401": {
+      "description": "Não autenticado",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "403": {
+      "description": "Sem permissão",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "404": {
+      "description": "Não encontrado",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "409": {
+      "description": "Conflito (ex.: entidade em uso)",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Dados inválidos",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "429": {
+      "description": "Limite de requisições",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "500": {
+      "description": "Erro interno",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
         }
        }
       }
@@ -6639,7 +11577,7 @@
       "title": "Phone Id"
      },
      "settings": {
-      "$ref": "#/components/schemas/BotSettings-Input"
+      "$ref": "#/components/schemas/BotSettings"
      },
      "message_template": {
       "anyOf": [
@@ -6807,7 +11745,7 @@
       "title": "Status"
      },
      "settings": {
-      "$ref": "#/components/schemas/BotSettings-Output"
+      "$ref": "#/components/schemas/BotSettings"
      },
      "message_template": {
       "anyOf": [
@@ -6890,45 +11828,7 @@
     ],
     "title": "BotResponse"
    },
-   "BotSettings-Input": {
-    "properties": {
-     "schema_version": {
-      "type": "integer",
-      "const": 1,
-      "title": "Schema Version",
-      "default": 1
-     },
-     "filters": {
-      "$ref": "#/components/schemas/Filters"
-     },
-     "pacing": {
-      "$ref": "#/components/schemas/Pacing"
-     },
-     "content": {
-      "$ref": "#/components/schemas/Content"
-     },
-     "schedule": {
-      "$ref": "#/components/schemas/Schedule"
-     },
-     "_legacy_input": {
-      "type": "boolean",
-      "title": "Legacy Input",
-      "default": false
-     },
-     "_legacy_keys": {
-      "items": {
-       "type": "string"
-      },
-      "type": "array",
-      "title": "Legacy Keys"
-     }
-    },
-    "additionalProperties": true,
-    "type": "object",
-    "title": "BotSettings",
-    "description": "Formato novo aninhado, com leitura e escrita lossless do config legado.\n\n`_legacy_input` e interno e excluido do schema. Ele permite que os JSONs que\nhoje alimentam o worker facam round-trip byte-a-byte no nivel de chaves,\nenquanto configuracoes novas sao persistidas no contrato aninhado."
-   },
-   "BotSettings-Output": {
+   "BotSettings": {
     "properties": {
      "schema_version": {
       "type": "integer",
@@ -7071,7 +11971,7 @@
      "settings": {
       "anyOf": [
        {
-        "$ref": "#/components/schemas/BotSettings-Input"
+        "$ref": "#/components/schemas/BotSettings"
        },
        {
         "type": "null"
@@ -7697,6 +12597,50 @@
      "value"
     ],
     "title": "CredentialWrite"
+   },
+   "ErrorDetail": {
+    "properties": {
+     "code": {
+      "type": "string",
+      "title": "Code"
+     },
+     "message": {
+      "type": "string",
+      "title": "Message"
+     },
+     "fields": {
+      "anyOf": [
+       {
+        "additionalProperties": {
+         "type": "string"
+        },
+        "type": "object"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Fields"
+     }
+    },
+    "type": "object",
+    "required": [
+     "code",
+     "message"
+    ],
+    "title": "ErrorDetail"
+   },
+   "ErrorEnvelope": {
+    "properties": {
+     "error": {
+      "$ref": "#/components/schemas/ErrorDetail"
+     }
+    },
+    "type": "object",
+    "required": [
+     "error"
+    ],
+    "title": "ErrorEnvelope"
    },
    "EventResponse": {
     "properties": {
@@ -8667,19 +13611,6 @@
     },
     "type": "object",
     "title": "GroupUpdate"
-   },
-   "HTTPValidationError": {
-    "properties": {
-     "detail": {
-      "items": {
-       "$ref": "#/components/schemas/ValidationError"
-      },
-      "type": "array",
-      "title": "Detail"
-     }
-    },
-    "type": "object",
-    "title": "HTTPValidationError"
    },
    "HealthResponse": {
     "properties": {
@@ -10631,46 +15562,6 @@
     },
     "type": "object",
     "title": "UserUpdate"
-   },
-   "ValidationError": {
-    "properties": {
-     "loc": {
-      "items": {
-       "anyOf": [
-        {
-         "type": "string"
-        },
-        {
-         "type": "integer"
-        }
-       ]
-      },
-      "type": "array",
-      "title": "Location"
-     },
-     "msg": {
-      "type": "string",
-      "title": "Message"
-     },
-     "type": {
-      "type": "string",
-      "title": "Error Type"
-     },
-     "input": {
-      "title": "Input"
-     },
-     "ctx": {
-      "type": "object",
-      "title": "Context"
-     }
-    },
-    "type": "object",
-    "required": [
-     "loc",
-     "msg",
-     "type"
-    ],
-    "title": "ValidationError"
    }
   },
   "securitySchemes": {
