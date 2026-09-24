@@ -4,6 +4,7 @@ from __future__ import annotations
 import time
 
 import database
+import relogio
 import whatsapp
 from config import BASE_DIR, canais_ativos, grupo_whatsapp, nome_canal, usar_canal
 from logger import logger
@@ -21,6 +22,9 @@ MENSAGEM = (
 
 
 def ciclo() -> None:
+    if not relogio.pode_enviar():
+        logger.info("[Instagram] Fora do horário (08h–00h, Brasília). Recado adiado.")
+        return
     if not FOTO.is_file():
         logger.warning("[Instagram] foto da vó não encontrada em assets/vo.jpg")
         return

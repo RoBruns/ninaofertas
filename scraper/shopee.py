@@ -8,9 +8,6 @@ priorizamos oferta quente em vez de catálogo antigo com estoque parado.
 """
 from __future__ import annotations
 
-import hashlib
-import json
-import time
 from datetime import datetime, timezone
 
 import httpx
@@ -18,16 +15,10 @@ import httpx
 from config import load_filtros, settings
 from logger import logger
 from scraper.base import OfertaCapturada, Scraper
-
-API_URL = "https://open-api.affiliate.shopee.com.br/graphql"
+from shopee_api import escape_graphql_string, graphql_request
 
 # 1 = mais recentes | 2 = mais vendidos (catálogo antigo)
 _SORT_MAIS_RECENTES = 1
-
-
-def _assinar(app_id: str, secret: str, timestamp: int, payload: str) -> str:
-    raw = f"{app_id}{timestamp}{payload}{secret}"
-    return hashlib.sha256(raw.encode("utf-8")).hexdigest()
 
 
 def _preco_float(valor) -> float | None:
@@ -73,30 +64,6 @@ class ShopeeScraper(Scraper):
             or ["oferta"]
         )
 
-    def _graphql(self, client: httpx.Client, query: str) -> dict:
-        app_id = settings.shopee_app_id
-        secret = settings.shopee_app_secret
-        payload_obj = {"query": query}
-        payload = json.dumps(payload_obj, separators=(",", ":"), ensure_ascii=False)
-        timestamp = int(time.time())
-        signature = _assinar(app_id, secret, timestamp, payload)
-        headers = {
-            "Content-Type": "application/json",
-            "Authorization": (
-                f"SHA256 Credential={app_id}, Timestamp={timestamp}, Signature={signature}"
-            ),
-        }
-        resp = client.post(API_URL, content=payload.encode("utf-8"), headers=headers)
-        resp.raise_for_status()
-        dados = resp.json()
-        if dados.get("errors"):
-            msgs = "; ".join(
-                e.get("message") or e.get("extensions", {}).get("message") or str(e)
-                for e in dados["errors"]
-            )
-            raise RuntimeError(f"GraphQL Shopee: {msgs}")
-        return dados.get("data") or {}
-
     def buscar(self) -> list[OfertaCapturada]:
         if not settings.shopee_app_id or not settings.shopee_app_secret:
             if not ShopeeScraper._avisou_sem_credenciais:
@@ -112,7 +79,7 @@ class ShopeeScraper(Scraper):
             if load_filtros().get("aceitar_campanhas", False):
                 ofertas.extend(self._buscar_campanhas(client))
             for termo in self._termos_busca():
-                keyword = termo.replace('"', '\\"')
+                keyword = escape_graphql_string(termo)
                 query = f"""
                 {{
                   productOfferV2(
@@ -139,7 +106,7 @@ class ShopeeScraper(Scraper):
                 }}
                 """
                 try:
-                    data = self._graphql(client, query)
+                    data = graphql_request(client, query)
                 except Exception as e:
                     logger.warning(f"[Shopee] falha na busca '{termo}': {e}")
                     continue
@@ -169,7 +136,7 @@ class ShopeeScraper(Scraper):
         }
         """
         try:
-            data = self._graphql(client, query)
+            data = graphql_request(client, query)
         except Exception as e:
             logger.warning(f"[Shopee] falha ao buscar campanhas: {e}")
             return []

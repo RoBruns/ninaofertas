@@ -4,6 +4,10 @@
   "categorias": [],
   "categorias_meli": ["MLB1574", "MLB5726", "MLB1246", "MLB1430", "MLB3937"],
   "desconto_minimo": 15,
+  "envio_hora_inicio": 8,
+  "envio_hora_fim": 0,
+  "desconto_minimo_aplica_em": "oferta",
+  "top_mais_vendidos": 10,
   "preco_maximo": 5000,
   "preco_minimo": 20,
   "termos_busca": [
@@ -187,5 +191,5 @@
   "max_ofertas_por_dia": 0,
   "max_ofertas_globais_por_hora": 8,
   "max_ofertas_globais_por_dia": 0,
-  "mensagem_template": "🔥 A vó achou mais uma!\n\n🛒 {nome}\n\n💰 De: R$ {preco_anterior}\n🔥 Por: R$ {preco}\n📉 {desconto}% OFF\n\n🏪 {loja}\n\n👉 COMPRAR:\n{url}\n\n⏰ {hora}"
+  "mensagem_template": "🔥 {nome}\n\n✅ R$ {preco}\n\n{url}\n\n⏰ {hora}"
 }

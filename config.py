@@ -75,21 +75,17 @@ class Settings:
     evolution_api_url: str = field(default_factory=lambda: os.getenv("EVOLUTION_API_URL", "http://localhost:8080"))
     evolution_api_key: str = field(default_factory=lambda: os.getenv("EVOLUTION_API_KEY", ""))
     evolution_instance: str = field(default_factory=lambda: os.getenv("EVOLUTION_INSTANCE", ""))
+    evolution_bot_number: str = field(default_factory=lambda: os.getenv("EVOLUTION_BOT_NUMBER", ""))
     whatsapp_group_id: str = field(default_factory=lambda: os.getenv("WHATSAPP_GROUP_ID", ""))
     whatsapp_group_id_auto: str = field(default_factory=lambda: os.getenv("WHATSAPP_GROUP_ID_AUTO", ""))
 
     reenvio_queda_minima: float = field(default_factory=lambda: float(os.getenv("REENVIO_QUEDA_MINIMA", 15)))
 
-    mercadolivre_app_id: str = field(default_factory=lambda: os.getenv("MERCADOLIVRE_APP_ID", ""))
-    mercadolivre_app_secret: str = field(default_factory=lambda: os.getenv("MERCADOLIVRE_APP_SECRET", ""))
-    lomadee_source_id: str = field(default_factory=lambda: os.getenv("LOMADEE_SOURCE_ID", ""))
     mercadolivre_affiliate_tag: str = field(default_factory=lambda: os.getenv("MERCADOLIVRE_AFFILIATE_TAG", ""))
     mercadolivre_affiliate_cookie: str = field(default_factory=lambda: os.getenv("MERCADOLIVRE_AFFILIATE_COOKIE", ""))
 
     shopee_app_id: str = field(default_factory=lambda: os.getenv("SHOPEE_APP_ID", ""))
     shopee_app_secret: str = field(default_factory=lambda: os.getenv("SHOPEE_APP_SECRET", ""))
-
-    openai_api_key: str = field(default_factory=lambda: os.getenv("OPENAI_API_KEY", ""))
 
     log_level: str = field(default_factory=lambda: os.getenv("LOG_LEVEL", "INFO"))
 

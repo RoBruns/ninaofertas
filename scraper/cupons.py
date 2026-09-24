@@ -2,9 +2,7 @@
 from __future__ import annotations
 
 import hashlib
-import json
 import re
-import time
 from datetime import datetime, timezone
 
 import httpx
@@ -14,7 +12,8 @@ from logger import logger
 from scraper.base import OfertaCapturada, Scraper
 from scraper.mercadolivre import HEADERS as ML_HEADERS
 from scraper.mercadolivre import OFERTAS_URL
-from scraper.shopee import API_URL, _assinar, _preco_float, _ts_para_dt
+from scraper.shopee import _preco_float, _ts_para_dt
+from shopee_api import graphql_request
 
 _SHOPEE_VOUCHER_QUERIES = (
     """
@@ -87,31 +86,11 @@ class CupomScraper(Scraper):
                 out.append(oferta)
         return out
 
-    def _graphql(self, client: httpx.Client, query: str) -> dict:
-        app_id = settings.shopee_app_id
-        secret = settings.shopee_app_secret
-        payload = json.dumps({"query": query}, separators=(",", ":"), ensure_ascii=False)
-        ts = int(time.time())
-        sig = _assinar(app_id, secret, ts, payload)
-        headers = {
-            "Content-Type": "application/json",
-            "Authorization": f"SHA256 Credential={app_id}, Timestamp={ts}, Signature={sig}",
-        }
-        resp = client.post(API_URL, content=payload.encode("utf-8"), headers=headers)
-        resp.raise_for_status()
-        dados = resp.json()
-        if dados.get("errors"):
-            msgs = "; ".join(
-                str(e.get("message") or e) for e in dados["errors"]
-            )
-            raise RuntimeError(msgs)
-        return dados.get("data") or {}
-
     def _shopee_voucher_nodes(self) -> list[dict]:
         with httpx.Client(timeout=self.timeout) as client:
             for query in _SHOPEE_VOUCHER_QUERIES:
                 try:
-                    data = self._graphql(client, query)
+                    data = graphql_request(client, query)
                 except Exception as e:
                     logger.debug(f"[Cupons] voucherOfferV2 indisponível: {e}")
                     continue
@@ -136,7 +115,7 @@ class CupomScraper(Scraper):
         """
         try:
             with httpx.Client(timeout=self.timeout) as client:
-                data = self._graphql(client, query)
+                data = graphql_request(client, query)
         except Exception as e:
             logger.warning(f"[Cupons] shopeeOfferV2: {e}")
             return []

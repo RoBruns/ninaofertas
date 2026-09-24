@@ -6,7 +6,7 @@ timeout, retries e isolamento de erro — uma fonte instável nunca derruba o bo
 from __future__ import annotations
 
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Optional
 
@@ -26,7 +26,7 @@ class OfertaCapturada:
     categoria: Optional[str] = None
     imagem: Optional[str] = None
     sku: Optional[str] = None
-    capturado_em: datetime = None
+    capturado_em: Optional[datetime] = field(default_factory=datetime.now)
     # Proxies de "oferta quente" (quando a fonte informa).
     vendas: Optional[int] = None
     oferta_desde: Optional[datetime] = None
@@ -37,8 +37,6 @@ class OfertaCapturada:
     validade: Optional[str] = None
 
     def __post_init__(self):
-        if self.capturado_em is None:
-            self.capturado_em = datetime.now()
         if self.desconto is None and self.preco_anterior and self.preco_anterior > 0:
             self.desconto = round((1 - self.preco / self.preco_anterior) * 100, 1)
 

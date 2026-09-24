@@ -11,6 +11,7 @@ import dedup
 import database
 import formatter
 import whatsapp
+import relogio
 from config import canal_atual, grupo_whatsapp, load_filtros, nome_canal, settings
 from filters import passa_nos_filtros
 from logger import logger
@@ -19,6 +20,7 @@ from scraper.base import OfertaCapturada
 
 _baseline_ciclos_feitos: dict[str, int] = {}
 _ciclo_n: dict[str, int] = {}
+_silencio_avisado: set[str] = set()
 
 
 def _intercalar_lojas(ofertas: list[OfertaCapturada], prioridade: str) -> list[OfertaCapturada]:
@@ -79,7 +81,7 @@ def _baseline_oferta(session, oferta: OfertaCapturada, filtros: dict) -> bool:
 
 def _freio_anti_ban(session, filtros: dict, grupo: str, oferta: OfertaCapturada | None = None) -> tuple[bool, str]:
     """Ritmo da conta inteira: o WhatsApp bane o número, não o grupo."""
-    from datetime import datetime, timedelta
+    from datetime import timedelta
 
     decorridos_conta = database.minutos_desde_ultimo_envio(session)
 
@@ -93,7 +95,7 @@ def _freio_anti_ban(session, filtros: dict, grupo: str, oferta: OfertaCapturada 
     pausa = float(filtros.get("pausa_entre_rajadas_minutos") or 0)
     if max_rajada and pausa:
         n_janela = database.contar_envios_desde(
-            session, datetime.now() - timedelta(minutes=janela)
+            session, relogio.agora_banco() - timedelta(minutes=janela)
         )
         if n_janela >= max_rajada and decorridos_conta is not None and decorridos_conta < pausa:
             falta = pausa - decorridos_conta
@@ -200,8 +202,19 @@ def ciclo() -> None:
     feitos = _baseline_ciclos_feitos.get(canal, 0)
     n = _ciclo_n.get(canal, 0)
 
-    logger.info(f"[{nome_canal()}] Buscando novas ofertas...")
     filtros = load_filtros()
+    if not relogio.pode_enviar(filtros):
+        if canal not in _silencio_avisado:
+            _silencio_avisado.add(canal)
+            volta = relogio.proximo_inicio(filtros)
+            logger.info(
+                f"[{nome_canal()}] Fora do horário de envio (08h–00h, Brasília). "
+                f"Sem blip até {volta.strftime('%H:%M')}."
+            )
+        return
+    _silencio_avisado.discard(canal)
+
+    logger.info(f"[{nome_canal()}] Buscando novas ofertas...")
     baseline_alvo = int(filtros.get("baseline_ciclos") or 0)
     max_por_ciclo = int(filtros.get("max_ofertas_por_ciclo") or 1)
     grupo = grupo_whatsapp()

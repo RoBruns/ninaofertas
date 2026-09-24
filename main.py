@@ -2,13 +2,15 @@
 from __future__ import annotations
 
 import time
-from datetime import datetime, timedelta
+from datetime import timedelta
 
 from apscheduler.schedulers.background import BackgroundScheduler
 
 import database
 import monitor
 import promo_instagram
+from promo_instagram import INTERVALO_HORAS as INSTAGRAM_INTERVALO_HORAS
+import relogio
 from config import canais_ativos, settings, usar_canal
 from logger import logger
 
@@ -41,7 +43,8 @@ def main() -> None:
     whatsapp.avisar_permissao_grupos()
 
     scheduler = BackgroundScheduler(timezone="America/Sao_Paulo")
-    agora = datetime.now()
+    agora = relogio.agora_br()
+    logger.info(f"Horário de Brasília: {agora.strftime('%H:%M')}. Envios das 08h até 00h.")
     if "achadinhos" in ativos:
         scheduler.add_job(
             _ciclo_achadinhos,
@@ -65,13 +68,13 @@ def main() -> None:
     scheduler.add_job(
         promo_instagram.ciclo,
         "interval",
-        hours=1,
+        hours=INSTAGRAM_INTERVALO_HORAS,
         next_run_time=agora + timedelta(minutes=2),
         id="instagram",
         max_instances=1,
         coalesce=True,
     )
-    logger.info("Recado do Instagram (foto da vó) a cada 4h no grupo ativo.")
+    logger.info(f"Recado do Instagram (foto da vó) a cada {INSTAGRAM_INTERVALO_HORAS}h no grupo ativo.")
     scheduler.start()
 
     try:

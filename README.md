@@ -13,7 +13,9 @@ só conversas 1:1 com opt-in — por isso o envio usa evolution-api, que fala o
 protocolo do WhatsApp Web, é gratuita, self-hosted e suporta grupos.
 
 ```bash
-docker run -d --name evolution-api -p 8080:8080 atendai/evolution-api
+# Na raiz do projeto (sobe Postgres + Redis + Evolution):
+docker compose up -d
+# Evolution fica em http://127.0.0.1:8080 — defina POSTGRES_PASSWORD e EVOLUTION_API_KEY no .env
 ```
 
 Depois:
@@ -31,8 +33,11 @@ copy .env.example .env         # edite com suas credenciais
 ```
 
 Preencha no `.env`:
-- `EVOLUTION_API_URL`, `EVOLUTION_API_KEY`, `EVOLUTION_INSTANCE`, `WHATSAPP_GROUP_ID`
-- `MERCADOLIVRE_APP_ID` / `MERCADOLIVRE_APP_SECRET` (opcional, mas recomendado — veja abaixo)
+- `EVOLUTION_API_URL`, `EVOLUTION_API_KEY`, `EVOLUTION_INSTANCE`, `WHATSAPP_GROUP_ID`, `EVOLUTION_BOT_NUMBER`
+- `POSTGRES_PASSWORD` (Docker Compose da Evolution)
+- `SHOPEE_APP_ID` / `SHOPEE_APP_SECRET`, `MERCADOLIVRE_AFFILIATE_TAG` / `MERCADOLIVRE_AFFILIATE_COOKIE`
+
+Varredura de segredos no Git (local): `scripts/scan-secrets.ps1` ou `gitleaks detect --source .`
 
 Ajuste os critérios de filtro em `config.json` (preço, desconto mínimo, lojas, categorias, palavras-chave, limites de envio).
 
@@ -50,16 +55,12 @@ O bot já roda a primeira verificação imediatamente e depois a cada
 
 | Fonte | Método | Situação |
 |---|---|---|
-| **Pelando** | scraping de `/mais-quentes` | Funciona sem configuração. Não expõe preço anterior/desconto — para essas ofertas passarem no filtro, deixe `desconto_minimo: 0` ou aceite que só nome/preço/loja sejam usados. |
-| **Mercado Livre** | API oficial (`/sites/MLB/search`) | Desde 2026 a ML exige um app registrado — crie um em https://developers.mercadolivre.com.br/ e preencha `MERCADOLIVRE_APP_ID`/`MERCADOLIVRE_APP_SECRET`. Sem isso, a fonte é pulada (log de aviso, o bot continua normalmente). |
-| **Amazon** | scraping de `/s?k=` | Amazon bloqueia agressivamente requisições automatizadas (mais do que as outras fontes). Pode funcionar bem de uma rede residencial e falhar de tempos em tempos — isso é esperado para scraping não-oficial; o bot loga o erro e segue sem travar. |
-| **Magalu** | scraping do JSON embutido na página de busca | Mesma observação da Amazon: sujeito a bloqueio/mudança de layout. |
+| **Shopee** | API oficial de afiliados (GraphQL) | Requer `SHOPEE_APP_ID` / `SHOPEE_APP_SECRET`. |
+| **Mercado Livre** | HTML público `/ofertas` + listagem | Afiliado via `MERCADOLIVRE_AFFILIATE_*` no `.env`. |
+| **Cupons** | Shopee vouchers + MELI | Mesmas credenciais Shopee quando aplicável. |
 
-Todas as fontes de scraping HTML (Amazon, Magalu, Pelando) dependem da
-estrutura atual das páginas. Se um site mudar o layout e uma fonte parar de
-retornar ofertas, ajuste **só** o arquivo daquela fonte em `scraper/` — o
-resto do pipeline (filtros, dedup, formatação, envio) não muda. Cada fonte
-roda isolada: se uma cair, as outras continuam.
+Fontes legadas (Amazon, Magalu, Pelando) estão em `scraper/disabled/`.
+Cada fonte roda isolada: se uma cair, as outras continuam.
 
 ## Adicionando uma nova fonte
 
