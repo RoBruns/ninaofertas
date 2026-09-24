@@ -8,6 +8,7 @@ from datetime import datetime, timedelta
 from apscheduler.schedulers.background import BackgroundScheduler
 
 from core import db
+from core.alerts import cleanup_events, detect_alerts
 from core.sales_sync import sync_all_active_accounts
 from core.settings import settings
 from worker import commands, monitor, promo_instagram
@@ -15,6 +16,22 @@ from worker.channels import canais_ativos, usar_canal
 from worker.logger import logger
 
 _database_mode = False
+
+
+def _detectar_alertas() -> None:
+    """Falhas de observabilidade nunca chegam ao ciclo de ofertas."""
+    try:
+        detect_alerts()
+    except Exception as exc:
+        logger.exception(f"Job de alertas falhou: {exc}")
+
+
+def _limpar_eventos() -> None:
+    try:
+        removidos = cleanup_events()
+        logger.info(f"Retencao de eventos removeu {removidos} registros antigos.")
+    except Exception as exc:
+        logger.exception(f"Job de retencao de eventos falhou: {exc}")
 
 
 def _ciclo_achadinhos() -> None:
@@ -114,6 +131,24 @@ def _registrar_jobs(
         hour=6,
         minute=0,
         id="sales-sync-daily",
+        max_instances=1,
+        coalesce=True,
+    )
+    scheduler.add_job(
+        _detectar_alertas,
+        "interval",
+        minutes=5,
+        next_run_time=agora,
+        id="alerts-detect",
+        max_instances=1,
+        coalesce=True,
+    )
+    scheduler.add_job(
+        _limpar_eventos,
+        "cron",
+        hour=3,
+        minute=30,
+        id="events-retention",
         max_instances=1,
         coalesce=True,
     )

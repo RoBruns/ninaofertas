@@ -1001,6 +1001,354 @@
     }
    }
   },
+  "/api/alerts": {
+   "get": {
+    "tags": [
+     "alerts"
+    ],
+    "summary": "List Alerts",
+    "operationId": "list_alerts_api_alerts_get",
+    "security": [
+     {
+      "HTTPBearer": []
+     }
+    ],
+    "parameters": [
+     {
+      "name": "status",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "enum": [
+          "open",
+          "acknowledged",
+          "resolved"
+         ],
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Status"
+      }
+     },
+     {
+      "name": "severity",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "enum": [
+          "warning",
+          "critical"
+         ],
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Severity"
+      }
+     },
+     {
+      "name": "page",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "type": "integer",
+       "minimum": 1,
+       "default": 1,
+       "title": "Page"
+      }
+     },
+     {
+      "name": "page_size",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "type": "integer",
+       "maximum": 100,
+       "minimum": 1,
+       "default": 50,
+       "title": "Page Size"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/PaginatedResponse_AlertResponse_"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/alerts/{alert_id}/acknowledge": {
+   "post": {
+    "tags": [
+     "alerts"
+    ],
+    "summary": "Acknowledge Alert",
+    "operationId": "acknowledge_alert_api_alerts__alert_id__acknowledge_post",
+    "security": [
+     {
+      "HTTPBearer": []
+     }
+    ],
+    "parameters": [
+     {
+      "name": "alert_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "format": "uuid",
+       "title": "Alert Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/AlertResponse"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/alerts/{alert_id}/resolve": {
+   "post": {
+    "tags": [
+     "alerts"
+    ],
+    "summary": "Resolve Alert",
+    "operationId": "resolve_alert_api_alerts__alert_id__resolve_post",
+    "security": [
+     {
+      "HTTPBearer": []
+     }
+    ],
+    "parameters": [
+     {
+      "name": "alert_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "format": "uuid",
+       "title": "Alert Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/AlertResponse"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/events": {
+   "get": {
+    "tags": [
+     "events"
+    ],
+    "summary": "List Events",
+    "operationId": "list_events_api_events_get",
+    "security": [
+     {
+      "HTTPBearer": []
+     }
+    ],
+    "parameters": [
+     {
+      "name": "level",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "enum": [
+          "info",
+          "warning",
+          "error",
+          "critical"
+         ],
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Level"
+      }
+     },
+     {
+      "name": "bot_id",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string",
+         "format": "uuid"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Bot Id"
+      }
+     },
+     {
+      "name": "type",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Type"
+      }
+     },
+     {
+      "name": "from",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string",
+         "format": "date-time"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "From"
+      }
+     },
+     {
+      "name": "to",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string",
+         "format": "date-time"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "To"
+      }
+     },
+     {
+      "name": "page",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "type": "integer",
+       "minimum": 1,
+       "default": 1,
+       "title": "Page"
+      }
+     },
+     {
+      "name": "page_size",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "type": "integer",
+       "maximum": 100,
+       "minimum": 1,
+       "default": 50,
+       "title": "Page Size"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/PaginatedResponse_EventResponse_"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
   "/api/accounts/{account_id}/credentials": {
    "get": {
     "tags": [
@@ -5585,6 +5933,32 @@
      }
     }
    }
+  },
+  "/api/system/status": {
+   "get": {
+    "tags": [
+     "system"
+    ],
+    "summary": "System Status",
+    "operationId": "system_status_api_system_status_get",
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/SystemStatusResponse"
+        }
+       }
+      }
+     }
+    },
+    "security": [
+     {
+      "HTTPBearer": []
+     }
+    ]
+   }
   }
  },
  "components": {
@@ -5773,6 +6147,35 @@
     ],
     "title": "AccountResponse"
    },
+   "AccountSystemStatus": {
+    "properties": {
+     "id": {
+      "type": "string",
+      "format": "uuid",
+      "title": "Id"
+     },
+     "label": {
+      "type": "string",
+      "title": "Label"
+     },
+     "status": {
+      "type": "string",
+      "title": "Status"
+     },
+     "credential_health": {
+      "type": "string",
+      "title": "Credential Health"
+     }
+    },
+    "type": "object",
+    "required": [
+     "id",
+     "label",
+     "status",
+     "credential_health"
+    ],
+    "title": "AccountSystemStatus"
+   },
    "AccountUpdate": {
     "properties": {
      "label": {
@@ -5825,6 +6228,139 @@
     },
     "type": "object",
     "title": "AccountUpdate"
+   },
+   "AlertResponse": {
+    "properties": {
+     "id": {
+      "type": "string",
+      "format": "uuid",
+      "title": "Id"
+     },
+     "owner_id": {
+      "type": "string",
+      "format": "uuid",
+      "title": "Owner Id"
+     },
+     "type": {
+      "type": "string",
+      "title": "Type"
+     },
+     "severity": {
+      "type": "string",
+      "enum": [
+       "warning",
+       "critical"
+      ],
+      "title": "Severity"
+     },
+     "entity_type": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Entity Type"
+     },
+     "entity_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Entity Id"
+     },
+     "title": {
+      "type": "string",
+      "title": "Title"
+     },
+     "detail": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Detail"
+     },
+     "status": {
+      "type": "string",
+      "enum": [
+       "open",
+       "acknowledged",
+       "resolved"
+      ],
+      "title": "Status"
+     },
+     "first_seen_at": {
+      "type": "string",
+      "format": "date-time",
+      "title": "First Seen At"
+     },
+     "last_seen_at": {
+      "type": "string",
+      "format": "date-time",
+      "title": "Last Seen At"
+     },
+     "resolved_at": {
+      "anyOf": [
+       {
+        "type": "string",
+        "format": "date-time"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Resolved At"
+     },
+     "dedup_key": {
+      "type": "string",
+      "title": "Dedup Key"
+     }
+    },
+    "type": "object",
+    "required": [
+     "id",
+     "owner_id",
+     "type",
+     "severity",
+     "entity_type",
+     "entity_id",
+     "title",
+     "detail",
+     "status",
+     "first_seen_at",
+     "last_seen_at",
+     "resolved_at",
+     "dedup_key"
+    ],
+    "title": "AlertResponse"
+   },
+   "AlertTotals": {
+    "properties": {
+     "critical": {
+      "type": "integer",
+      "title": "Critical"
+     },
+     "warning": {
+      "type": "integer",
+      "title": "Warning"
+     }
+    },
+    "type": "object",
+    "required": [
+     "critical",
+     "warning"
+    ],
+    "title": "AlertTotals"
    },
    "AuditLogResponse": {
     "properties": {
@@ -6417,6 +6953,68 @@
     "type": "object",
     "title": "BotSettings",
     "description": "Formato novo aninhado, com leitura e escrita lossless do config legado.\n\n`_legacy_input` e interno e excluido do schema. Ele permite que os JSONs que\nhoje alimentam o worker facam round-trip byte-a-byte no nivel de chaves,\nenquanto configuracoes novas sao persistidas no contrato aninhado."
+   },
+   "BotSystemStatus": {
+    "properties": {
+     "id": {
+      "type": "string",
+      "format": "uuid",
+      "title": "Id"
+     },
+     "name": {
+      "type": "string",
+      "title": "Name"
+     },
+     "status": {
+      "type": "string",
+      "title": "Status"
+     },
+     "last_run_at": {
+      "anyOf": [
+       {
+        "type": "string",
+        "format": "date-time"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Last Run At"
+     },
+     "last_run_status": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Last Run Status"
+     },
+     "last_failure_at": {
+      "anyOf": [
+       {
+        "type": "string",
+        "format": "date-time"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Last Failure At"
+     }
+    },
+    "type": "object",
+    "required": [
+     "id",
+     "name",
+     "status",
+     "last_run_at",
+     "last_run_status",
+     "last_failure_at"
+    ],
+    "title": "BotSystemStatus"
    },
    "BotUpdate": {
     "properties": {
@@ -7099,6 +7697,96 @@
      "value"
     ],
     "title": "CredentialWrite"
+   },
+   "EventResponse": {
+    "properties": {
+     "id": {
+      "type": "integer",
+      "title": "Id"
+     },
+     "bot_id": {
+      "anyOf": [
+       {
+        "type": "string",
+        "format": "uuid"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Bot Id"
+     },
+     "entity_type": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Entity Type"
+     },
+     "entity_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Entity Id"
+     },
+     "level": {
+      "type": "string",
+      "enum": [
+       "info",
+       "warning",
+       "error",
+       "critical"
+      ],
+      "title": "Level"
+     },
+     "type": {
+      "type": "string",
+      "title": "Type"
+     },
+     "message": {
+      "type": "string",
+      "title": "Message"
+     },
+     "detail": {
+      "anyOf": [
+       {
+        "additionalProperties": true,
+        "type": "object"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Detail"
+     },
+     "created_at": {
+      "type": "string",
+      "format": "date-time",
+      "title": "Created At"
+     }
+    },
+    "type": "object",
+    "required": [
+     "id",
+     "bot_id",
+     "entity_type",
+     "entity_id",
+     "level",
+     "type",
+     "message",
+     "detail",
+     "created_at"
+    ],
+    "title": "EventResponse"
    },
    "ExpenseCategoryCreate": {
     "properties": {
@@ -8719,6 +9407,37 @@
     ],
     "title": "PaginatedResponse[AccountResponse]"
    },
+   "PaginatedResponse_AlertResponse_": {
+    "properties": {
+     "items": {
+      "items": {
+       "$ref": "#/components/schemas/AlertResponse"
+      },
+      "type": "array",
+      "title": "Items"
+     },
+     "total": {
+      "type": "integer",
+      "title": "Total"
+     },
+     "page": {
+      "type": "integer",
+      "title": "Page"
+     },
+     "page_size": {
+      "type": "integer",
+      "title": "Page Size"
+     }
+    },
+    "type": "object",
+    "required": [
+     "items",
+     "total",
+     "page",
+     "page_size"
+    ],
+    "title": "PaginatedResponse[AlertResponse]"
+   },
    "PaginatedResponse_AuditLogResponse_": {
     "properties": {
      "items": {
@@ -8842,6 +9561,37 @@
      "page_size"
     ],
     "title": "PaginatedResponse[CampaignResponse]"
+   },
+   "PaginatedResponse_EventResponse_": {
+    "properties": {
+     "items": {
+      "items": {
+       "$ref": "#/components/schemas/EventResponse"
+      },
+      "type": "array",
+      "title": "Items"
+     },
+     "total": {
+      "type": "integer",
+      "title": "Total"
+     },
+     "page": {
+      "type": "integer",
+      "title": "Page"
+     },
+     "page_size": {
+      "type": "integer",
+      "title": "Page Size"
+     }
+    },
+    "type": "object",
+    "required": [
+     "items",
+     "total",
+     "page",
+     "page_size"
+    ],
+    "title": "PaginatedResponse[EventResponse]"
    },
    "PaginatedResponse_ExpenseResponse_": {
     "properties": {
@@ -9095,6 +9845,43 @@
      "created_at"
     ],
     "title": "PhoneResponse"
+   },
+   "PhoneSystemStatus": {
+    "properties": {
+     "id": {
+      "type": "string",
+      "format": "uuid",
+      "title": "Id"
+     },
+     "label": {
+      "type": "string",
+      "title": "Label"
+     },
+     "status": {
+      "type": "string",
+      "title": "Status"
+     },
+     "last_seen_at": {
+      "anyOf": [
+       {
+        "type": "string",
+        "format": "date-time"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Last Seen At"
+     }
+    },
+    "type": "object",
+    "required": [
+     "id",
+     "label",
+     "status",
+     "last_seen_at"
+    ],
+    "title": "PhoneSystemStatus"
    },
    "PhoneUpdate": {
     "properties": {
@@ -9552,6 +10339,42 @@
     "additionalProperties": true,
     "type": "object",
     "title": "Schedule"
+   },
+   "SystemStatusResponse": {
+    "properties": {
+     "bots": {
+      "items": {
+       "$ref": "#/components/schemas/BotSystemStatus"
+      },
+      "type": "array",
+      "title": "Bots"
+     },
+     "accounts": {
+      "items": {
+       "$ref": "#/components/schemas/AccountSystemStatus"
+      },
+      "type": "array",
+      "title": "Accounts"
+     },
+     "phones": {
+      "items": {
+       "$ref": "#/components/schemas/PhoneSystemStatus"
+      },
+      "type": "array",
+      "title": "Phones"
+     },
+     "open_alerts": {
+      "$ref": "#/components/schemas/AlertTotals"
+     }
+    },
+    "type": "object",
+    "required": [
+     "bots",
+     "accounts",
+     "phones",
+     "open_alerts"
+    ],
+    "title": "SystemStatusResponse"
    },
    "TimeseriesPoint": {
     "properties": {

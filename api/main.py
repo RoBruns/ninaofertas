@@ -13,12 +13,14 @@ from api.errors import install_error_handlers
 from api.ratelimit import limiter
 from api.routers import (
     accounts,
+    alerts,
     audit,
     auth,
     bots,
     campaigns,
     credentials,
     expenses,
+    events,
     groups,
     health,
     metrics,
@@ -26,6 +28,7 @@ from api.routers import (
     phones,
     platforms,
     sales,
+    system,
     users,
 )
 from api.security import validate_security_config
@@ -67,6 +70,8 @@ app.include_router(users.router, prefix="/api")
 app.include_router(audit.router, prefix="/api")
 app.include_router(platforms.router, prefix="/api")
 app.include_router(accounts.router, prefix="/api")
+app.include_router(alerts.router, prefix="/api")
+app.include_router(events.router, prefix="/api")
 app.include_router(credentials.router, prefix="/api")
 app.include_router(niches.router, prefix="/api")
 app.include_router(phones.router, prefix="/api")
@@ -76,3 +81,4 @@ app.include_router(expenses.router, prefix="/api")
 app.include_router(campaigns.router, prefix="/api")
 app.include_router(sales.router, prefix="/api")
 app.include_router(metrics.router, prefix="/api")
+app.include_router(system.router, prefix="/api")

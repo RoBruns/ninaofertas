@@ -394,8 +394,12 @@ class Event(Base):
 class Alert(Base):
     __tablename__ = "alerts"
     __table_args__ = (
-        UniqueConstraint(
-            "owner_id", "dedup_key", "status", deferrable=True, name="uq_alerts_owner_dedup_status"
+        Index(
+            "uq_alerts_owner_dedup_active",
+            "owner_id",
+            "dedup_key",
+            unique=True,
+            postgresql_where=text("status IN ('open', 'acknowledged')"),
         ),
     )
     id: Mapped[PythonUUID] = mapped_column(

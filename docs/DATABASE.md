@@ -387,10 +387,19 @@ alerts (
   first_seen_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   last_seen_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
   resolved_at   TIMESTAMPTZ,
-  dedup_key     TEXT NOT NULL,
-  UNIQUE (owner_id, dedup_key, status) DEFERRABLE
+  dedup_key     TEXT NOT NULL
 )
+-- Um único alerta ATIVO por causa; resolvidos acumulam como histórico.
+CREATE UNIQUE INDEX uq_alerts_owner_dedup_active
+  ON alerts (owner_id, dedup_key)
+  WHERE status IN ('open', 'acknowledged');
 ```
+
+> **Corrigido na fase 10 (migration 0004, ADR-016).** O desenho original era
+> `UNIQUE (owner_id, dedup_key, status)`. Ele permitia um `open` e um
+> `acknowledged` simultâneos para a mesma causa, e impedia um segundo
+> `resolved` com a mesma chave — um alerta que resolve, reabre e resolve de novo
+> quebraria. O índice parcial acima garante as duas coisas certas.
 
 A distinção `events` × `alerts` é o que atende "não quero ver todo o ruído":
 `events` é o log estruturado (área técnica, retenção 30 dias), `alerts` é o que

@@ -228,3 +228,30 @@ Na Shopee, o equivalente é `utmContent`, que volta por conversão.
 
 **A decidir na fase 7:** granularidade (etiqueta por bot ou por grupo) e o
 limite de etiquetas que a conta do ML aceita.
+
+---
+
+## ADR-016 — Deduplicação de alertas por índice único parcial
+**Data:** 2026-09-23 · **Status:** aceita · **Corrige:** desenho de `alerts` em DATABASE.md
+
+O desenho original de `alerts` usava `UNIQUE (owner_id, dedup_key, status)`.
+Os dois requisitos do ciclo de vida — no máximo um alerta ativo por causa, e
+histórico ilimitado de resolvidos — eram violados por ele:
+
+- `open` e `acknowledged` são status diferentes, então a constraint aceitava
+  **dois alertas ativos** para a mesma causa;
+- ao resolver pela segunda vez um alerta com a mesma chave (o cookie do ML que
+  expira toda semana), já existiria um `resolved`, e o UPDATE seria recusado.
+
+A migration `0004` troca a constraint por um índice único **parcial**:
+`(owner_id, dedup_key) WHERE status IN ('open','acknowledged')`. A garantia de
+"um ativo por causa" fica no banco, protegendo também contra dois jobs de
+detecção concorrentes.
+
+**Consequência:** o `downgrade` da 0004 recria a constraint antiga e falha se já
+houver dois alertas resolvidos com a mesma chave — ou seja, depois de uso real
+a 0004 é de mão única. Aceito: voltar ao desenho antigo reintroduziria o bug.
+
+**Processo:** a spec pedia para relatar antes de criar migration; o agente criou
+e relatou depois. A mudança foi revisada e mantida por ser a correção certa de
+um erro do orquestrador.

@@ -247,6 +247,74 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/alerts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Alerts */
+        get: operations["list_alerts_api_alerts_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/alerts/{alert_id}/acknowledge": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Acknowledge Alert */
+        post: operations["acknowledge_alert_api_alerts__alert_id__acknowledge_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/alerts/{alert_id}/resolve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Resolve Alert */
+        post: operations["resolve_alert_api_alerts__alert_id__resolve_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Events */
+        get: operations["list_events_api_events_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/accounts/{account_id}/credentials": {
         parameters: {
             query?: never;
@@ -976,6 +1044,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/system/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** System Status */
+        get: operations["system_status_api_system_status_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1052,6 +1137,20 @@ export interface components {
              */
             updated_at: string;
         };
+        /** AccountSystemStatus */
+        AccountSystemStatus: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Label */
+            label: string;
+            /** Status */
+            status: string;
+            /** Credential Health */
+            credential_health: string;
+        };
         /** AccountUpdate */
         AccountUpdate: {
             /** Label */
@@ -1064,6 +1163,60 @@ export interface components {
             } | null;
             /** Notes */
             notes?: string | null;
+        };
+        /** AlertResponse */
+        AlertResponse: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Owner Id
+             * Format: uuid
+             */
+            owner_id: string;
+            /** Type */
+            type: string;
+            /**
+             * Severity
+             * @enum {string}
+             */
+            severity: "warning" | "critical";
+            /** Entity Type */
+            entity_type: string | null;
+            /** Entity Id */
+            entity_id: string | null;
+            /** Title */
+            title: string;
+            /** Detail */
+            detail: string | null;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "open" | "acknowledged" | "resolved";
+            /**
+             * First Seen At
+             * Format: date-time
+             */
+            first_seen_at: string;
+            /**
+             * Last Seen At
+             * Format: date-time
+             */
+            last_seen_at: string;
+            /** Resolved At */
+            resolved_at: string | null;
+            /** Dedup Key */
+            dedup_key: string;
+        };
+        /** AlertTotals */
+        AlertTotals: {
+            /** Critical */
+            critical: number;
+            /** Warning */
+            warning: number;
         };
         /** AuditLogResponse */
         AuditLogResponse: {
@@ -1272,6 +1425,24 @@ export interface components {
         } & {
             [key: string]: unknown;
         };
+        /** BotSystemStatus */
+        BotSystemStatus: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /** Status */
+            status: string;
+            /** Last Run At */
+            last_run_at: string | null;
+            /** Last Run Status */
+            last_run_status: string | null;
+            /** Last Failure At */
+            last_failure_at: string | null;
+        };
         /** BotUpdate */
         BotUpdate: {
             /** Name */
@@ -1451,6 +1622,35 @@ export interface components {
         CredentialWrite: {
             /** Value */
             value: string;
+        };
+        /** EventResponse */
+        EventResponse: {
+            /** Id */
+            id: number;
+            /** Bot Id */
+            bot_id: string | null;
+            /** Entity Type */
+            entity_type: string | null;
+            /** Entity Id */
+            entity_id: string | null;
+            /**
+             * Level
+             * @enum {string}
+             */
+            level: "info" | "warning" | "error" | "critical";
+            /** Type */
+            type: string;
+            /** Message */
+            message: string;
+            /** Detail */
+            detail: {
+                [key: string]: unknown;
+            } | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
         };
         /** ExpenseCategoryCreate */
         ExpenseCategoryCreate: {
@@ -1927,6 +2127,17 @@ export interface components {
             /** Page Size */
             page_size: number;
         };
+        /** PaginatedResponse[AlertResponse] */
+        PaginatedResponse_AlertResponse_: {
+            /** Items */
+            items: components["schemas"]["AlertResponse"][];
+            /** Total */
+            total: number;
+            /** Page */
+            page: number;
+            /** Page Size */
+            page_size: number;
+        };
         /** PaginatedResponse[AuditLogResponse] */
         PaginatedResponse_AuditLogResponse_: {
             /** Items */
@@ -1964,6 +2175,17 @@ export interface components {
         PaginatedResponse_CampaignResponse_: {
             /** Items */
             items: components["schemas"]["CampaignResponse"][];
+            /** Total */
+            total: number;
+            /** Page */
+            page: number;
+            /** Page Size */
+            page_size: number;
+        };
+        /** PaginatedResponse[EventResponse] */
+        PaginatedResponse_EventResponse_: {
+            /** Items */
+            items: components["schemas"]["EventResponse"][];
             /** Total */
             total: number;
             /** Page */
@@ -2060,6 +2282,20 @@ export interface components {
              * Format: date-time
              */
             created_at: string;
+        };
+        /** PhoneSystemStatus */
+        PhoneSystemStatus: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Label */
+            label: string;
+            /** Status */
+            status: string;
+            /** Last Seen At */
+            last_seen_at: string | null;
         };
         /** PhoneUpdate */
         PhoneUpdate: {
@@ -2221,6 +2457,16 @@ export interface components {
             quiet_hours?: components["schemas"]["QuietHours"];
         } & {
             [key: string]: unknown;
+        };
+        /** SystemStatusResponse */
+        SystemStatusResponse: {
+            /** Bots */
+            bots: components["schemas"]["BotSystemStatus"][];
+            /** Accounts */
+            accounts: components["schemas"]["AccountSystemStatus"][];
+            /** Phones */
+            phones: components["schemas"]["PhoneSystemStatus"][];
+            open_alerts: components["schemas"]["AlertTotals"];
         };
         /** TimeseriesPoint */
         TimeseriesPoint: {
@@ -2897,6 +3143,139 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AccountResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_alerts_api_alerts_get: {
+        parameters: {
+            query?: {
+                status?: ("open" | "acknowledged" | "resolved") | null;
+                severity?: ("warning" | "critical") | null;
+                page?: number;
+                page_size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedResponse_AlertResponse_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    acknowledge_alert_api_alerts__alert_id__acknowledge_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                alert_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AlertResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    resolve_alert_api_alerts__alert_id__resolve_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                alert_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AlertResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_events_api_events_get: {
+        parameters: {
+            query?: {
+                level?: ("info" | "warning" | "error" | "critical") | null;
+                bot_id?: string | null;
+                type?: string | null;
+                from?: string | null;
+                to?: string | null;
+                page?: number;
+                page_size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedResponse_EventResponse_"];
                 };
             };
             /** @description Validation Error */
@@ -4802,6 +5181,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    system_status_api_system_status_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SystemStatusResponse"];
                 };
             };
         };

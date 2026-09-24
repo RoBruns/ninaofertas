@@ -18,8 +18,9 @@ conclusão. Nenhuma fase pode deixar o bot fora do ar.
 | 8 | API: despesas, campanhas, vendas | ✅ | 4 | Codex C ∥ 6 |
 | 8b | Sincronização real de vendas (Shopee API, ML painel) | ✅ | 8 | Codex C |
 | 9 | API: métricas e agregações | ✅ | 8 | Codex C |
-| 10 | Alertas e observabilidade | ⬜ | 6, 9 | Codex C |
-| 11 | Frontend: base, auth, layout | ⬜ | 3 | Codex D ∥ 6–10 |
+| 10 | Alertas e observabilidade | ✅ | 6, 9 | Codex C |
+| 11 | Frontend: base, auth, layout | ✅ | 3 | Codex D ∥ 6–10 |
+| 3b | Logout que encerra a sessão no servidor | ⬜ | 3 | Codex A |
 | 12 | Frontend: gestão (contas, bots, grupos) | ⬜ | 5, 11 | Codex D |
 | 13 | Frontend: dashboard, métricas, despesas | ⬜ | 9, 11 | Codex D |
 | 14 | Deploy, hardening, testes E2E | ⬜ | todas | Claude + Codex |
@@ -265,6 +266,12 @@ Apontados para produção por engano, destruiriam `ofertas` e `envios`.
 chamado `railway` (ou sem nome). Validado chamando a função diretamente —
 nunca rodando a suíte contra produção.
 
+### V5 — Pendente: resolver o mesmo alerta duas vezes
+
+O cenário que motivou o ADR-016 (alerta que resolve, reabre e resolve de novo)
+está coberto só pelos testes do agente. A verificação independente foi
+interrompida a pedido do usuário. Refazer antes do deploy.
+
 ---
 
 ## Bugs encontrados durante a obra
@@ -308,6 +315,26 @@ no corpo da resposta, já que o handler 500 (corretamente) não vaza detalhe.
 **Corrigido nesta fase:** `_ip_valido()` valida com `ipaddress.ip_address()` e
 grava `NULL` quando não reconhece. Auditoria não pode derrubar a operação que
 ela registra.
+
+### B6 — `/api/events` dava 500 sem filtro de data ✅ corrigido (fase 10)
+
+As condições de filtro eram montadas todas antes de conferir quais tinham
+valor. `Event.level == None` vira `IS NULL`, mas `Event.created_at >= None`
+levanta `ArgumentError` já na construção — então a listagem sem `from`/`to`,
+o uso mais comum da área técnica, respondia 500.
+
+### B7 — `/api/system/status` dava 500 sempre ✅ corrigido (fase 10)
+
+`dict(session.execute(...))`: o `Result` do SQLAlchemy tem `.keys()`, e o
+`dict()` do Python o trata como mapping e tenta indexá-lo. A resposta para
+"está tudo funcionando?" falhava em toda chamada. Corrigido com `.tuples().all()`.
+
+### B8 — Logout não encerrava a sessão no servidor ⬜ fase 3b
+
+Verificado ponta a ponta: um cookie de refresh copiado antes do logout
+continuava renovando a sessão (200), e o access token antigo seguia válido.
+Correção especificada como fase 3b: `users.session_version` na claim dos
+tokens, incrementada no logout, na desativação e na troca de senha.
 
 ### B4 — Telemetria podia derrubar o ciclo de ofertas ✅ corrigido (fase 8b)
 
