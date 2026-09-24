@@ -535,6 +535,30 @@ def test_listagem_de_auditoria_faz_numero_constante_de_consultas(
     assert queries["count"] == 3
 
 
+def test_auditoria_devolve_ip_real_como_texto(
+    client: TestClient, session_factory: sessionmaker[Session]
+) -> None:
+    # INET volta do psycopg como IPv4Address/IPv6Address; o cliente de teste não
+    # tem IP válido, então sem gravar um IP real o 500 passava despercebido.
+    admin = add_user(session_factory, email="admin@example.com", role="admin")
+    with session_factory.begin() as session:
+        session.add_all(
+            [
+                AuditLog(user_id=admin.id, entity_type="ip", entity_id=str(index),
+                         action="update", before=None, after=None, ip=ip)
+                for index, ip in enumerate(["203.0.113.7", "2001:db8::1", None])
+            ]
+        )
+    token = str(login(client, admin.email)["access_token"])
+    response = client.get(
+        "/api/audit-logs", headers=auth_header(token), params={"entity_type": "ip"}
+    )
+    assert response.status_code == 200, response.text
+    assert sorted(item["ip"] or "" for item in response.json()["items"]) == [
+        "", "2001:db8::1", "203.0.113.7"
+    ]
+
+
 def test_envelopes_de_erro(client: TestClient, session_factory: sessionmaker[Session]) -> None:
     admin = add_user(session_factory, email="admin@example.com", role="admin")
     viewer = add_user(session_factory, email="viewer@example.com")

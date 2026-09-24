@@ -6,7 +6,7 @@ from datetime import datetime
 from typing import Any
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, field_validator
 
 
 class AuditLogResponse(BaseModel):
@@ -23,3 +23,9 @@ class AuditLogResponse(BaseModel):
     after: dict[str, Any] | None
     ip: str | None
     created_at: datetime
+
+    @field_validator("ip", mode="before")
+    @classmethod
+    def _ip_como_texto(cls, value: Any) -> Any:
+        # A coluna é INET: o psycopg devolve IPv4Address/IPv6Address, não str.
+        return None if value is None else str(value)
