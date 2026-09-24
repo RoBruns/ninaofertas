@@ -14,7 +14,7 @@ conclusão. Nenhuma fase pode deixar o bot fora do ar.
 | 4 | API: plataformas, contas, credenciais | ✅ | 3 | Codex A |
 | 5 | API: bots, telefones, grupos | ✅ | 4 | Codex A |
 | 6 | Worker lê config do banco | ✅ | 5 | Codex B (**sozinho**) |
-| 6b | Bot ativo sem grupo não silencia a operação | ⬜ | 6 | Codex B |
+| 6b | Bot ativo sem grupo não silencia a operação | ✅ | 6 | Codex B |
 | 7 | Atribuição: sub_id + redirect | ⬜ | 6 | Codex B |
 | 8 | API: despesas, campanhas, vendas | ✅ | 4 | Codex C ∥ 6 |
 | 8b | Sincronização real de vendas (Shopee API, ML painel) | ✅ | 8 | Codex C |
@@ -317,7 +317,7 @@ no corpo da resposta, já que o handler 500 (corretamente) não vaza detalhe.
 grava `NULL` quando não reconhece. Auditoria não pode derrubar a operação que
 ela registra.
 
-### B9 — Seed + worker silenciariam a operação no deploy ⬜ fase 6b ⚠️ bloqueia deploy
+### B9 — Seed + worker silenciariam a operação no deploy ✅ corrigido (fase 6b)
 
 Achado lendo seed e worker juntos. `core/seed.py` cria o bot `achadinhos`
 **ativo** (porque `CANAIS["achadinhos"]["ativo"]` é True), mas **sem telefone e

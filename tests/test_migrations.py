@@ -189,11 +189,19 @@ def test_revisions_legado_seed_e_preservacao(
         first = {
             table: connection.scalar(text(f"SELECT count(*) FROM {table}")) for table in tables
         }
+        assert connection.execute(text("SELECT status FROM bots ORDER BY slug")).scalars().all() == [
+            "paused",
+            "paused",
+        ]
+        connection.execute(text("UPDATE bots SET status = 'active' WHERE slug = 'achadinhos'"))
+        connection.commit()
     run_seed()
     with engine.connect() as connection:
         second = {
             table: connection.scalar(text(f"SELECT count(*) FROM {table}")) for table in tables
         }
+        statuses = dict(connection.execute(text("SELECT slug, status FROM bots")).tuples().all())
+        assert statuses == {"achadinhos": "active", "auto": "paused"}
     assert (
         first
         == second

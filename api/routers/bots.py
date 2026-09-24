@@ -42,6 +42,7 @@ from core.models import (
 router = APIRouter(prefix="/bots", tags=["bots"])
 AdminUser = Annotated[User, Depends(require_role("admin"))]
 OperatorUser = Annotated[User, Depends(require_role("operator", "admin"))]
+ACTIVATION_CONFLICT = "Vincule um telefone e ao menos um grupo antes de ativar o bot"
 
 
 def _owned(session: Session, bot_id: UUID, owner_id: UUID) -> Bot:
@@ -119,6 +120,24 @@ def _ensure_groups(session: Session, owner_id: UUID, group_ids: list[UUID]) -> l
     if len(groups) != len(unique_ids):
         raise APIError(404, "NOT_FOUND", "Um ou mais grupos nao foram encontrados")
     return groups
+
+
+def _has_publishable_group(session: Session, bot_id: UUID) -> bool:
+    return session.scalar(
+        select(BotGroup.group_id)
+        .join(Group, Group.id == BotGroup.group_id)
+        .where(
+            BotGroup.bot_id == bot_id,
+            BotGroup.is_active.is_(True),
+            Group.status != "archived",
+        )
+        .limit(1)
+    ) is not None
+
+
+def _ensure_can_activate(session: Session, bot: Bot) -> None:
+    if bot.phone_id is None or not _has_publishable_group(session, bot.id):
+        raise APIError(409, "CONFLICT", ACTIVATION_CONFLICT)
 
 
 def _ensure_accounts(
@@ -227,8 +246,13 @@ def update_bot(
     bot = _owned(session, bot_id, admin.id)
     before = _audit(bot_response(session, bot))
     changes = payload.model_dump(exclude_unset=True)
-    if changes.get("name", "ok") is None or changes.get("slug", "ok") is None or changes.get("settings", "ok") is None:
-        raise APIError(422, "VALIDATION_ERROR", "name, slug e settings nao aceitam null")
+    if (
+        changes.get("name", "ok") is None
+        or changes.get("slug", "ok") is None
+        or changes.get("settings", "ok") is None
+        or changes.get("status", "ok") is None
+    ):
+        raise APIError(422, "VALIDATION_ERROR", "name, slug, settings e status nao aceitam null")
     if "slug" in changes and session.scalar(
         select(Bot.id).where(Bot.owner_id == admin.id, Bot.slug == changes["slug"], Bot.id != bot.id)
     ):
@@ -242,6 +266,10 @@ def update_bot(
         changes["settings"] = changes["settings"].model_dump(mode="json")
     for field, value in changes.items():
         setattr(bot, field, value)
+    if changes.get("status") == "active" or (
+        bot.status == "active" and "phone_id" in changes
+    ):
+        _ensure_can_activate(session, bot)
     bot.updated_at = datetime.now(timezone.utc)
     session.flush()
     response = bot_response(session, bot)
@@ -302,6 +330,8 @@ def duplicate_bot(
 def _change_status(bot_id: UUID, status: str, action: str, request: Request, user: User, session: Session) -> BotResponse:
     bot = _owned(session, bot_id, user.id)
     before = _audit(bot_response(session, bot))
+    if status == "active":
+        _ensure_can_activate(session, bot)
     bot.status = status
     bot.updated_at = datetime.now(timezone.utc)
     response = bot_response(session, bot)
@@ -430,6 +460,9 @@ def set_groups(
 ) -> BotResponse:
     bot = _owned(session, bot_id, user.id)
     before = _audit(bot_response(session, bot))
+    groups = _ensure_groups(session, bot.owner_id, payload.group_ids)
+    if bot.status == "active" and not any(group.status != "archived" for group in groups):
+        raise APIError(409, "CONFLICT", ACTIVATION_CONFLICT)
     _replace_groups(session, bot, payload.group_ids)
     session.flush()
     response = bot_response(session, bot)

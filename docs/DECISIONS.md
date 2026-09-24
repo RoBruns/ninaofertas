@@ -277,3 +277,34 @@ agrega por etiqueta e tem um filtro por etiqueta (`generalAudiences.filterTag`),
 mas o parâmetro de URL desse filtro é desconhecido. Descobri-lo exige um spike
 com cookie válido da conta — feito pela credencial cifrada do dashboard, não
 por cookie colado na conversa.
+
+---
+
+## ADR-018 — Teto diário opcional; teto por hora e intervalo seguem obrigatórios
+**Data:** 2026-09-24 · **Status:** aceita · **Decisor:** usuário · **Refina:** ADR-008
+
+Em 2026-09-23 a produção passou a rodar **sem teto diário** (`max_ofertas_por_dia`
+e `max_ofertas_globais_por_dia` = `0`, commit `a829256`, de outro desenvolvedor
+direto na `master`). A trava do dashboard exigia teto diário entre 1 e 120 e
+recusaria essa configuração — inclusive ao converter os canais em bots.
+
+Decisão: `0` nos dois tetos diários significa **desligado** e é aceito. O que
+continua obrigatório, com os mesmos tetos de `core/safety.py`, é o ritmo curto:
+`max_ofertas_por_hora ≤ 15`, `max_ofertas_globais_por_hora ≤ 20`, intervalo
+`≥ 2 min`, rajada `≤ 5`. Com 6/hora, o máximo prático é ~144/dia por grupo.
+Valor diário **positivo** continua limitado a 120/150.
+
+**Consequência:** o dashboard deixa de impedir a remoção do teto diário. O
+risco de ban passa a ser contido só pelo ritmo por hora e pelo intervalo.
+
+---
+
+## ADR-019 — Integração contínua das mudanças feitas direto na `master`
+**Data:** 2026-09-24 · **Status:** aceita · **Decisor:** usuário
+
+Outro desenvolvedor (miura) altera o bot direto na `master`, que é o que roda em
+produção, enquanto o dashboard é construído em `feat/dashboard`. Decisão: o
+orquestrador integra essas mudanças na branch do dashboard sempre que aparecerem,
+**preservando o comportamento de produção** (é a verdade da operação), e avisa o
+usuário a cada integração. Antes de qualquer deploy, `git fetch` e verificação de
+divergência com `origin/master` são obrigatórios.

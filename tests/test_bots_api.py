@@ -209,8 +209,15 @@ def test_status_auditoria_run_now_e_health_desconhecida(
     client: object,
     session_factory: sessionmaker[Session],
 ) -> None:
-    _admin, headers, _catalog = admin_context(client, session_factory)
-    bot = create_bot(client, headers, name="Bot Operacional", slug="operacional")
+    _admin, headers, catalog = admin_context(client, session_factory)
+    bot = create_bot(
+        client,
+        headers,
+        name="Bot Operacional",
+        slug="operacional",
+        catalog=catalog,
+        group_ids=[catalog["group_ids"][0]],
+    )
 
     for endpoint, expected in (
         ("activate", "active"),
@@ -242,6 +249,52 @@ def test_status_auditoria_run_now_e_health_desconhecida(
             bot["id"],
         )
     assert {"activate", "pause", "disable"} <= actions
+
+
+def test_ativacao_exige_telefone_e_grupo_e_preserva_bot_ativo(
+    client: object,
+    session_factory: sessionmaker[Session],
+) -> None:
+    _admin, headers, catalog = admin_context(client, session_factory)
+    bot = create_bot(client, headers, name="Bot Protegido", slug="protegido")
+    message = "Vincule um telefone e ao menos um grupo antes de ativar o bot"
+
+    without_phone = client.post(f"/api/bots/{bot['id']}/activate", headers=headers)
+    assert_error(without_phone, 409, "CONFLICT")
+    assert without_phone.json()["error"]["message"] == message
+
+    linked_phone = client.patch(
+        f"/api/bots/{bot['id']}",
+        headers=headers,
+        json={"phone_id": str(catalog["phone_id"])},
+    )
+    assert linked_phone.status_code == 200
+    without_group = client.patch(
+        f"/api/bots/{bot['id']}", headers=headers, json={"status": "active"}
+    )
+    assert_error(without_group, 409, "CONFLICT")
+
+    linked_group = client.put(
+        f"/api/bots/{bot['id']}/groups",
+        headers=headers,
+        json={"group_ids": [str(catalog["group_ids"][0])]},
+    )
+    assert linked_group.status_code == 200
+    activated = client.post(f"/api/bots/{bot['id']}/activate", headers=headers)
+    assert activated.status_code == 200
+
+    remove_phone = client.patch(
+        f"/api/bots/{bot['id']}", headers=headers, json={"phone_id": None}
+    )
+    remove_group = client.put(
+        f"/api/bots/{bot['id']}/groups", headers=headers, json={"group_ids": []}
+    )
+    assert_error(remove_phone, 409, "CONFLICT")
+    assert_error(remove_group, 409, "CONFLICT")
+    current = client.get(f"/api/bots/{bot['id']}", headers=headers)
+    assert current.json()["status"] == "active"
+    assert current.json()["phone_id"] == str(catalog["phone_id"])
+    assert current.json()["group_ids"] == [str(catalog["group_ids"][0])]
 
 
 def test_put_groups_e_accounts_substitui_os_vinculos(

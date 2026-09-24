@@ -31,6 +31,7 @@ class BotUpdate(BaseModel):
     phone_id: UUID | None = None
     settings: BotSettings | None = None
     message_template: str | None = None
+    status: BotState | None = None
 
 
 class BotResponse(BaseModel):

@@ -12,10 +12,13 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
 
 from core import config_provider, db
-from core.models import AutomationRun, Bot, BotGroup, Command
+from core.alerts import DETECTORS, detect_alerts
+from core.models import Alert, AutomationRun, Bot, BotGroup, Command, Event
+from core.seed import run_seed
+from core.settings import settings
 from tests.test_api import add_user, session_factory
 from tests.test_bots_api import add_catalog, safe_settings
-from worker import channels, commands, monitor
+from worker import channels, commands, main as worker_main, monitor
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -109,6 +112,31 @@ def test_postgres_sem_bots_preserva_config_legado(
             )
 
 
+def test_seed_pausado_nao_tira_worker_do_legado(
+    monkeypatch: pytest.MonkeyPatch,
+    session_factory: sessionmaker[Session],
+) -> None:
+    test_url = session_factory.kw["bind"].url.render_as_string(hide_password=False)
+    monkeypatch.setattr(settings, "database_url", test_url)
+    monkeypatch.setenv("ADMIN_EMAIL", "seed-worker@example.com")
+    monkeypatch.setenv("ADMIN_PASSWORD", "senha-de-teste")
+    monkeypatch.setenv("WHATSAPP_GROUP_ID", "grupo-legado")
+    run_seed()
+    _patch_sessions(monkeypatch, session_factory)
+    _reset_cache()
+
+    with session_factory() as session:
+        assert list(session.scalars(select(Bot.status).order_by(Bot.slug))) == [
+            "paused",
+            "paused",
+        ]
+    assert channels.canais_ativos() == tuple(
+        key for key, value in channels.CANAIS.items() if value.get("ativo", True)
+    )
+    with channels.usar_canal("achadinhos"):
+        assert channels.grupo_whatsapp() == "grupo-legado"
+
+
 def test_bots_ativos_banco_inacessivel_retorna_vazio(monkeypatch: pytest.MonkeyPatch) -> None:
     _reset_cache()
     monkeypatch.setattr(config_provider, "_carregar", lambda: (_ for _ in ()).throw(OSError("off")))
@@ -190,6 +218,79 @@ def test_settings_invalido_isola_apenas_um_bot(
 
     runtimes = config_provider.bots_ativos(ttl=0)
     assert [runtime.id for runtime in runtimes] == [valid.id]
+
+
+def test_bot_ativo_sem_grupo_e_ignorado_emite_evento_e_um_alerta(
+    monkeypatch: pytest.MonkeyPatch,
+    session_factory: sessionmaker[Session],
+) -> None:
+    _patch_sessions(monkeypatch, session_factory)
+    bot, _ = _active_bot(session_factory, slug="incompleto")
+    with session_factory.begin() as session:
+        session.query(BotGroup).filter(BotGroup.bot_id == bot.id).delete()
+    _reset_cache()
+
+    assert config_provider.bots_ativos(ttl=0) == []
+    assert config_provider.bots_ativos(ttl=0) == []
+    detector = next(item for item in DETECTORS if item.name == "bot_not_runnable")
+    detect_alerts(detectors=[detector])
+    detect_alerts(detectors=[detector])
+
+    with session_factory() as session:
+        events = list(
+            session.scalars(select(Event).where(Event.type == "bot_not_runnable"))
+        )
+        alerts = list(
+            session.scalars(select(Alert).where(Alert.type == "bot_not_runnable"))
+        )
+    assert len(events) == 2
+    assert all(event.level == "warning" for event in events)
+    assert len(alerts) == 1
+    assert alerts[0].dedup_key == f"bot_not_runnable:{bot.id}"
+
+
+def test_apenas_bots_rodaveis_viram_canais_e_zero_rodaveis_usa_legado(
+    monkeypatch: pytest.MonkeyPatch,
+    session_factory: sessionmaker[Session],
+) -> None:
+    _patch_sessions(monkeypatch, session_factory)
+    runnable, _ = _active_bot(session_factory, slug="rodavel")
+    broken, _ = _active_bot(session_factory, slug="sem-grupo")
+    with session_factory.begin() as session:
+        session.query(BotGroup).filter(BotGroup.bot_id == broken.id).delete()
+    _reset_cache()
+
+    canais = channels.canais_ativos()
+    assert len(canais) == 2
+    assert all(canal.startswith(f"db:{runnable.id}:") for canal in canais)
+
+    with session_factory.begin() as session:
+        session.query(BotGroup).filter(BotGroup.bot_id == runnable.id).delete()
+    _reset_cache()
+    assert channels.canais_ativos() == tuple(
+        key for key, value in channels.CANAIS.items() if value.get("ativo", True)
+    )
+
+
+def test_job_de_banco_volta_a_executar_legado_quando_fica_sem_bot(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    ciclos: list[str] = []
+
+    @contextmanager
+    def canal_em_teste(canal: str):
+        ciclos.append(canal)
+        yield
+
+    monkeypatch.setattr(worker_main, "canais_ativos", lambda: ("achadinhos",))
+    monkeypatch.setattr(worker_main, "usar_canal", canal_em_teste)
+    monkeypatch.setattr(worker_main.monitor, "ciclo", lambda: None)
+    worker_main._database_mode = True
+
+    worker_main._ciclos_banco()
+
+    assert ciclos == ["achadinhos"]
+    assert worker_main._database_mode is False
 
 
 def test_drenagem_falha_nao_bloqueia_proximo_comando(

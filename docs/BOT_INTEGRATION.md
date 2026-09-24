@@ -37,9 +37,17 @@ def bots_ativos(ttl: int = 30) -> list[BotRuntime]:
 worker**: ele loga, emite um `event` de nível `error`, e mantém a última config
 válida em memória. Um erro de digitação no dashboard não pode parar a operação.
 
-**Fallback.** Sem bot ativo no banco, o worker cai para `config.json`/`config.py`
-como hoje. É o que torna a fase 6 reversível: se algo der errado, basta não haver
-linha em `bots` e o comportamento antigo volta.
+**Fallback.** Sem bot ativo e rodável no banco, o worker cai para
+`config.json`/`config.py` como hoje. Um bot só é rodável quando tem telefone e
+instância da Evolution resolvidos e ao menos um grupo ativo. Bots ativos
+incompletos são ignorados e geram o evento `bot_not_runnable`; portanto uma
+linha incompleta em `bots` nunca silencia a operação legada.
+
+Os jobs de ciclo são registrados uma vez, no boot. A configuração e os bots
+usados por esses jobs são relidos com o cache de 30 s: um job legado passa a
+executar os bots do banco quando aparece um bot rodável, e o job de banco volta
+ao legado se todos deixam de ser rodáveis. O scheduler não cria nem remove jobs
+dinamicamente; mudanças entram na execução pelo job já registrado.
 
 ## Comandos: o que precisa ser imediato
 
@@ -111,8 +119,9 @@ Incremental, cada passo reversível:
 
 1. Worker passa a ler `bots` com fallback para JSON. Nenhum bot no banco ainda —
    comportamento idêntico ao atual.
-2. Seed converte os dois canais em linhas de `bots`. Comparar lado a lado os logs
-   de um ciclo antes e depois: mesmas ofertas, mesmas decisões de filtro.
+2. Seed converte os dois canais em linhas de `bots`, sempre pausadas e sem
+   sobrescrever o status em reexecuções. Vincular telefone e grupos antes da
+   ativação explícita. Até lá o worker continua no legado.
 3. Ativar leitura do banco para um bot. Observar 24h.
 4. Ativar para o segundo. Remover `config.json` do caminho de execução (o arquivo
    fica no repo como referência até a fase 14).

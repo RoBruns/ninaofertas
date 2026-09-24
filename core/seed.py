@@ -159,7 +159,7 @@ def _upsert_bots(session: Session, user: User, niches: dict[str, Niche]) -> None
             "name": str(channel["nome"]),
             "slug": slug,
             "niche_id": niches[niche_slug].id,
-            "status": "active" if channel.get("ativo", True) else "paused",
+            "status": "paused",
             "settings": _settings_from_config(config),
             "message_template": config.get("mensagem_template"),
         }
@@ -167,7 +167,11 @@ def _upsert_bots(session: Session, user: User, niches: dict[str, Niche]) -> None
         session.execute(
             statement.on_conflict_do_update(
                 index_elements=[Bot.owner_id, Bot.slug],
-                set_={key: getattr(statement.excluded, key) for key in values if key != "owner_id"},
+                set_={
+                    key: getattr(statement.excluded, key)
+                    for key in values
+                    if key not in {"owner_id", "status"}
+                },
             )
         )
 

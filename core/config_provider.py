@@ -122,8 +122,29 @@ def _registrar_config_invalida(bot: Bot, exc: ValidationError) -> None:
         logger.debug(f"Nao foi possivel gravar evento config_invalid: {event_exc}")
 
 
+def _registrar_bot_nao_executavel(bot: Bot, reasons: list[str]) -> None:
+    reason = ", ".join(reasons)
+    logger.warning(f"Bot {bot.slug} esta ativo mas nao pode publicar: {reason}")
+    try:
+        with db.get_session() as session:
+            session.add(
+                Event(
+                    bot_id=bot.id,
+                    entity_type="bot",
+                    entity_id=str(bot.id),
+                    level="warning",
+                    type="bot_not_runnable",
+                    message=f"Bot {bot.slug} esta ativo mas nao pode publicar",
+                    detail={"reasons": reasons},
+                )
+            )
+    except Exception as event_exc:
+        logger.debug(f"Nao foi possivel gravar evento bot_not_runnable: {event_exc}")
+
+
 def _carregar() -> list[BotRuntime]:
     invalidos: list[tuple[Bot, ValidationError]] = []
+    nao_executaveis: list[tuple[Bot, list[str]]] = []
     runtimes: list[BotRuntime] = []
     with db.get_session() as session:
         rows = session.execute(
@@ -156,6 +177,14 @@ def _carregar() -> list[BotRuntime]:
                     .order_by(BotPlatformAccount.account_id)
                 )
             )
+            reasons: list[str] = []
+            if not phone_number or not evolution_instance:
+                reasons.append("telefone ou instancia nao resolvido")
+            if not group_ids:
+                reasons.append("nenhum grupo ativo")
+            if reasons:
+                nao_executaveis.append((bot, reasons))
+                continue
             try:
                 raw_settings = dict(bot.settings or {})
                 if bot.message_template and "mensagem_template" not in raw_settings:
@@ -179,6 +208,8 @@ def _carregar() -> list[BotRuntime]:
             )
     for bot, exc in invalidos:
         _registrar_config_invalida(bot, exc)
+    for bot, reasons in nao_executaveis:
+        _registrar_bot_nao_executavel(bot, reasons)
     return runtimes
 
 

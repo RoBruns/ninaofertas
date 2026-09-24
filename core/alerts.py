@@ -27,6 +27,7 @@ from core.models import (
     Expense,
     ExpenseCategory,
     Group,
+    Phone,
     Platform,
     PlatformAccount,
     PlatformCredential,
@@ -327,6 +328,50 @@ def detect_recurring_error(session: Session, now: datetime) -> list[AlertConditi
     ]
 
 
+def detect_bot_not_runnable(session: Session, now: datetime) -> list[AlertCondition]:
+    events = list(
+        session.scalars(
+            select(Event)
+            .where(
+                Event.type == "bot_not_runnable",
+                Event.created_at >= now - timedelta(hours=EVENT_ALERT_WINDOW_HOURS),
+            )
+            .order_by(Event.created_at.desc())
+        )
+    )
+    conditions: dict[UUID, AlertCondition] = {}
+    for event in events:
+        if event.bot_id is None or event.bot_id in conditions:
+            continue
+        bot = session.get(Bot, event.bot_id)
+        if bot is None or bot.status != "active":
+            continue
+        phone = session.get(Phone, bot.phone_id) if bot.phone_id else None
+        has_group = session.scalar(
+            select(BotGroup.group_id)
+            .join(Group, Group.id == BotGroup.group_id)
+            .where(
+                BotGroup.bot_id == bot.id,
+                BotGroup.is_active.is_(True),
+                Group.status == "active",
+            )
+            .limit(1)
+        ) is not None
+        if phone is not None and phone.number and phone.evolution_instance and has_group:
+            continue
+        conditions[bot.id] = AlertCondition(
+            bot.owner_id,
+            "bot_not_runnable",
+            "warning",
+            f"bot_not_runnable:{bot.id}",
+            f"Bot {bot.name} está ativo mas não publica: vincule telefone e grupo",
+            "bot",
+            str(bot.id),
+            json.dumps(event.detail, ensure_ascii=False) if event.detail else None,
+        )
+    return list(conditions.values())
+
+
 def detect_sales_sync_stale(session: Session, now: datetime) -> list[AlertCondition]:
     rows = session.execute(
         select(PlatformAccount, Platform)
@@ -444,6 +489,7 @@ def detect_ml_reconciliation_mismatch(session: Session, now: datetime) -> list[A
 
 
 DETECTORS = (
+    Detector("bot_not_runnable", ("bot_not_runnable",), detect_bot_not_runnable),
     Detector("bot_offline", ("bot_offline",), detect_bot_offline),
     Detector("automation_failing", ("automation_failing",), detect_automation_failing),
     Detector("auth_expired", ("auth_expired",), detect_auth_expired),
@@ -538,4 +584,5 @@ __all__ = [
     "Detector",
     "cleanup_events",
     "detect_alerts",
+    "detect_bot_not_runnable",
 ]

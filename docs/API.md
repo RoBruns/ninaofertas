@@ -150,6 +150,14 @@ PUT    /api/bots/{id}/groups    {group_ids:[]}
 PUT    /api/bots/{id}/accounts  {account_ids:[]}
 ```
 
+Ativar um bot, tanto por `POST .../activate` quanto por `PATCH` com
+`status="active"`, exige telefone vinculado e ao menos um grupo ativo no
+vínculo que não esteja arquivado. Sem isso a API responde `409 CONFLICT` com
+`"Vincule um telefone e ao menos um grupo antes de ativar o bot"`. Para não
+alterar silenciosamente a intenção do operador, a API também recusa com o mesmo
+`409` a remoção do telefone ou do último grupo publicável de um bot ativo; o
+operador deve pausá-lo antes de remover esses vínculos.
+
 ```jsonc
 // Bot.settings — schema versionado, valida o que hoje mora em config.json
 {

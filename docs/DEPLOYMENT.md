@@ -12,6 +12,7 @@ ambiente `production` · região US East.
 | `nina-dashboard` | estático | **sim** | Frontend (a criar) |
 | `evolution-api` | imagem | sim | WhatsApp · volume 4.9 GB |
 | `Postgres` | banco | **não** | Dados. Sem URL pública — manter assim |
+| `Redis` | banco | não | Cache da `evolution-api` (`CACHE_REDIS_URI`, db 6). Adicionado em 2026-09-23; o bot não usa |
 | `rogstools` | — | sim | **Outro projeto. Não tocar.** |
 
 Comandos úteis:

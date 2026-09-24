@@ -41,7 +41,8 @@ def _ciclo_achadinhos() -> None:
         _database_mode = True
         _ciclos_banco()
         return
-    if _database_mode:
+    _database_mode = False
+    if "achadinhos" not in ativos:
         return
     with usar_canal("achadinhos"):
         monitor.ciclo()
@@ -56,9 +57,16 @@ def _ciclo_auto() -> None:
 
 def _ciclos_banco() -> None:
     """Um ciclo por grupo, mantendo monitor.ciclo() com o contrato historico."""
-    for canal in canais_ativos():
-        if not canal.startswith("db:"):
-            continue
+    global _database_mode
+    ativos = canais_ativos()
+    canais_banco = tuple(canal for canal in ativos if canal.startswith("db:"))
+    if not canais_banco:
+        _database_mode = False
+        for canal in ativos:
+            with usar_canal(canal):
+                monitor.ciclo()
+        return
+    for canal in canais_banco:
         with usar_canal(canal):
             monitor.ciclo()
 
