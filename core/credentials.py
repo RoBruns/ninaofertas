@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from datetime import datetime, timezone
 from uuid import UUID
 
@@ -11,6 +12,28 @@ from sqlalchemy.orm import Session
 from core.crypto import decrypt, encrypt, fingerprint
 from core import db
 from core.models import Event, Platform, PlatformAccount, PlatformCredential
+
+
+def normalize_cookie(value: str) -> str:
+    """Aceita o cookie como texto (`a=1; b=2`) ou o JSON exportado pelo navegador.
+
+    Extensões como Cookie-Editor exportam `[{"name": ..., "value": ...}, ...]`;
+    as plataformas esperam o cabeçalho `Cookie`, então o JSON vira `nome=valor; ...`.
+    """
+    text = value.strip()
+    if not text.startswith("["):
+        return text
+    try:
+        items = json.loads(text)
+    except ValueError as exc:
+        raise ValueError("JSON de cookies inválido") from exc
+    pairs: dict[str, str] = {}
+    for item in items if isinstance(items, list) else []:
+        if isinstance(item, dict) and item.get("name") and item.get("value") is not None:
+            pairs.setdefault(str(item["name"]), str(item["value"]))
+    if not pairs:
+        raise ValueError("JSON de cookies sem nenhum par name/value")
+    return "; ".join(f"{name}={cookie}" for name, cookie in pairs.items())
 
 
 def store_credential(

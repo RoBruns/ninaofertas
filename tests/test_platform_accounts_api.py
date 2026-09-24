@@ -471,3 +471,45 @@ def test_aliexpress_retorna_501_claro(
     assert response.status_code == 501
     assert response.json()["error"]["code"] == "NOT_IMPLEMENTED"
     assert "AliExpress" in response.json()["error"]["message"]
+
+
+def test_cookie_aceita_json_exportado_pelo_navegador(
+    client: object,
+    session_factory: sessionmaker[Session],
+) -> None:
+    from core.credentials import normalize_cookie, read_account_credentials
+
+    exportado = json.dumps(
+        [
+            {"domain": ".mercadolivre.com.br", "name": "ssid", "value": "abc-123", "httpOnly": True},
+            {"domain": "www.mercadolivre.com.br", "name": "_csrf", "value": "x=y"},
+            {"domain": ".mercadolivre.com.br", "name": "orgnickp", "value": "MIDI"},
+        ]
+    )
+    assert normalize_cookie(exportado) == "ssid=abc-123; _csrf=x=y; orgnickp=MIDI"
+    assert normalize_cookie("  a=1; b=2 ") == "a=1; b=2"
+    with pytest.raises(ValueError):
+        normalize_cookie("[{nao e json")
+
+    admin = add_user(session_factory, email="admin@example.com", role="admin")
+    platform = add_platform(session_factory)
+    token = str(login(client, admin.email)["access_token"])
+    headers = auth_header(token)
+    account_id = create_account(client, token, platform.id)["id"]
+
+    response = client.put(
+        f"/api/accounts/{account_id}/credentials/cookie",
+        headers=headers,
+        json={"value": exportado},
+    )
+    assert response.status_code == 204, response.text
+    with session_factory() as session:
+        values, _ = read_account_credentials(session, account_id)
+    assert values["cookie"] == "ssid=abc-123; _csrf=x=y; orgnickp=MIDI"
+
+    invalido = client.put(
+        f"/api/accounts/{account_id}/credentials/cookie",
+        headers=headers,
+        json={"value": "[]"},
+    )
+    assert_error(invalido, 422, "VALIDATION_ERROR")

@@ -17,7 +17,7 @@ from api.errors import APIError
 from api.ratelimit import client_ip
 from api.routers.accounts import credential_status, get_owned_account
 from api.schemas.credential import CredentialStatus, CredentialTestResponse, CredentialWrite
-from core.credentials import read_account_credentials, store_credential
+from core.credentials import normalize_cookie, read_account_credentials, store_credential
 from core.models import Platform, PlatformCredential, User
 from core.platforms.registry import (
     PlatformConfigurationError,
@@ -109,7 +109,13 @@ def put_credential(
 ) -> None:
     kind = _validate_kind(kind)
     account = get_owned_account(session, account_id, admin.id)
-    credential, previous_fingerprint = store_credential(session, account.id, kind, payload.value)
+    value = payload.value
+    if kind == "cookie":
+        try:
+            value = normalize_cookie(value)
+        except ValueError as exc:
+            raise APIError(422, "VALIDATION_ERROR", str(exc), {"value": str(exc)}) from None
+    credential, previous_fingerprint = store_credential(session, account.id, kind, value)
     record_audit(
         session,
         admin,

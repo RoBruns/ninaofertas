@@ -36,7 +36,7 @@ const PLATFORM_NEEDS: Readonly<Record<string, PlatformNeeds>> = {
   },
   mercadolivre: {
     config: [{ key: 'affiliate_tag', label: 'Etiqueta de afiliado', hint: 'A etiqueta dos seus links, ex.: minhaetiqueta123.' }],
-    credential: { kind: 'cookie', label: 'Cookie de sessão', hint: 'Cookie do navegador logado no painel de afiliados do ML.' },
+    credential: { kind: 'cookie', label: 'Cookie de sessão', hint: 'Do navegador logado no painel de afiliados do ML: cole o texto do cookie ou o JSON exportado pela extensão (ex.: Cookie-Editor).' },
   },
 }
 

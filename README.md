@@ -168,7 +168,7 @@ npm run lint
 ```
 
 Sem `TEST_DATABASE_URL`, os testes que precisam de banco são **pulados** (com
-mensagem), não falham. A suíte completa tem 117 testes de backend e 36 de
+mensagem), não falham. A suíte completa tem 118 testes de backend e 36 de
 frontend.
 
 ## Mudou a API? Regenere os tipos do dashboard
