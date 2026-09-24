@@ -638,11 +638,19 @@ td a:hover { text-decoration: underline; }
   .period-long { display: none; }
   .period-short { display: inline; }
 }
+/* Prévia com cara de balão do WhatsApp; cores do tema (claro e escuro). */
 .message-preview {
-  white-space: pre-wrap;
+  max-width: 460px;
   margin-top: 0.75rem;
-  padding: 1rem;
-  border: 1px solid var(--border);
-  border-radius: 0.75rem;
-  background: var(--surface-subtle, #f7f7f5);
+  padding: 0.75rem 0.9rem;
+  border: 1px solid var(--line);
+  border-radius: 4px 12px 12px 12px;
+  color: var(--text);
+  background: var(--surface-2);
+  font-size: 0.92rem;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
+.message-preview strong { font-weight: 700; }
+.message-preview s { color: var(--muted); }
