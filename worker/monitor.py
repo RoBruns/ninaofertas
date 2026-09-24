@@ -240,19 +240,20 @@ def _processar_oferta(session, oferta: OfertaCapturada, filtros: dict) -> str:
 
     if sucesso:
         logger.info("Oferta enviada com sucesso.")
-    else:
-        logger.error("Falha ao enviar oferta para o WhatsApp.")
-        runtime = bot_atual()
-        current_group_id = grupo_db_id()
-        _telemetria_best_effort(
-            telemetry.registrar_evento,
-            "send_failed",
-            "Falha ao enviar oferta para o WhatsApp",
-            bot_id=runtime.id if runtime else None,
-            entity_type="group",
-            entity_id=str(current_group_id) if current_group_id else grupo,
-        )
-    return "enviou"
+        return "enviou"
+    # Produção (6d07915): falha de envio não conta como envio — o ciclo tenta a próxima.
+    logger.error("Falha ao enviar oferta para o WhatsApp.")
+    runtime = bot_atual()
+    current_group_id = grupo_db_id()
+    _telemetria_best_effort(
+        telemetry.registrar_evento,
+        "send_failed",
+        "Falha ao enviar oferta para o WhatsApp",
+        bot_id=runtime.id if runtime else None,
+        entity_type="group",
+        entity_id=str(current_group_id) if current_group_id else grupo,
+    )
+    return "falhou"
 
 
 def _executar_ciclo() -> tuple[int, int, bool]:
@@ -318,14 +319,23 @@ def _executar_ciclo() -> tuple[int, int, bool]:
                     "com freio anti-ban."
                 )
         else:
+            puladas = 0
+            falhas = 0
             for oferta in todas_ofertas:
                 try:
                     resultado = _processar_oferta(session, oferta, filtros)
                 except Exception as e:
                     logger.error(f"Erro ao processar oferta '{oferta.nome[:60]}': {e}")
+                    falhas += 1
                     continue
                 if resultado == "freio":
                     break
+                if resultado == "pulou":
+                    puladas += 1
+                    continue
+                if resultado == "falhou":
+                    falhas += 1
+                    continue
                 if resultado == "enviou":
                     enviadas_ciclo += 1
                     if enviadas_ciclo >= max_por_ciclo:
@@ -334,6 +344,11 @@ def _executar_ciclo() -> tuple[int, int, bool]:
                             f"(máx {max_por_ciclo})."
                         )
                         break
+            if enviadas_ciclo == 0:
+                logger.warning(
+                    f"[{nome_canal()}] Ciclo sem blip: {len(todas_ofertas)} capturadas, "
+                    f"{puladas} puladas (filtro/dedup), {falhas} falhas de envio."
+                )
 
     logger.info(f"[{nome_canal()}] Próxima verificação em {settings.check_interval}s.")
     return len(todas_ofertas), 0 if em_baseline else enviadas_ciclo, em_baseline

@@ -152,3 +152,58 @@ railway logs --service ninaofertas | tail -50
 
 `/api/health` devolve estado de banco, evolution-api e último heartbeat do
 worker. Alerta de `bot_offline` dispara com 3 intervalos sem heartbeat.
+
+---
+
+## Plano de deploy — fase 14 (a executar só com aprovação do usuário)
+
+### Fatos que o plano respeita
+
+- A Railway publica o bot a partir de **`RoBruns/ninaofertas`, branch `master`**
+  (remoto local `producao`). O `origin` local (`DiegoMiuraDev/ninaofertas`) fica
+  atrás da produção. Outro desenvolvedor faz commit direto na `master` de produção.
+- O `railway.toml` da raiz vale para **todo serviço criado do repositório**. Se a
+  API fosse criada do mesmo repo sem config própria, herdaria
+  `startCommand = "python -m worker.main"` e subiria **um segundo bot** no mesmo
+  número — risco de ban. Cada serviço novo usa um arquivo de config próprio
+  (config-as-code por serviço na Railway).
+- Com os bots do seed **pausados** (fase 6b), o worker continua no modo legado
+  depois do deploy: mesmo canal, mesmo grupo, mesmo `config.json`.
+
+### Arquitetura de publicação
+
+```
+navegador ──HTTPS──► nina-dashboard (Caddy: SPA estática + proxy /api)
+                          │  rede interna
+                          ▼
+                     nina-api (uvicorn, SEM domínio público)
+                          │
+                     Postgres (interno) ◄── ninaofertas (worker)
+```
+
+O dashboard serve os arquivos e faz proxy de `/api` para a API pela rede interna.
+Para o navegador é **uma origem só**: sem CORS, e o cookie de sessão
+(`SameSite=Strict`, `path=/api/auth`) funciona sem ajuste. A API **não tem domínio
+público** — só é alcançável pelo proxy.
+
+### Sequência
+
+| # | Passo | Reversível? |
+|---|---|---|
+| 0 | `git fetch producao`: se houver commit novo na produção, integrar antes | — |
+| 1 | `pg_dump` do banco de produção, guardado fora da Railway | — |
+| 2 | Criar `nina-api` e `nina-dashboard` (sem tráfego ainda), com config própria | apagar serviço |
+| 3 | Variáveis da API: `JWT_SECRET`, `CREDENTIALS_KEY`, `WORKER_TOKEN` gerados; `DATABASE_URL` e `EVOLUTION_*` por referência. `ADMIN_EMAIL`/`ADMIN_PASSWORD` **definidos pelo usuário** (a senha não passa pela conversa) | trocar valor |
+| 4 | `alembic upgrade head` no banco de produção (só aditivo; `ofertas`/`envios` ganham colunas nullable) e `python -m core.seed` (bots pausados) | downgrade testado; backup do passo 1 |
+| 5 | Subir API e dashboard; checar `/api/health`, login, telas | redeploy anterior |
+| 6 | Merge de `feat/dashboard` na `master` de produção → a Railway republica o worker com `python -m worker.main` | redeploy do deployment anterior do worker |
+| 7 | Conferir no log do worker: mesmas mensagens de antes, mesmo canal e grupo; nenhum envio perdido na primeira hora | — |
+| 8 | Rodar a suíte **dentro da Railway** (sem túnel) com `METRICS_LATENCY_CHECK=1`, e refazer a verificação V5 | — |
+| 9 | Só então o usuário configura telefone, grupos, etiquetas do ML e ativa o primeiro bot | pausar o bot volta ao legado |
+
+### Rollback
+
+Migrations aditivas: o código antigo do worker roda sobre o schema novo. Se o
+worker novo se comportar mal, `railway redeploy` do deployment anterior devolve
+o comportamento de hoje sem tocar no banco. Pausar todos os bots no dashboard
+também devolve o worker ao modo legado (verificado na fase 6b).

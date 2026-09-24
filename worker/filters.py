@@ -368,14 +368,18 @@ def passa_nos_filtros(oferta: OfertaCapturada, filtros: dict) -> tuple[bool, str
             return False, f"preço R${oferta.preco:.2f} abaixo do mínimo R${preco_minimo:.2f}"
 
         desconto_minimo = filtros.get("desconto_minimo")
-        if desconto_minimo:
-            if oferta.desconto is None:
-                return False, "desconto desconhecido (não foi possível confirmar preço anterior)"
-            if oferta.desconto < desconto_minimo:
-                return False, f"desconto {oferta.desconto}% abaixo do mínimo {desconto_minimo}%"
+        if desconto_minimo and oferta.desconto is not None and oferta.desconto < desconto_minimo:
+            return False, f"desconto {oferta.desconto}% abaixo do mínimo {desconto_minimo}%"
 
         max_vendas = filtros.get("max_vendas")
-        if max_vendas is not None and oferta.vendas is not None and oferta.vendas > int(max_vendas):
+        # 0 = sem limite, como nos tetos diários (decisão do usuário, 2026-09-24).
+        # Antes, max_vendas=0 descartava todo produto com 1 venda ou mais — na
+        # prática, quase toda a Shopee, a única fonte que informa vendas.
+        if (
+            max_vendas not in (None, 0, "0")
+            and oferta.vendas is not None
+            and oferta.vendas > int(max_vendas)
+        ):
             return False, f"vendas {oferta.vendas} acima do máximo {max_vendas} (provável anúncio antigo)"
 
         max_idade_h = filtros.get("max_idade_oferta_horas")

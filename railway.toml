@@ -1,0 +1,8 @@
+[build]
+builder = "NIXPACKS"
+
+[deploy]
+# main.py foi movido para worker/main.py (fase 1). Com o comando antigo o bot não sobe.
+startCommand = "python -m worker.main"
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 10

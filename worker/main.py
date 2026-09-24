@@ -176,6 +176,13 @@ def main() -> None:
     db.init_db()
     ativos = canais_ativos()
     logger.info("Bot de Ofertas iniciado.")
+    # Só no modo legado: bots do banco tiram grupo e instância do cadastro, não da env.
+    modo_legado = not any(canal.startswith("db:") for canal in ativos)
+    if modo_legado and (not settings.evolution_instance or not settings.whatsapp_group_id):
+        logger.error(
+            "WhatsApp incompleto: defina EVOLUTION_INSTANCE e WHATSAPP_GROUP_ID "
+            "nas Variables da Railway. Sem isso o Achadinhos não blipa."
+        )
     if "auto" in ativos:
         logger.info("Canais: Achadinhos da Nina (casa/feminino) + Nina Ofertas (automotivo)")
     else:
