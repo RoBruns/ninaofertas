@@ -2,11 +2,15 @@
 
 from __future__ import annotations
 
+import re
+
 from core import relogio
 from core.platforms.base import OfertaCapturada
 from worker.channels import load_filtros
 
-TEMPLATE_PADRAO = "🔥 {nome}\n\n✅ R$ {preco}\n\n{url}\n\n⏰ {hora}"
+# Formato pedido pelo usuário (2026-09-24): nome em negrito, preço antigo riscado e
+# preço novo em negrito (markdown do WhatsApp), linha do cupom só quando houver.
+TEMPLATE_PADRAO = "◼️ *{nome}*\n\n💰 {de_por}\n🎟️ Use o cupom: *{cupom}*\n\n🛒 {url}"
 
 TEMPLATE_LEGADO = (
     "🔥 OFERTA ENCONTRADA!\n\n"
@@ -18,6 +22,8 @@ TEMPLATE_LEGADO = (
     "👉 COMPRAR:\n{url}\n\n"
     "⏰ Oferta encontrada às {hora}"
 )
+
+_CAMPO = re.compile(r"\{(\w+)\}")
 
 
 def _preco_fmt(valor: float) -> str:
@@ -55,21 +61,41 @@ def montar_mensagem(oferta: OfertaCapturada) -> str:
     return _mensagem_curta(oferta, template)
 
 
+def _de_por(oferta: OfertaCapturada) -> str:
+    """"De ~R$ 115~ por *R$ 92*"; sem preço antigo maior, só "Por *R$ 92*"."""
+    if not oferta.preco or oferta.preco <= 0:
+        return ""
+    por = f"*R$ {_preco_fmt(oferta.preco)}*"
+    anterior = oferta.preco_anterior
+    if anterior and anterior - oferta.preco >= 0.01:
+        return f"De ~R$ {_preco_fmt(anterior)}~ por {por}"
+    return f"Por {por}"
+
+
 def _mensagem_curta(oferta: OfertaCapturada, template: str) -> str:
-    nome = _escape_template_field(oferta.nome)
-    url = _escape_template_field(oferta.url)
-    preco = _preco_fmt(oferta.preco) if oferta.preco and oferta.preco > 0 else ""
-    corpo = template.format(
-        nome=nome,
-        preco=preco,
-        url=url,
-        hora=relogio.formatar_hora(oferta.capturado_em),
-    )
-    if not preco:
-        corpo = corpo.replace("✅ R$ \n\n", "").replace("✅ R$ \n", "")
+    """Substitui as variáveis; a linha cuja variável ficou vazia sai da mensagem."""
     codigo = (oferta.codigo_cupom or "").strip()
-    if codigo and f"Cupom: {codigo}" not in corpo:
-        corpo = corpo.replace(f"\n\n{url}", f"\n🎟️ Cupom: {codigo}\n\n{url}", 1)
+    valores = {
+        # "*" e "~" no nome quebrariam o negrito do WhatsApp.
+        "nome": (oferta.nome or "").replace("*", "").replace("~", "").strip(),
+        "preco": _preco_fmt(oferta.preco) if oferta.preco and oferta.preco > 0 else "",
+        "de_por": _de_por(oferta),
+        "cupom": codigo,
+        "loja": oferta.loja or "",
+        "url": oferta.url or "",
+        "hora": relogio.formatar_hora(oferta.capturado_em),
+    }
+    linhas = []
+    for linha in template.split("\n"):
+        campos = _CAMPO.findall(linha)
+        if any(campo in valores and not valores[campo] for campo in campos):
+            continue
+        linhas.append(_CAMPO.sub(lambda m: valores.get(m.group(1), m.group(0)), linha))
+    corpo = re.sub(r"\n{3,}", "\n\n", "\n".join(linhas)).strip()
+    url = valores["url"]
+    if codigo and codigo not in corpo and url and url in corpo:
+        # Template do bot sem {cupom}: o código entra antes do link.
+        corpo = corpo.replace(url, f"🎟️ Cupom: *{codigo}*\n\n{url}", 1)
     return corpo
 
 

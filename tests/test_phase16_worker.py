@@ -25,16 +25,39 @@ def _oferta(**changes) -> OfertaCapturada:
     return OfertaCapturada(**values)
 
 
-def test_formatter_curto_preco_inteiro_sem_preco_e_cupom(monkeypatch) -> None:
+def test_formatter_padrao_de_por_negrito_e_cupom(monkeypatch) -> None:
+    # Formato pedido pelo usuário: nome em negrito, preço antigo riscado, novo em negrito.
     monkeypatch.setattr(formatter, "load_filtros", lambda: {})
     texto = formatter.montar_mensagem(_oferta(codigo_cupom="NINA10"))
-    assert "✅ R$ 100" in texto
-    assert "100,00" not in texto
-    assert "Produto {{especial}}" in texto
-    assert texto.index("Cupom: NINA10") < texto.index("https://")
+    assert texto == (
+        "◼️ *Produto {especial}*\n\n"
+        "💰 De ~R$ 150~ por *R$ 100*\n"
+        "🎟️ Use o cupom: *NINA10*\n\n"
+        "🛒 https://example.com/{item}"
+    )
 
+    # Sem preço antigo maior: só "Por"; sem cupom: a linha some; centavos com vírgula.
+    simples = formatter.montar_mensagem(_oferta(preco=99.9, preco_anterior=None))
+    assert "💰 Por *R$ 99,90*" in simples
+    assert "cupom" not in simples.lower()
+    assert "\n\n\n" not in simples
+
+    # Sem preço: a linha de preço some, o resto fica.
     sem_preco = formatter.montar_mensagem(_oferta(preco=0.0))
-    assert "✅ R$" not in sem_preco
+    assert "R$" not in sem_preco
+    assert sem_preco.endswith("🛒 https://example.com/{item}")
+
+    # "*" e "~" no nome quebrariam a formatação do WhatsApp.
+    assert "◼️ *Air fryer promo*" in formatter.montar_mensagem(_oferta(nome="Air fryer *promo*"))
+
+
+def test_formatter_template_do_bot_sem_cupom_insere_codigo_antes_do_link(monkeypatch) -> None:
+    template = "🔥 {nome}\n\n✅ R$ {preco}\n\n{url}\n\n⏰ {hora}"
+    monkeypatch.setattr(formatter, "load_filtros", lambda: {"mensagem_template": template})
+    texto = formatter.montar_mensagem(_oferta(codigo_cupom="NINA10"))
+    assert "✅ R$ 100" in texto and "100,00" not in texto
+    assert texto.index("Cupom: *NINA10*") < texto.index("https://")
+    assert "⏰ 14:30" in texto
 
 
 def test_formatter_legado_e_campanha(monkeypatch) -> None:

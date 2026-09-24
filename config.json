@@ -191,5 +191,5 @@
   "max_ofertas_por_dia": 0,
   "max_ofertas_globais_por_hora": 8,
   "max_ofertas_globais_por_dia": 0,
-  "mensagem_template": "🔥 {nome}\n\n✅ R$ {preco}\n\n{url}\n\n⏰ {hora}"
+  "mensagem_template": "◼️ *{nome}*\n\n💰 {de_por}\n🎟️ Use o cupom: *{cupom}*\n\n🛒 {url}"
 }
