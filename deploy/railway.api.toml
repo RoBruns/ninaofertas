@@ -8,12 +8,12 @@ builder = "NIXPACKS"
 [deploy]
 # Migrations são aditivas (docs/DATABASE.md). Rodam antes de cada deploy da API.
 preDeployCommand = "alembic upgrade head"
-# --host ::  → a rede interna da Railway é IPv6; com 0.0.0.0 o dashboard não alcança a API.
+# api.serve abre um unico socket dual-stack: rede interna IPv6 + healthcheck IPv4.
 # --proxy-headers/--forwarded-allow-ips=* → a API só é acessível pelo proxy do dashboard
 #   (sem domínio público), então confia no X-Forwarded-For para o IP real do
 #   cliente — sem isso o rate limit de login seria global e a auditoria gravaria
 #   sempre o IP do proxy.
-startCommand = "uvicorn api.main:app --host :: --port $PORT --proxy-headers --forwarded-allow-ips=*"
+startCommand = "python -m api.serve"
 healthcheckPath = "/api/health"
 healthcheckTimeout = 60
 restartPolicyType = "ON_FAILURE"

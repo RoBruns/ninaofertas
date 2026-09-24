@@ -130,6 +130,9 @@ Ordem em release que cruza camadas: **migration → API → worker → dashboard
 O worker é o último entre os backends porque é o que está no ar; se a API subir
 quebrada, o bot continua publicando.
 
+A API inicia com `python -m api.serve`, que abre um único socket dual-stack para
+atender o healthcheck IPv4 e a rede privada IPv6 da Railway no mesmo processo.
+
 Rollback: `railway redeploy` do deployment anterior do serviço. Como as
 migrations são aditivas, a versão antiga do código convive com o schema novo.
 
