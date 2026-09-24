@@ -638,3 +638,11 @@ td a:hover { text-decoration: underline; }
   .period-long { display: none; }
   .period-short { display: inline; }
 }
+.message-preview {
+  white-space: pre-wrap;
+  margin-top: 0.75rem;
+  padding: 1rem;
+  border: 1px solid var(--border);
+  border-radius: 0.75rem;
+  background: var(--surface-subtle, #f7f7f5);
+}

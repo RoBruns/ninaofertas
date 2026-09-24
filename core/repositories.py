@@ -8,6 +8,7 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from core.models import Envio, Oferta
+from core import relogio
 
 
 def upsert_oferta(session: Session, dados: dict) -> Oferta:
@@ -42,7 +43,7 @@ def upsert_oferta(session: Session, dados: dict) -> Oferta:
                 oferta.url = dados["url"]
         oferta.imagem = dados.get("imagem")
         oferta.sku = dados.get("sku") or oferta.sku
-        oferta.capturado_em = datetime.now()
+        oferta.capturado_em = relogio.agora_banco()
     session.flush()
     return oferta
 
@@ -133,22 +134,19 @@ def contar_envios_desde(session: Session, desde: datetime, grupo: str | None = N
 
 
 def contar_envios_ultima_hora(session: Session, grupo: str | None = None) -> int:
-    return contar_envios_desde(session, datetime.now() - timedelta(hours=1), grupo=grupo)
+    return contar_envios_desde(session, relogio.agora_banco() - timedelta(hours=1), grupo=grupo)
 
 
 def contar_envios_hoje(session: Session, grupo: str | None = None) -> int:
-    inicio_do_dia = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
-    return contar_envios_desde(session, inicio_do_dia, grupo=grupo)
+    return contar_envios_desde(session, relogio.inicio_do_dia_banco(), grupo=grupo)
 
 
 def _minutos_desde(quando: datetime | None) -> float | None:
     if quando is None:
         return None
-    agora = datetime.now()
-    if quando.tzinfo is not None and agora.tzinfo is None:
-        quando = quando.replace(tzinfo=None)
-    elif quando.tzinfo is None and agora.tzinfo is not None:
-        agora = agora.replace(tzinfo=None)
+    agora = relogio.agora_banco()
+    if quando.tzinfo is not None:
+        quando = quando.astimezone().replace(tzinfo=None)
     return (agora - quando).total_seconds() / 60.0
 
 
@@ -164,7 +162,7 @@ def minutos_desde_ultimo_envio(session: Session, grupo: str | None = None) -> fl
 
 
 def contar_cupons_hoje(session: Session, grupo: str | None = None) -> int:
-    inicio_do_dia = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+    inicio_do_dia = relogio.inicio_do_dia_banco()
     q = (
         session.query(func.count(Envio.id))
         .join(Oferta, Oferta.id == Envio.oferta_id)
@@ -221,7 +219,7 @@ def nomes_precos_enviados_recentes(
     session: Session, dias: int = 30, grupo: str | None = None
 ) -> list[tuple[str, float]]:
     """Nome + preço das ofertas já enviadas com sucesso no período."""
-    desde = datetime.now() - timedelta(days=dias)
+    desde = relogio.agora_banco() - timedelta(days=dias)
     q = (
         session.query(Oferta.nome, Envio.preco_enviado)
         .join(Envio, Envio.oferta_id == Oferta.id)

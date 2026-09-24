@@ -27,6 +27,8 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import CITEXT, INET, JSONB, UUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
+from core import relogio
+
 # Variants apenas para os testes unitários legados em SQLite. No Postgres, os
 # tipos nativos abaixo são emitidos sem alteração.
 UUID_TYPE = UUID(as_uuid=True).with_variant(String(36), "sqlite")
@@ -278,7 +280,7 @@ class Oferta(Base):
     imagem: Mapped[str | None] = mapped_column(String)
     sku: Mapped[str | None] = mapped_column(String)
     capturado_em: Mapped[datetime | None] = mapped_column(
-        DateTime, default=datetime.now, onupdate=datetime.now
+        DateTime, default=relogio.agora_banco, onupdate=relogio.agora_banco
     )
     platform_account_id: Mapped[PythonUUID | None] = mapped_column(
         UUID_TYPE, ForeignKey("platform_accounts.id")
@@ -292,7 +294,7 @@ class Envio(Base):
     __tablename__ = "envios"
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     oferta_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("ofertas.id"))
-    enviado_em: Mapped[datetime | None] = mapped_column(DateTime, default=datetime.now)
+    enviado_em: Mapped[datetime | None] = mapped_column(DateTime, default=relogio.agora_banco)
     grupo: Mapped[str | None] = mapped_column(String)
     mensagem: Mapped[str | None] = mapped_column(Text)
     preco_enviado: Mapped[float | None] = mapped_column(Float)

@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from typing import Any, Callable
 
-from core import db, repositories
+from core import db, relogio, repositories
 from core.credentials import platforms_with_usable_credentials
 from core.platforms import affiliate
 from core.platforms.base import OfertaCapturada
@@ -27,6 +27,7 @@ from worker.sources import FONTES
 
 _baseline_ciclos_feitos: dict[str, int] = {}
 _ciclo_n: dict[str, int] = {}
+_silencio_avisado: set[str] = set()
 
 
 def _telemetria_best_effort(
@@ -105,7 +106,7 @@ def _baseline_oferta(session, oferta: OfertaCapturada, filtros: dict) -> bool:
 
 def _freio_anti_ban(session, filtros: dict, grupo: str, oferta: OfertaCapturada | None = None) -> tuple[bool, str]:
     """Ritmo da conta inteira: o WhatsApp bane o número, não o grupo."""
-    from datetime import datetime, timedelta
+    from datetime import timedelta
 
     decorridos_conta = repositories.minutos_desde_ultimo_envio(session)
 
@@ -119,7 +120,7 @@ def _freio_anti_ban(session, filtros: dict, grupo: str, oferta: OfertaCapturada 
     pausa = float(filtros.get("pausa_entre_rajadas_minutos") or 0)
     if max_rajada and pausa:
         n_janela = repositories.contar_envios_desde(
-            session, datetime.now() - timedelta(minutes=janela)
+            session, relogio.agora_banco() - timedelta(minutes=janela)
         )
         if n_janela >= max_rajada and decorridos_conta is not None and decorridos_conta < pausa:
             falta = pausa - decorridos_conta
@@ -394,6 +395,21 @@ def ciclo() -> None:
     if runtime is not None and not commands.bot_esta_ativo(runtime.id):
         logger.info(f"[{nome_canal()}] Bot pausado; ciclo ignorado.")
         return
+    filtros = load_filtros()
+    quiet_hours = filtros.get("quiet_hours")
+    canal = str(runtime.id) if runtime is not None else canal_atual()
+    if relogio.em_silencio(quiet_hours):
+        if canal not in _silencio_avisado:
+            _silencio_avisado.add(canal)
+            start = (quiet_hours or {}).get("start", "00:00")
+            end = (quiet_hours or {}).get("end", "08:00")
+            fim = relogio.fim_do_silencio(quiet_hours)
+            logger.info(
+                f"[{nome_canal()}] Fora do horário de envio ({start}–{end}, Brasília). "
+                f"Sem envio até {fim.strftime('%H:%M')}."
+            )
+        return
+    _silencio_avisado.discard(canal)
     inicio = _telemetria_best_effort(
         telemetry.iniciar_ciclo,
         runtime.id if runtime else None,

@@ -55,6 +55,8 @@ FILTER_KEYS = (
     "preco_minimo",
     "preco_maximo",
     "desconto_minimo",
+    "desconto_minimo_aplica_em",
+    "top_mais_vendidos",
     "lojas",
     "categorias",
     "categorias_meli",
@@ -88,6 +90,11 @@ CONTENT_KEYS = (
 
 
 def _settings_from_config(config: dict[str, Any]) -> dict[str, Any]:
+    quiet_hours = config.get("quiet_hours")
+    if quiet_hours is None:
+        inicio = int(config.get("envio_hora_inicio", 8))
+        fim = int(config.get("envio_hora_fim", 0))
+        quiet_hours = {"start": f"{fim:02d}:00", "end": f"{inicio:02d}:00"}
     return {
         "schema_version": 1,
         "filters": {key: config[key] for key in FILTER_KEYS if key in config},
@@ -95,7 +102,7 @@ def _settings_from_config(config: dict[str, Any]) -> dict[str, Any]:
         "content": {key: config[key] for key in CONTENT_KEYS if key in config},
         "schedule": {
             "check_interval": settings.check_interval,
-            "quiet_hours": {"start": "23:00", "end": "07:00"},
+            "quiet_hours": quiet_hours,
         },
     }
 

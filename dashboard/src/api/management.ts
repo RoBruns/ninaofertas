@@ -28,7 +28,7 @@ export const defaultSettings: BotSettings = {
     max_ofertas_globais_por_dia: 90,
   },
   content: { aceitar_cupons: true, aceitar_campanhas: false, max_cupons_por_dia: 2, baseline_ciclos: 5 },
-  schedule: { check_interval: 60, quiet_hours: { start: '23:00', end: '07:00' } },
+  schedule: { check_interval: 60, quiet_hours: { start: '00:00', end: '08:00' } },
 }
 
 export function errorMessage(error: unknown) {

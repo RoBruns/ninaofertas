@@ -26,6 +26,7 @@ conclusão. Nenhuma fase pode deixar o bot fora do ar.
 | 12 | Frontend: gestão (contas, bots, grupos) | ✅ | 5, 11 | Codex D |
 | 13 | Frontend: dashboard, métricas, despesas | ⬜ | 9, 11 | Codex D |
 | 14 | Deploy, hardening, testes E2E | ⬜ | todas | Claude + Codex |
+| 16 | Portar mudanças operacionais do Miura para o dashboard | 🔵 | 6, 12 | Codex |
 
 **Paralelismo seguro.** A regra é um agente por diretório. `core/` + `api/` é o
 Codex A; o worker é o Codex B **sozinho** (é o código vivo — ninguém mais toca);

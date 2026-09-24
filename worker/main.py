@@ -7,12 +7,11 @@ ativo com telefone e grupo, ele fica ocioso e só avisa no log.
 from __future__ import annotations
 
 import time
-from datetime import datetime, timedelta
-from zoneinfo import ZoneInfo
+from datetime import timedelta
 
 from apscheduler.schedulers.background import BackgroundScheduler
 
-from core import db
+from core import db, relogio
 from core.alerts import cleanup_events, detect_alerts
 from core.config_provider import bots_ativos
 from core.sales_sync import sync_all_active_accounts
@@ -21,7 +20,6 @@ from worker import commands, monitor, promo_instagram, telemetry
 from worker.channels import canais_ativos, usar_canal
 from worker.logger import logger
 
-FUSO_AGENDADOR = ZoneInfo("America/Sao_Paulo")
 _avisou_sem_bots = False
 
 
@@ -85,7 +83,7 @@ def _enviar_heartbeat() -> None:
 
 def _registrar_jobs(scheduler: BackgroundScheduler) -> None:
     """Registra jobs para permitir validar a agenda sem iniciar o processo."""
-    agora = datetime.now(FUSO_AGENDADOR)
+    agora = relogio.agora_br()
     scheduler.add_job(
         _ciclos_banco,
         "interval",
@@ -155,6 +153,7 @@ def main() -> None:
     db.init_db()
     ativos = canais_ativos()
     logger.info("Bot de Ofertas iniciado. Bots, grupos e contas vêm do dashboard.")
+    logger.info(f"Horário de Brasília: {relogio.agora_br().strftime('%H:%M')}.")
     if ativos:
         logger.info(f"{len(ativos)} canal(is) ativo(s) (bot x grupo).")
     logger.info(f"Verificando novas ofertas a cada {settings.check_interval}s.")
@@ -162,7 +161,7 @@ def main() -> None:
 
     whatsapp.avisar_permissao_grupos()
 
-    scheduler = BackgroundScheduler(timezone=FUSO_AGENDADOR)
+    scheduler = BackgroundScheduler(timezone=relogio.BR)
     _registrar_jobs(scheduler)
     logger.info("Recado do Instagram (foto da vó) a cada 4h nos grupos dos bots ativos.")
     scheduler.start()

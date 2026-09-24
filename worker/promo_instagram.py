@@ -3,10 +3,10 @@ from __future__ import annotations
 
 import time
 
-from core import db, repositories
+from core import db, relogio, repositories
 from core.settings import BASE_DIR
 from worker import whatsapp
-from worker.channels import canais_ativos, grupo_whatsapp, nome_canal, usar_canal
+from worker.channels import canais_ativos, grupo_whatsapp, load_filtros, nome_canal, usar_canal
 from worker.logger import logger
 
 SKU = "promo:instagram"
@@ -30,6 +30,10 @@ def ciclo() -> None:
         if i:
             time.sleep(12)
         with usar_canal(canal):
+            quiet_hours = load_filtros().get("quiet_hours")
+            if relogio.em_silencio(quiet_hours):
+                logger.info(f"[{nome_canal()}] Fora do horário. Recado do Instagram adiado.")
+                continue
             _enviar_canal()
 
 

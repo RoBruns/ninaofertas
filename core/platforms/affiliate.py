@@ -2,9 +2,6 @@
 
 from __future__ import annotations
 
-import hashlib
-import json
-import time
 from dataclasses import dataclass
 from typing import Any
 from uuid import UUID
@@ -14,11 +11,13 @@ from loguru import logger
 
 from core.config_provider import bot_runtime_atual, registrar_evento_runtime
 from core.credentials import mark_account_credentials_invalid, runtime_account_credentials
+from core.http_headers import BROWSER_USER_AGENT
+from core.log_safe import safe_log_text
 from core.platforms.shopee import shopee_app_credentials
+from core.platforms.shopee_api import generate_short_link
 
 ML_CREATE_LINK = "https://www.mercadolivre.com.br/affiliate-program/api/v2/affiliates/createLink"
 ML_LINKBUILDER = "https://www.mercadolivre.com.br/afiliados/linkbuilder"
-SHOPEE_API = "https://open-api.affiliate.shopee.com.br/graphql"
 
 
 class AffiliateLink(str):
@@ -60,10 +59,6 @@ def _cookie_value(cookie: str, name: str) -> str | None:
         if part.startswith(f"{name}="):
             return part.split("=", 1)[1]
     return None
-
-
-def _shopee_sign(app_id: str, secret: str, timestamp: int, payload: str) -> str:
-    return hashlib.sha256(f"{app_id}{timestamp}{payload}{secret}".encode()).hexdigest()
 
 
 def _ja_parece_afiliado_ml(url: str) -> bool:
@@ -132,10 +127,7 @@ def _converter_mercadolivre_com_tag(
         "content-type": "application/json",
         "origin": "https://www.mercadolivre.com.br",
         "referer": ML_LINKBUILDER,
-        "user-agent": (
-            "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
-            "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
-        ),
+        "user-agent": BROWSER_USER_AGENT,
         "cookie": auth.cookie,
     }
     if csrf:
@@ -146,7 +138,7 @@ def _converter_mercadolivre_com_tag(
             try:
                 client.get(
                     ML_LINKBUILDER,
-                    headers={"cookie": auth.cookie, "user-agent": headers["user-agent"]},
+                    headers={"cookie": auth.cookie, "user-agent": BROWSER_USER_AGENT},
                 )
             except httpx.HTTPError:
                 pass
@@ -164,19 +156,21 @@ def _converter_mercadolivre_com_tag(
                     )
                 logger.error(
                     f"[afiliado] MELI createLink HTTP {response.status_code}: "
-                    f"{response.text[:200]}"
+                    f"{safe_log_text(response.text, 200)}"
                 )
                 return None
             data = response.json()
     except Exception as exc:
-        logger.error(f"[afiliado] MELI createLink falhou: {exc}")
+        logger.error(f"[afiliado] MELI createLink falhou: {safe_log_text(exc)}")
         return None
 
     converted = _extrair_url_afiliada(data)
     if converted:
         logger.info(f"[afiliado] MELI convertida: {converted}")
         return converted
-    logger.error(f"[afiliado] MELI createLink resposta inesperada: {str(data)[:240]}")
+    logger.error(
+        f"[afiliado] MELI createLink resposta inesperada: {safe_log_text(data, 240)}"
+    )
     return None
 
 
@@ -210,42 +204,26 @@ def converter_shopee(
         return None
 
     sub_ids = _tracking_ids(runtime.id, group_id) if attributed else ()
-    sub_ids_arg = f", subIds: {json.dumps(list(sub_ids))}" if sub_ids else ""
-    query = (
-        "mutation {\n"
-        f"  generateShortLink(input: {{ originUrl: {json.dumps(origin_url or url)}"
-        f"{sub_ids_arg} }}) {{\n"
-        "    shortLink\n"
-        "  }\n"
-        "}"
-    )
-    payload = json.dumps({"query": query}, separators=(",", ":"), ensure_ascii=False)
-    timestamp = int(time.time())
-    signature = _shopee_sign(app_id, secret, timestamp, payload)
-    headers = {
-        "Content-Type": "application/json",
-        "Authorization": (
-            f"SHA256 Credential={app_id}, Timestamp={timestamp}, Signature={signature}"
-        ),
-    }
     try:
         with httpx.Client(timeout=20.0) as client:
-            response = client.post(SHOPEE_API, content=payload.encode("utf-8"), headers=headers)
-            if response.status_code in {401, 403} and account_id is not None:
-                mark_account_credentials_invalid(
-                    account_id,
-                    f"HTTP {response.status_code}",
-                    bot_id=runtime.id if runtime else None,
-                )
-            response.raise_for_status()
-            data = response.json()
-        if data.get("errors"):
-            logger.error(f"[afiliado] Shopee shortLink: {data['errors']}")
-            return None
-        short = ((data.get("data") or {}).get("generateShortLink") or {}).get("shortLink")
-        return str(short) if short else None
+            return generate_short_link(
+                client,
+                origin_url or url,
+                app_id=app_id,
+                secret=secret,
+                sub_ids=sub_ids,
+            )
+    except httpx.HTTPStatusError as exc:
+        if exc.response.status_code in {401, 403} and account_id is not None:
+            mark_account_credentials_invalid(
+                account_id,
+                f"HTTP {exc.response.status_code}",
+                bot_id=runtime.id if runtime else None,
+            )
+        logger.error(f"[afiliado] Shopee shortLink falhou: {safe_log_text(exc)}")
+        return None
     except Exception as exc:
-        logger.error(f"[afiliado] Shopee shortLink falhou: {exc}")
+        logger.error(f"[afiliado] Shopee shortLink falhou: {safe_log_text(exc)}")
         return None
 
 

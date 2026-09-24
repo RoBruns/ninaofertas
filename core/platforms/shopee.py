@@ -1,16 +1,13 @@
 """Fonte: Shopee BR — API oficial de Afiliados (GraphQL + HMAC-SHA256).
 
-Requer `SHOPEE_APP_ID` e `SHOPEE_APP_SECRET` no `.env` (Open API do painel
-de afiliados). Sem credenciais, a fonte é pulada com aviso.
+Requer app_id e app_secret da conta vinculada ao bot no dashboard. Sem uma
+credencial utilizável, a fonte é pulada com aviso (ADR-020).
 
 Busca ordenada por mais recentes (sortType=1), não por mais vendidos — assim
 priorizamos oferta quente em vez de catálogo antigo com estoque parado.
 """
 from __future__ import annotations
 
-import hashlib
-import json
-import time
 from datetime import datetime, timezone
 from uuid import UUID
 
@@ -20,16 +17,11 @@ from loguru import logger
 from core.config_provider import bot_runtime_atual, load_filtros_runtime as load_filtros
 from core.credentials import mark_account_credentials_invalid, runtime_account_credentials
 from core.platforms.base import OfertaCapturada, Scraper
-
-API_URL = "https://open-api.affiliate.shopee.com.br/graphql"
+from core.log_safe import safe_log_text
+from core.platforms.shopee_api import escape_graphql_string, graphql_request
 
 # 1 = mais recentes | 2 = mais vendidos (catálogo antigo)
 _SORT_MAIS_RECENTES = 1
-
-
-def _assinar(app_id: str, secret: str, timestamp: int, payload: str) -> str:
-    raw = f"{app_id}{timestamp}{payload}{secret}"
-    return hashlib.sha256(raw.encode("utf-8")).hexdigest()
 
 
 def _preco_float(valor) -> float | None:
@@ -115,41 +107,25 @@ class ShopeeScraper(Scraper):
     def _graphql(self, client: httpx.Client, query: str) -> dict:
         app_id = self._runtime_app_id
         secret = self._runtime_secret
-        payload_obj = {"query": query}
-        payload = json.dumps(payload_obj, separators=(",", ":"), ensure_ascii=False)
-        timestamp = int(time.time())
-        signature = _assinar(app_id, secret, timestamp, payload)
-        headers = {
-            "Content-Type": "application/json",
-            "Authorization": (
-                f"SHA256 Credential={app_id}, Timestamp={timestamp}, Signature={signature}"
-            ),
-        }
-        resp = client.post(API_URL, content=payload.encode("utf-8"), headers=headers)
-        if resp.status_code in {401, 403} and self._runtime_account_id is not None:
-            runtime = bot_runtime_atual()
-            mark_account_credentials_invalid(
-                self._runtime_account_id,
-                f"HTTP {resp.status_code}",
-                bot_id=runtime.id if runtime else None,
-            )
-        resp.raise_for_status()
-        dados = resp.json()
-        if dados.get("errors"):
-            msgs = "; ".join(
-                e.get("message") or e.get("extensions", {}).get("message") or str(e)
-                for e in dados["errors"]
-            )
-            raise RuntimeError(f"GraphQL Shopee: {msgs}")
-        return dados.get("data") or {}
+        try:
+            return graphql_request(client, query, app_id=app_id, secret=secret)
+        except httpx.HTTPStatusError as exc:
+            if exc.response.status_code in {401, 403} and self._runtime_account_id is not None:
+                runtime = bot_runtime_atual()
+                mark_account_credentials_invalid(
+                    self._runtime_account_id,
+                    f"HTTP {exc.response.status_code}",
+                    bot_id=runtime.id if runtime else None,
+                )
+            raise
 
     def buscar(self) -> list[OfertaCapturada]:
         self._runtime_app_id, self._runtime_secret = self._load_auth()
         if not self._runtime_app_id or not self._runtime_secret:
             if not ShopeeScraper._avisou_sem_credenciais:
                 logger.warning(
-                    "[Shopee] SHOPEE_APP_ID/SECRET não configurados — fonte pulada. "
-                    "Peça acesso Open API no painel de afiliados Shopee."
+                    "[Shopee] conta do bot sem app_id/app_secret utilizáveis — fonte pulada. "
+                    "Atualize a credencial no dashboard."
                 )
                 ShopeeScraper._avisou_sem_credenciais = True
             return []
@@ -159,7 +135,7 @@ class ShopeeScraper(Scraper):
             if load_filtros().get("aceitar_campanhas", False):
                 ofertas.extend(self._buscar_campanhas(client))
             for termo in self._termos_busca():
-                keyword = termo.replace('"', '\\"')
+                keyword = escape_graphql_string(termo)
                 query = f"""
                 {{
                   productOfferV2(
@@ -188,7 +164,9 @@ class ShopeeScraper(Scraper):
                 try:
                     data = self._graphql(client, query)
                 except Exception as e:
-                    logger.warning(f"[Shopee] falha na busca '{termo}': {e}")
+                    logger.warning(
+                        f"[Shopee] falha na busca '{termo}': {safe_log_text(e)}"
+                    )
                     continue
 
                 nodes = (data.get("productOfferV2") or {}).get("nodes") or []
@@ -218,7 +196,7 @@ class ShopeeScraper(Scraper):
         try:
             data = self._graphql(client, query)
         except Exception as e:
-            logger.warning(f"[Shopee] falha ao buscar campanhas: {e}")
+            logger.warning(f"[Shopee] falha ao buscar campanhas: {safe_log_text(e)}")
             return []
 
         out: list[OfertaCapturada] = []

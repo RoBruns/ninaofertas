@@ -9,20 +9,15 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from worker import main as worker_main
 
 
-class _DatetimeComRelogioLocalEmUTC(datetime):
-    @classmethod
-    def now(cls, tz=None):
-        instante = datetime.now(timezone.utc)
-        if tz is None:
-            return instante.replace(tzinfo=None)
-        return instante.astimezone(tz)
-
-
 def test_primeiro_ciclo_usa_instante_com_fuso_mesmo_se_relogio_local_for_utc(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(worker_main, "datetime", _DatetimeComRelogioLocalEmUTC)
-    scheduler = BackgroundScheduler(timezone=worker_main.FUSO_AGENDADOR)
+    monkeypatch.setattr(
+        worker_main.relogio,
+        "agora_br",
+        lambda: datetime.now(timezone.utc).astimezone(worker_main.relogio.BR),
+    )
+    scheduler = BackgroundScheduler(timezone=worker_main.relogio.BR)
     scheduler.start(paused=True)
     try:
         worker_main._registrar_jobs(scheduler)
@@ -39,7 +34,7 @@ def test_heartbeat_independente_roda_a_cada_60s_sem_bots(
     recebidos: list[list] = []
     monkeypatch.setattr(worker_main, "bots_ativos", lambda: [])
     monkeypatch.setattr(worker_main.telemetry, "heartbeat", lambda ids: recebidos.append(ids))
-    scheduler = BackgroundScheduler(timezone=worker_main.FUSO_AGENDADOR)
+    scheduler = BackgroundScheduler(timezone=worker_main.relogio.BR)
     scheduler.start(paused=True)
     try:
         worker_main._registrar_jobs(scheduler)

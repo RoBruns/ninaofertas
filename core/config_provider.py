@@ -1,4 +1,4 @@
-"""Configuracao operacional dos bots, lida do banco com fallback seguro."""
+"""Configuracao operacional dos bots, lida exclusivamente do banco."""
 
 from __future__ import annotations
 

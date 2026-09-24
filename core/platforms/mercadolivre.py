@@ -19,15 +19,9 @@ from loguru import logger
 
 from core.platforms.base import OfertaCapturada, Scraper
 from core.config_provider import load_filtros_runtime as load_filtros
+from core.http_headers import MELI_HTML_HEADERS
 
-HEADERS = {
-    "User-Agent": (
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
-        "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
-    ),
-    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-    "Accept-Language": "pt-BR,pt;q=0.9,en;q=0.8",
-}
+HEADERS = MELI_HTML_HEADERS
 
 OFERTAS_URL = "https://www.mercadolivre.com.br/ofertas"
 # Casa/móveis, eletro, beleza, moda, joias.

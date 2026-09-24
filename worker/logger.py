@@ -5,6 +5,7 @@ from pathlib import Path
 from loguru import logger
 
 from core.settings import BASE_DIR, settings
+from core.relogio import BR
 
 # BASE_DIR é a raiz do projeto — mesma pasta de logs que a produção usava.
 LOG_DIR = BASE_DIR / "logs"
@@ -15,6 +16,13 @@ except OSError:
     LOG_DIR.mkdir(exist_ok=True)
 
 logger.remove()
+
+
+def _hora_brasil(record: dict) -> None:
+    record["time"] = record["time"].astimezone(BR)
+
+
+logger.configure(patcher=_hora_brasil)
 logger.add(
     sys.stdout,
     format="<green>[{time:HH:mm:ss}]</green> {message}",

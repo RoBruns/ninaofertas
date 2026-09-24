@@ -5,7 +5,6 @@ from __future__ import annotations
 import json
 import logging
 import re
-import time
 from datetime import datetime, timezone
 from decimal import Decimal
 from typing import Any
@@ -13,7 +12,7 @@ from typing import Any
 import httpx
 
 from core.importers.base import BaseCSVImporter, SaleImportRow
-from core.platforms.shopee import API_URL, _assinar
+from core.platforms.shopee_api import graphql_request
 
 logger = logging.getLogger(__name__)
 MONEY = Decimal("0.01")
@@ -159,26 +158,15 @@ def fetch_conversion_report(
     with httpx.Client(timeout=30.0) as client:
         while True:
             query = _query(int(start_at.timestamp()), int(end_at.timestamp()), scroll_id)
-            payload = json.dumps({"query": query}, separators=(",", ":"), ensure_ascii=False)
-            timestamp = int(time.time())
-            signature = _assinar(app_id, secret, timestamp, payload)
-            response = client.post(
-                API_URL,
-                content=payload.encode("utf-8"),
-                headers={
-                    "Content-Type": "application/json",
-                    "Authorization": (
-                        f"SHA256 Credential={app_id}, Timestamp={timestamp}, Signature={signature}"
-                    ),
-                },
-            )
-            if response.status_code in {401, 403}:
-                raise PermissionError(f"Shopee recusou a credencial (HTTP {response.status_code})")
-            response.raise_for_status()
-            payload_json = response.json()
-            if payload_json.get("errors"):
-                raise RuntimeError("Shopee retornou erro no conversionReport")
-            report = (payload_json.get("data") or {}).get("conversionReport") or {}
+            try:
+                data = graphql_request(client, query, app_id=app_id, secret=secret)
+            except httpx.HTTPStatusError as exc:
+                if exc.response.status_code in {401, 403}:
+                    raise PermissionError(
+                        f"Shopee recusou a credencial (HTTP {exc.response.status_code})"
+                    ) from exc
+                raise
+            report = data.get("conversionReport") or {}
             rows.extend(parse_conversion_report(report))
             page_info = report.get("pageInfo") or {}
             if not page_info.get("hasNextPage"):

@@ -50,7 +50,11 @@ def test_configs_dos_dois_canais_viram_settings_de_bot() -> None:
         runtime = runtime_do_config(arquivo)
         with usar_bot_runtime(runtime):
             filtros = load_filtros()
-        # nicho e mensagem_template viram campos do bot; o resto segue nos settings.
+        # nicho e mensagem_template viram campos do bot; envio_hora_inicio/fim viram o
+        # silêncio do bot (quiet_hours); o resto segue nos settings.
+        horario = {"envio_hora_inicio", "envio_hora_fim"} & set(bruto)
         assert runtime.niche_slug == nicho
-        assert set(bruto) - set(filtros) == {"nicho", "mensagem_template"}
+        assert set(bruto) - set(filtros) == {"nicho", "mensagem_template"} | horario
+        if horario:
+            assert filtros["quiet_hours"] == {"start": "00:00", "end": "08:00"}
         assert filtros["termos_busca"] == bruto["termos_busca"]

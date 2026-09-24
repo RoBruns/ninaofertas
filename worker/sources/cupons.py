@@ -2,23 +2,21 @@
 from __future__ import annotations
 
 import hashlib
-import json
 import re
-import time
 from datetime import datetime, timezone
 
 import httpx
 
 from core.platforms.base import OfertaCapturada, Scraper
+from core.log_safe import safe_log_text
 from core.platforms.mercadolivre import HEADERS as ML_HEADERS
 from core.platforms.mercadolivre import OFERTAS_URL
 from core.platforms.shopee import (
-    API_URL,
-    _assinar,
     _preco_float,
     _ts_para_dt,
     credenciais_shopee_do_bot,
 )
+from core.platforms.shopee_api import graphql_request
 from worker.channels import load_filtros
 from worker.logger import logger
 
@@ -96,22 +94,7 @@ class CupomScraper(Scraper):
 
     def _graphql(self, client: httpx.Client, query: str) -> dict:
         _conta, app_id, secret = credenciais_shopee_do_bot()
-        payload = json.dumps({"query": query}, separators=(",", ":"), ensure_ascii=False)
-        ts = int(time.time())
-        sig = _assinar(app_id, secret, ts, payload)
-        headers = {
-            "Content-Type": "application/json",
-            "Authorization": f"SHA256 Credential={app_id}, Timestamp={ts}, Signature={sig}",
-        }
-        resp = client.post(API_URL, content=payload.encode("utf-8"), headers=headers)
-        resp.raise_for_status()
-        dados = resp.json()
-        if dados.get("errors"):
-            msgs = "; ".join(
-                str(e.get("message") or e) for e in dados["errors"]
-            )
-            raise RuntimeError(msgs)
-        return dados.get("data") or {}
+        return graphql_request(client, query, app_id=app_id, secret=secret)
 
     def _shopee_voucher_nodes(self) -> list[dict]:
         with httpx.Client(timeout=self.timeout) as client:
@@ -119,7 +102,9 @@ class CupomScraper(Scraper):
                 try:
                     data = self._graphql(client, query)
                 except Exception as e:
-                    logger.debug(f"[Cupons] voucherOfferV2 indisponível: {e}")
+                    logger.debug(
+                        f"[Cupons] voucherOfferV2 indisponível: {safe_log_text(e)}"
+                    )
                     continue
                 nodes = (data.get("voucherOfferV2") or {}).get("nodes") or []
                 if nodes:
@@ -144,7 +129,7 @@ class CupomScraper(Scraper):
             with httpx.Client(timeout=self.timeout) as client:
                 data = self._graphql(client, query)
         except Exception as e:
-            logger.warning(f"[Cupons] shopeeOfferV2: {e}")
+            logger.warning(f"[Cupons] shopeeOfferV2: {safe_log_text(e)}")
             return []
         out = []
         for item in (data.get("shopeeOfferV2") or {}).get("nodes") or []:

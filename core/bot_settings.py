@@ -13,6 +13,8 @@ FILTER_KEYS = {
     "preco_minimo",
     "preco_maximo",
     "desconto_minimo",
+    "desconto_minimo_aplica_em",
+    "top_mais_vendidos",
     "lojas",
     "nicho",
     "categorias",
@@ -95,15 +97,15 @@ class Content(BaseModel):
 
 
 class QuietHours(BaseModel):
-    start: str = Field(pattern=r"^(?:[01]\d|2[0-3]):[0-5]\d$")
-    end: str = Field(pattern=r"^(?:[01]\d|2[0-3]):[0-5]\d$")
+    start: str = Field(default="00:00", pattern=r"^(?:[01]\d|2[0-3]):[0-5]\d$")
+    end: str = Field(default="08:00", pattern=r"^(?:[01]\d|2[0-3]):[0-5]\d$")
 
 
 class Schedule(BaseModel):
     model_config = ConfigDict(extra="allow")
 
     check_interval: int = Field(default=60, ge=1)
-    quiet_hours: QuietHours = Field(default_factory=lambda: QuietHours(start="23:00", end="07:00"))
+    quiet_hours: QuietHours = Field(default_factory=QuietHours)
 
 
 class Attribution(BaseModel):

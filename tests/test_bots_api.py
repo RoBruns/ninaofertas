@@ -415,8 +415,10 @@ def test_guarda_anti_ban_aceita_limite_e_recusa_um_passo_alem(
     assert "chip" in message
 
 
-@pytest.mark.parametrize("filename", ["config.json", "config.auto.json"])
-def test_round_trip_dos_arquivos_reais_preserva_as_30_chaves(filename: str) -> None:
+# config.json ganhou 4 chaves no commit a3732c5 do Miura (horário de envio e dois
+# parâmetros que o código dele ainda não usa); config.auto.json não mudou.
+@pytest.mark.parametrize(("filename", "chaves"), [("config.json", 34), ("config.auto.json", 30)])
+def test_round_trip_dos_arquivos_reais_preserva_todas_as_chaves(filename: str, chaves: int) -> None:
     source = json.loads((ROOT / filename).read_text(encoding="utf-8"))
     dumped = BotSettings.model_validate(source).model_dump(mode="json")
     flattened: dict[str, object] = {}
@@ -426,7 +428,7 @@ def test_round_trip_dos_arquivos_reais_preserva_as_30_chaves(filename: str) -> N
         elif key != "schema_version":
             flattened[key] = value
 
-    assert len(source) == 30
+    assert len(source) == chaves
     assert set(flattened) == set(source)
     assert flattened == source
 

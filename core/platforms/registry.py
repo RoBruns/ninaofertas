@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import json
-import time
 from dataclasses import dataclass
 from typing import Any, Protocol
 
@@ -14,7 +12,8 @@ from core.platforms.affiliate import (
     _cookie_value,
     _extrair_url_afiliada,
 )
-from core.platforms.shopee import API_URL, _assinar
+from core.http_headers import BROWSER_USER_AGENT
+from core.platforms.shopee_api import graphql_request
 
 TEST_TIMEOUT_SECONDS = 5.0
 # Produto real de catálogo: com um id inventado o ML responde 200 com
@@ -65,21 +64,13 @@ class ShopeeClient:
                 "Shopee requer app_id (config ou credencial) e app_secret"
             )
         query = "{ productOfferV2(keyword: \"teste\", page: 1, limit: 1) { nodes { itemId } } }"
-        payload = json.dumps({"query": query}, separators=(",", ":"), ensure_ascii=False)
-        timestamp = int(time.time())
-        signature = _assinar(app_id, secret, timestamp, payload)
-        headers = {
-            "Content-Type": "application/json",
-            "Authorization": (
-                f"SHA256 Credential={app_id}, Timestamp={timestamp}, Signature={signature}"
-            ),
-        }
         try:
             with httpx.Client(timeout=TEST_TIMEOUT_SECONDS) as client:
-                response = client.post(
-                    API_URL,
-                    content=payload.encode("utf-8"),
-                    headers=headers,
+                graphql_request(
+                    client,
+                    query,
+                    app_id=app_id,
+                    secret=secret,
                 )
         except (httpx.TimeoutException, httpx.NetworkError):
             return CredentialTestResult(
@@ -87,15 +78,13 @@ class ShopeeClient:
                 "Nao foi possivel conectar a Shopee",
                 network_error=True,
             )
-        if response.status_code >= 400:
-            return _http_failure(response, "GraphQL Shopee")
-        try:
-            body = response.json()
-        except ValueError:
-            return CredentialTestResult(False, "Resposta invalida da Shopee")
-        if body.get("errors"):
-            errors = json.dumps(body["errors"], ensure_ascii=False).casefold()
-            invalid = any(term in errors for term in ("unauthor", "forbidden", "signature", "credential"))
+        except httpx.HTTPStatusError as exc:
+            return _http_failure(exc.response, "GraphQL Shopee")
+        except (RuntimeError, ValueError) as exc:
+            error = str(exc).casefold()
+            invalid = any(
+                term in error for term in ("unauthor", "forbidden", "signature", "credential")
+            )
             return CredentialTestResult(
                 False,
                 "Credencial recusada (GraphQL Shopee)" if invalid else "Consulta GraphQL recusada",
@@ -121,7 +110,7 @@ class MercadoLivreClient:
             "content-type": "application/json",
             "origin": "https://www.mercadolivre.com.br",
             "referer": "https://www.mercadolivre.com.br/afiliados/linkbuilder",
-            "user-agent": "Mozilla/5.0 NinaOfertas credential-check",
+            "user-agent": BROWSER_USER_AGENT,
             "cookie": cookie,
         }
         csrf = _cookie_value(cookie, "_csrf") or _cookie_value(cookie, "csrf")
