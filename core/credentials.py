@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from urllib.parse import quote
 from datetime import datetime, timezone
 from uuid import UUID
 
@@ -19,10 +20,12 @@ def normalize_cookie(value: str) -> str:
 
     Extensões como Cookie-Editor exportam `[{"name": ..., "value": ...}, ...]`;
     as plataformas esperam o cabeçalho `Cookie`, então o JSON vira `nome=valor; ...`.
+    Cabeçalho HTTP é ASCII: a extensão decodifica valores (ex.: LAST_SEARCH com
+    "Luminárias"), então o que não é ASCII volta a ser percent-encoded.
     """
     text = value.strip()
     if not text.startswith("["):
-        return text
+        return _ascii_header(text)
     try:
         items = json.loads(text)
     except ValueError as exc:
@@ -33,7 +36,12 @@ def normalize_cookie(value: str) -> str:
             pairs.setdefault(str(item["name"]), str(item["value"]))
     if not pairs:
         raise ValueError("JSON de cookies sem nenhum par name/value")
-    return "; ".join(f"{name}={cookie}" for name, cookie in pairs.items())
+    return _ascii_header("; ".join(f"{name}={cookie}" for name, cookie in pairs.items()))
+
+
+def _ascii_header(text: str) -> str:
+    """Percent-encoda só o que não é ASCII imprimível; o resto fica intacto."""
+    return "".join(ch if 32 <= ord(ch) < 127 else quote(ch, safe="") for ch in text)
 
 
 def store_credential(

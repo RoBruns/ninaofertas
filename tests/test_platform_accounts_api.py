@@ -488,6 +488,10 @@ def test_cookie_aceita_json_exportado_pelo_navegador(
     )
     assert normalize_cookie(exportado) == "ssid=abc-123; _csrf=x=y; orgnickp=MIDI"
     assert normalize_cookie("  a=1; b=2 ") == "a=1; b=2"
+    # A extensão decodifica valores; cabeçalho HTTP é ASCII (UnicodeEncodeError real).
+    acentuado = json.dumps([{"name": "LAST_SEARCH", "value": "Luminárias%20Led"}])
+    assert normalize_cookie(acentuado) == "LAST_SEARCH=Lumin%C3%A1rias%20Led"
+    assert normalize_cookie(acentuado).isascii()
     with pytest.raises(ValueError):
         normalize_cookie("[{nao e json")
 
@@ -513,3 +517,31 @@ def test_cookie_aceita_json_exportado_pelo_navegador(
         json={"value": "[]"},
     )
     assert_error(invalido, 422, "VALIDATION_ERROR")
+
+
+def test_erro_inesperado_no_teste_de_credencial_nao_vira_500(
+    client: object,
+    session_factory: sessionmaker[Session],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from api.routers import credentials as credentials_router
+
+    class Quebra:
+        def test_credentials(self, *_args: object) -> None:
+            raise UnicodeEncodeError("ascii", "á", 0, 1, "ordinal not in range(128)")
+
+    monkeypatch.setattr(credentials_router, "resolve", lambda _slug: Quebra())
+    admin = add_user(session_factory, email="admin@example.com", role="admin")
+    platform = add_platform(session_factory)
+    token = str(login(client, admin.email)["access_token"])
+    headers = auth_header(token)
+    account_id = create_account(client, token, platform.id)["id"]
+    client.put(
+        f"/api/accounts/{account_id}/credentials/cookie", headers=headers, json={"value": "a=1"}
+    )
+
+    response = client.post(f"/api/accounts/{account_id}/credentials/cookie/test", headers=headers)
+    assert response.status_code == 200, response.text
+    assert response.json()["ok"] is False
+    assert "UnicodeEncodeError" in response.json()["message"]
+    assert "a=1" not in response.text

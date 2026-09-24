@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import re
 from datetime import datetime, timezone
 from typing import Annotated
@@ -25,6 +26,7 @@ from core.platforms.registry import (
     resolve,
 )
 
+logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/accounts", tags=["credentials"])
 AdminUser = Annotated[User, Depends(require_role("admin"))]
 OperatorUser = Annotated[User, Depends(require_role("operator", "admin"))]
@@ -192,6 +194,12 @@ def test_credential(
         result = platform_client.test_credentials(credentials, account.config)
     except PlatformConfigurationError as exc:
         result_message = str(exc)
+        ok = False
+        new_status = "unknown"
+    except Exception as exc:
+        # Um valor malformado não pode virar 500; a mensagem não repete o segredo.
+        logger.warning(f"Teste de credencial falhou: tipo={type(exc).__name__}")
+        result_message = f"Nao foi possivel testar a credencial ({type(exc).__name__}); cadastre-a de novo"
         ok = False
         new_status = "unknown"
     else:
