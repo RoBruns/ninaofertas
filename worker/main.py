@@ -1,4 +1,8 @@
-"""Entrypoint: inicializa o banco e o agendador do monitoramento periódico."""
+"""Entrypoint: inicializa o banco e o agendador do monitoramento periódico.
+
+Tudo que o worker publica vem dos bots ativos no dashboard (ADR-020): sem bot
+ativo com telefone e grupo, ele fica ocioso e só avisa no log.
+"""
 
 from __future__ import annotations
 
@@ -15,7 +19,7 @@ from worker import commands, monitor, promo_instagram
 from worker.channels import canais_ativos, usar_canal
 from worker.logger import logger
 
-_database_mode = False
+_avisou_sem_bots = False
 
 
 def _detectar_alertas() -> None:
@@ -34,41 +38,26 @@ def _limpar_eventos() -> None:
         logger.exception(f"Job de retencao de eventos falhou: {exc}")
 
 
-def _ciclo_achadinhos() -> None:
-    global _database_mode
-    ativos = canais_ativos()
-    if any(canal.startswith("db:") for canal in ativos):
-        _database_mode = True
-        _ciclos_banco()
-        return
-    _database_mode = False
-    if "achadinhos" not in ativos:
-        return
-    with usar_canal("achadinhos"):
-        monitor.ciclo()
-
-
-def _ciclo_auto() -> None:
-    if _database_mode or any(canal.startswith("db:") for canal in canais_ativos()):
-        return
-    with usar_canal("auto"):
-        monitor.ciclo()
-
-
 def _ciclos_banco() -> None:
-    """Um ciclo por grupo, mantendo monitor.ciclo() com o contrato historico."""
-    global _database_mode
-    ativos = canais_ativos()
-    canais_banco = tuple(canal for canal in ativos if canal.startswith("db:"))
-    if not canais_banco:
-        _database_mode = False
-        for canal in ativos:
+    """Um ciclo por (bot ativo, grupo), mantendo monitor.ciclo() com o contrato historico."""
+    global _avisou_sem_bots
+    canais = canais_ativos()
+    if not canais:
+        if not _avisou_sem_bots:
+            logger.warning(
+                "Nenhum bot ativo no dashboard: nada a publicar. "
+                "Ative um bot com telefone, grupo e conta de plataforma."
+            )
+            _avisou_sem_bots = True
+        return
+    _avisou_sem_bots = False
+    for canal in canais:
+        try:
             with usar_canal(canal):
                 monitor.ciclo()
-        return
-    for canal in canais_banco:
-        with usar_canal(canal):
-            monitor.ciclo()
+        except ValueError as exc:
+            # O bot foi pausado entre a listagem e o ciclo (cache de 30 s).
+            logger.info(f"Canal ignorado: {exc}")
 
 
 def _comandos_imediatos() -> None:
@@ -77,53 +66,23 @@ def _comandos_imediatos() -> None:
     if not bot_ids:
         return
     for canal in canais_ativos():
-        if not canal.startswith("db:"):
-            continue
         bot_id = canal.split(":", 2)[1]
         if any(str(wanted) == bot_id for wanted in bot_ids):
             with usar_canal(canal):
                 monitor.ciclo()
 
 
-def _registrar_jobs(
-    scheduler: BackgroundScheduler,
-    ativos: tuple[str, ...],
-    agora: datetime,
-) -> None:
+def _registrar_jobs(scheduler: BackgroundScheduler, agora: datetime) -> None:
     """Registra jobs para permitir validar a agenda sem iniciar o processo."""
-    global _database_mode
-    banco_ativo = any(canal.startswith("db:") for canal in ativos)
-    _database_mode = banco_ativo
-    if banco_ativo:
-        scheduler.add_job(
-            _ciclos_banco,
-            "interval",
-            seconds=settings.check_interval,
-            next_run_time=agora,
-            id="bots-db",
-            max_instances=1,
-            coalesce=True,
-        )
-    if not banco_ativo and "achadinhos" in ativos:
-        scheduler.add_job(
-            _ciclo_achadinhos,
-            "interval",
-            seconds=settings.check_interval,
-            next_run_time=agora,
-            id="achadinhos",
-            max_instances=1,
-            coalesce=True,
-        )
-    if not banco_ativo and "auto" in ativos:
-        scheduler.add_job(
-            _ciclo_auto,
-            "interval",
-            seconds=settings.check_interval,
-            next_run_time=agora + timedelta(seconds=max(20, settings.check_interval // 2)),
-            id="auto",
-            max_instances=1,
-            coalesce=True,
-        )
+    scheduler.add_job(
+        _ciclos_banco,
+        "interval",
+        seconds=settings.check_interval,
+        next_run_time=agora,
+        id="bots-db",
+        max_instances=1,
+        coalesce=True,
+    )
     scheduler.add_job(
         _comandos_imediatos,
         "interval",
@@ -172,32 +131,19 @@ def _registrar_jobs(
 
 
 def main() -> None:
-    global _database_mode
     db.init_db()
     ativos = canais_ativos()
-    logger.info("Bot de Ofertas iniciado.")
-    # Só no modo legado: bots do banco tiram grupo e instância do cadastro, não da env.
-    modo_legado = not any(canal.startswith("db:") for canal in ativos)
-    if modo_legado and (not settings.evolution_instance or not settings.whatsapp_group_id):
-        logger.error(
-            "WhatsApp incompleto: defina EVOLUTION_INSTANCE e WHATSAPP_GROUP_ID "
-            "nas Variables da Railway. Sem isso o Achadinhos não blipa."
-        )
-    if "auto" in ativos:
-        logger.info("Canais: Achadinhos da Nina (casa/feminino) + Nina Ofertas (automotivo)")
-    else:
-        logger.info(
-            "Canal ativo: Achadinhos da Nina (casa/feminino). Nina Ofertas (auto) está desligado."
-        )
+    logger.info("Bot de Ofertas iniciado. Bots, grupos e contas vêm do dashboard.")
+    if ativos:
+        logger.info(f"{len(ativos)} canal(is) ativo(s) (bot x grupo).")
     logger.info(f"Verificando novas ofertas a cada {settings.check_interval}s.")
     from worker import whatsapp
 
     whatsapp.avisar_permissao_grupos()
 
     scheduler = BackgroundScheduler(timezone="America/Sao_Paulo")
-    agora = datetime.now()
-    _registrar_jobs(scheduler, ativos, agora)
-    logger.info("Recado do Instagram (foto da vó) a cada 4h no grupo ativo.")
+    _registrar_jobs(scheduler, datetime.now())
+    logger.info("Recado do Instagram (foto da vó) a cada 4h nos grupos dos bots ativos.")
     scheduler.start()
 
     try:

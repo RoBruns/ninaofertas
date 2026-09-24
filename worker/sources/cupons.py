@@ -12,8 +12,13 @@ import httpx
 from core.platforms.base import OfertaCapturada, Scraper
 from core.platforms.mercadolivre import HEADERS as ML_HEADERS
 from core.platforms.mercadolivre import OFERTAS_URL
-from core.platforms.shopee import API_URL, _assinar, _preco_float, _ts_para_dt
-from core.settings import settings
+from core.platforms.shopee import (
+    API_URL,
+    _assinar,
+    _preco_float,
+    _ts_para_dt,
+    credenciais_shopee_do_bot,
+)
 from worker.channels import load_filtros
 from worker.logger import logger
 
@@ -76,7 +81,8 @@ class CupomScraper(Scraper):
         return out
 
     def _shopee(self) -> list[OfertaCapturada]:
-        if not settings.shopee_app_id or not settings.shopee_app_secret:
+        _conta, app_id, secret = credenciais_shopee_do_bot()
+        if not app_id or not secret:
             return []
         nodes = self._shopee_voucher_nodes()
         if not nodes:
@@ -89,8 +95,7 @@ class CupomScraper(Scraper):
         return out
 
     def _graphql(self, client: httpx.Client, query: str) -> dict:
-        app_id = settings.shopee_app_id
-        secret = settings.shopee_app_secret
+        _conta, app_id, secret = credenciais_shopee_do_bot()
         payload = json.dumps({"query": query}, separators=(",", ":"), ensure_ascii=False)
         ts = int(time.time())
         sig = _assinar(app_id, secret, ts, payload)

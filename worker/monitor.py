@@ -8,6 +8,7 @@ from __future__ import annotations
 from typing import Any, Callable
 
 from core import db, repositories
+from core.credentials import platforms_with_usable_credentials
 from core.platforms import affiliate
 from core.platforms.base import OfertaCapturada
 from core.settings import settings
@@ -256,6 +257,31 @@ def _processar_oferta(session, oferta: OfertaCapturada, filtros: dict) -> str:
     return "falhou"
 
 
+_SLUG_POR_LOJA = {"Shopee": "shopee", "Mercado Livre": "mercadolivre"}
+_avisos_sem_conta: dict[str, frozenset[str]] = {}
+
+
+def _plataformas_do_bot(runtime: Any) -> set[str]:
+    """Plataformas com conta utilizável; avisa só quando o conjunto muda."""
+    if runtime is None:
+        return set()
+    try:
+        plataformas = platforms_with_usable_credentials(runtime.account_ids)
+    except Exception as exc:
+        logger.error(f"[{nome_canal()}] falha ao ler contas do bot: {exc}")
+        return set()
+    faltando = frozenset(set(_SLUG_POR_LOJA.values()) - plataformas)
+    if _avisos_sem_conta.get(str(runtime.id)) != faltando:
+        _avisos_sem_conta[str(runtime.id)] = faltando
+        if faltando:
+            nomes = ", ".join(sorted(loja for loja, slug in _SLUG_POR_LOJA.items() if slug in faltando))
+            logger.warning(
+                f"[{nome_canal()}] sem conta com credencial válida vinculada para: {nomes}. "
+                "Ofertas dessas plataformas ficam de fora (dashboard → Contas / Bots)."
+            )
+    return plataformas
+
+
 def _executar_ciclo() -> tuple[int, int, bool]:
     canal = canal_atual()
     runtime = bot_atual()
@@ -273,9 +299,16 @@ def _executar_ciclo() -> tuple[int, int, bool]:
     max_por_ciclo = int(filtros.get("max_ofertas_por_ciclo") or 1)
     grupo = grupo_whatsapp()
 
+    plataformas = _plataformas_do_bot(runtime)
     todas_ofertas: list[OfertaCapturada] = []
     for fonte in FONTES:
+        slug = _SLUG_POR_LOJA.get(fonte.nome_fonte)
+        if slug is not None and slug not in plataformas:
+            continue
         todas_ofertas.extend(fonte.executar())
+    todas_ofertas = [
+        oferta for oferta in todas_ofertas if _SLUG_POR_LOJA.get(oferta.loja) in plataformas
+    ]
 
     n += 1
     _ciclo_n[canal] = n

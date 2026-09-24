@@ -12,6 +12,7 @@ import hashlib
 import json
 import time
 from datetime import datetime, timezone
+from uuid import UUID
 
 import httpx
 from loguru import logger
@@ -19,7 +20,6 @@ from loguru import logger
 from core.config_provider import bot_runtime_atual, load_filtros_runtime as load_filtros
 from core.credentials import mark_account_credentials_invalid, runtime_account_credentials
 from core.platforms.base import OfertaCapturada, Scraper
-from core.settings import settings
 
 API_URL = "https://open-api.affiliate.shopee.com.br/graphql"
 
@@ -62,6 +62,36 @@ def _ts_para_dt(valor) -> datetime | None:
         return None
 
 
+def shopee_app_credentials(config: dict, values: dict[str, str]) -> tuple[str, str]:
+    """(app_id, app_secret) de uma conta Shopee: app_id em config, segredo cifrado."""
+    app_id = str(
+        config.get("app_id")
+        or config.get("affiliate_id")
+        or config.get("external_id")
+        or values.get("app_id")
+        or values.get("api_key")
+        or ""
+    )
+    secret = next((values[key] for key in ("app_secret", "secret") if values.get(key)), "")
+    return app_id, secret
+
+
+def credenciais_shopee_do_bot() -> tuple[UUID | None, str, str]:
+    """(conta, app_id, app_secret) da conta Shopee vinculada ao bot atual.
+
+    Só o dashboard fornece credencial (ADR-020): sem bot ou sem conta Shopee
+    ativa vinculada, devolve vazio e a Shopee fica de fora do ciclo.
+    """
+    runtime = bot_runtime_atual()
+    if runtime is None or not runtime.account_ids:
+        return None, "", ""
+    account = runtime_account_credentials(runtime.account_ids, "shopee")
+    if account is None:
+        return None, "", ""
+    account_id, config, values = account
+    return (account_id, *shopee_app_credentials(config, values))
+
+
 class ShopeeScraper(Scraper):
     nome_fonte = "Shopee"
     _avisou_sem_credenciais = False
@@ -70,27 +100,7 @@ class ShopeeScraper(Scraper):
     _runtime_secret = ""
 
     def _load_auth(self) -> tuple[str, str]:
-        runtime = bot_runtime_atual()
-        self._runtime_account_id = None
-        if runtime is None or not runtime.account_ids:
-            return settings.shopee_app_id, settings.shopee_app_secret
-        account = runtime_account_credentials(runtime.account_ids, "shopee")
-        if account is None:
-            return "", ""
-        account_id, config, values = account
-        self._runtime_account_id = account_id
-        app_id = str(
-            config.get("app_id")
-            or config.get("affiliate_id")
-            or config.get("external_id")
-            or values.get("app_id")
-            or values.get("api_key")
-            or ""
-        )
-        secret = next(
-            (values[key] for key in ("app_secret", "secret") if values.get(key)),
-            "",
-        )
+        self._runtime_account_id, app_id, secret = credenciais_shopee_do_bot()
         return app_id, secret
 
     def _termos_busca(self) -> list[str]:

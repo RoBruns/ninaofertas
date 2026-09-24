@@ -110,6 +110,12 @@ banco, alterar limite no dashboard reflete em ≤1 ciclo sem restart · pausar p
 dashboard para os envios em ≤1 ciclo · restart não refaz baseline · 24h em
 produção sem regressão de envio.
 
+**Revisto pelo ADR-020 (2026-09-24):** o fallback saiu. O worker só publica bots
+ativos do dashboard, envia pela instância do telefone do bot e usa só a conta
+vinculada (sem conta de uma plataforma, as ofertas dela ficam de fora). Com banco
+vazio, o worker fica ocioso. A API só ativa bot com telefone com instância, grupo
+e conta com credencial.
+
 ## Fase 7 — Atribuição
 
 **Spike primeiro** (1–2h, antes de construir): confirmar que Shopee e ML aceitam
@@ -302,6 +308,23 @@ testes e build funcionaram como descrito.
 
 Achados que **já existiam** antes deste projeto. Não foram corrigidos na hora
 para não misturar mudança de comportamento com refatoração estrutural.
+
+### B10–B13 — Achados rodando a branch localmente ✅ corrigidos (2026-09-24)
+
+Os testes do frontend simulam a API e os da API não cobriam algumas rotas; só
+usar o dashboard de verdade revelou:
+
+- **B10** — listas de seleção pediam `page_size=200` e a API aceitava 100: 422 em
+  todas. Limite subiu para 200; `tests/test_dashboard_contract.py` cruza o que o
+  dashboard pede com o `openapi.json`.
+- **B11** — `/api/audit-logs` dava 500 com IP real (INET volta como
+  `IPv4Address`). A tela de Auditoria quebraria sempre em produção.
+- **B12** — editar bot dava 500 ao salvar settings (dump duplo). Nenhum teste
+  chamava o PATCH; `tests/test_patch_routes.py` cobre as rotas de escrita que
+  estavam sem teste.
+- **B13** — a Shopee não podia ser cadastrada pelo dashboard (o modal só
+  oferecia cookie/token; o worker lê `app_secret`). A tela agora pede o que cada
+  plataforma exige.
 
 ### B1 — Cupons de campanha Shopee nunca são capturados ⚠️ produção
 

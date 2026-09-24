@@ -37,17 +37,19 @@ def bots_ativos(ttl: int = 30) -> list[BotRuntime]:
 worker**: ele loga, emite um `event` de nível `error`, e mantém a última config
 válida em memória. Um erro de digitação no dashboard não pode parar a operação.
 
-**Fallback.** Sem bot ativo e rodável no banco, o worker cai para
-`config.json`/`config.py` como hoje. Um bot só é rodável quando tem telefone e
-instância da Evolution resolvidos e ao menos um grupo ativo. Bots ativos
-incompletos são ignorados e geram o evento `bot_not_runnable`; portanto uma
-linha incompleta em `bots` nunca silencia a operação legada.
+**Sem modo legado (ADR-020).** O worker só publica bots ativos e rodáveis do
+banco; sem nenhum, fica ocioso e avisa no log uma vez. Não lê `config.json` nem
+grupos, instância ou credenciais da env. Um bot é rodável quando tem telefone com
+instância da Evolution e ao menos um grupo ativo; bots ativos incompletos são
+ignorados e geram o evento `bot_not_runnable`. A API já recusa ativar um bot sem
+telefone com instância, grupo e conta com credencial.
 
-Os jobs de ciclo são registrados uma vez, no boot. A configuração e os bots
-usados por esses jobs são relidos com o cache de 30 s: um job legado passa a
-executar os bots do banco quando aparece um bot rodável, e o job de banco volta
-ao legado se todos deixam de ser rodáveis. O scheduler não cria nem remove jobs
-dinamicamente; mudanças entram na execução pelo job já registrado.
+Cada ciclo busca e publica só as plataformas em que o bot tem conta ativa com
+credencial não invalidada (`platforms_with_usable_credentials`): sem conta, o
+link sairia sem comissão. A falta é avisada no log quando muda.
+
+O job de ciclo é registrado uma vez, no boot. Os bots são relidos com o cache de
+30 s, então ativar ou pausar no dashboard entra no próximo ciclo sem reiniciar.
 
 ## Comandos: o que precisa ser imediato
 
@@ -113,9 +115,10 @@ explícita e ligá-la a `phone_id`.
 O dashboard mostra, na tela do telefone, o total consolidado de envios daquele
 número no dia — para que ficar acima do teto seja visível antes de virar ban.
 
-## Ordem de migração (fase 6)
+## Ordem de migração (fase 6) — histórico
 
-Incremental, cada passo reversível:
+Plano original, com fallback. O ADR-020 removeu o fallback; a troca em produção
+segue o plano de deploy em [DEPLOYMENT.md](DEPLOYMENT.md).
 
 1. Worker passa a ler `bots` com fallback para JSON. Nenhum bot no banco ainda —
    comportamento idêntico ao atual.

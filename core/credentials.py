@@ -128,3 +128,27 @@ def mark_account_credentials_invalid(
             )
     except Exception:
         return
+
+
+def platforms_with_usable_credentials(account_ids: tuple[UUID, ...]) -> set[str]:
+    """Slugs das plataformas em que o bot tem conta ativa com credencial não invalidada.
+
+    O worker só publica ofertas dessas plataformas: sem conta, o link sairia
+    sem comissão (ADR-020).
+    """
+    if not account_ids:
+        return set()
+    with db.get_session() as session:
+        return set(
+            session.scalars(
+                select(Platform.slug)
+                .join(PlatformAccount, PlatformAccount.platform_id == Platform.id)
+                .join(PlatformCredential, PlatformCredential.account_id == PlatformAccount.id)
+                .where(
+                    PlatformAccount.id.in_(account_ids),
+                    PlatformAccount.status == "active",
+                    PlatformCredential.status != "invalid",
+                )
+                .distinct()
+            )
+        )

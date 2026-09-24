@@ -35,10 +35,22 @@ def test_core_nao_importa_worker() -> None:
         assert "import worker" not in conteudo
 
 
-def test_configs_dos_dois_canais_sao_lidos_da_raiz() -> None:
-    from worker.channels import load_filtros, usar_canal
+def test_configs_dos_dois_canais_viram_settings_de_bot() -> None:
+    # Os JSON da raiz só alimentam o seed; o worker lê os settings do bot.
+    from core.config_provider import usar_bot_runtime
+    from tests.runtime_helpers import runtime_do_config
+    from worker.channels import load_filtros
 
-    with usar_canal("achadinhos"):
-        assert load_filtros()["nicho"] == "casa"
-    with usar_canal("auto"):
-        assert load_filtros()["nicho"] == "auto"
+    import json
+    from pathlib import Path
+
+    raiz = Path(__file__).resolve().parents[1]
+    for arquivo, nicho in (("config.json", "casa"), ("config.auto.json", "auto")):
+        bruto = json.loads((raiz / arquivo).read_text(encoding="utf-8"))
+        runtime = runtime_do_config(arquivo)
+        with usar_bot_runtime(runtime):
+            filtros = load_filtros()
+        # nicho e mensagem_template viram campos do bot; o resto segue nos settings.
+        assert runtime.niche_slug == nicho
+        assert set(bruto) - set(filtros) == {"nicho", "mensagem_template"}
+        assert filtros["termos_busca"] == bruto["termos_busca"]

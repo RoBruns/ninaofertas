@@ -14,7 +14,7 @@ from loguru import logger
 
 from core.config_provider import bot_runtime_atual, registrar_evento_runtime
 from core.credentials import mark_account_credentials_invalid, runtime_account_credentials
-from core.settings import settings
+from core.platforms.shopee import shopee_app_credentials
 
 ML_CREATE_LINK = "https://www.mercadolivre.com.br/affiliate-program/api/v2/affiliates/createLink"
 ML_LINKBUILDER = "https://www.mercadolivre.com.br/afiliados/linkbuilder"
@@ -106,20 +106,15 @@ def _ja_parece_afiliado_shopee(url: str) -> bool:
 
 
 def _ml_auth() -> tuple[Any, _MLAuth]:
+    """Tag e cookie da conta ML vinculada ao bot; nunca da env (ADR-020)."""
     runtime, account = _runtime_auth("mercadolivre")
-    if runtime is not None and runtime.account_ids:
-        if account is None:
-            logger.warning("[afiliado] MELI sem conta/credencial vinculada")
-            return runtime, _MLAuth(None, "", "")
-        account_id, config, values = account
-        tag = str(config.get("affiliate_tag") or config.get("tag") or "")
-        cookie = _credential_value(values, "cookie", "affiliate_cookie")
-        return runtime, _MLAuth(account_id, tag, cookie)
-    return runtime, _MLAuth(
-        None,
-        settings.mercadolivre_affiliate_tag,
-        settings.mercadolivre_affiliate_cookie,
-    )
+    if account is None:
+        logger.warning("[afiliado] MELI sem conta/credencial vinculada ao bot")
+        return runtime, _MLAuth(None, "", "")
+    account_id, config, values = account
+    tag = str(config.get("affiliate_tag") or config.get("tag") or "")
+    cookie = _credential_value(values, "cookie", "affiliate_cookie")
+    return runtime, _MLAuth(account_id, tag, cookie)
 
 
 def _converter_mercadolivre_com_tag(
@@ -187,15 +182,8 @@ def _converter_mercadolivre_com_tag(
 
 def converter_mercadolivre(url: str) -> str | None:
     runtime, auth = _ml_auth()
-    if runtime is None:
-        tag = settings.mercadolivre_affiliate_tag
-    else:
-        tag = (
-            runtime.settings.attribution.ml_tag
-            or auth.account_tag
-            or settings.mercadolivre_affiliate_tag
-        )
-    return _converter_mercadolivre_com_tag(url, tag, auth, runtime)
+    bot_tag = runtime.settings.attribution.ml_tag if runtime is not None else None
+    return _converter_mercadolivre_com_tag(url, bot_tag or auth.account_tag, auth, runtime)
 
 
 def _tracking_ids(bot_id: UUID, group_id: UUID) -> tuple[str, str]:
@@ -214,23 +202,10 @@ def converter_shopee(
         return url
 
     runtime, account = _runtime_auth("shopee")
-    if runtime is not None and runtime.account_ids:
-        if account is None:
-            return None
-        account_id, config, values = account
-        app_id = str(
-            config.get("app_id")
-            or config.get("affiliate_id")
-            or config.get("external_id")
-            or values.get("app_id")
-            or values.get("api_key")
-            or ""
-        )
-        secret = _credential_value(values, "app_secret", "secret")
-    else:
-        account_id = None
-        app_id = settings.shopee_app_id
-        secret = settings.shopee_app_secret
+    if account is None:
+        return None
+    account_id, config, values = account
+    app_id, secret = shopee_app_credentials(config, values)
     if not app_id or not secret:
         return None
 
@@ -285,8 +260,7 @@ def garantir_afiliado(
     loja = (oferta_loja or "").lower()
     if "mercado" in loja:
         runtime, auth = _ml_auth()
-        legacy_tag = settings.mercadolivre_affiliate_tag
-        account_tag = auth.account_tag or legacy_tag
+        account_tag = auth.account_tag
         bot_tag = runtime.settings.attribution.ml_tag if runtime is not None else None
         tag = bot_tag or account_tag
         converted = _converter_mercadolivre_com_tag(url, tag, auth, runtime)

@@ -308,3 +308,30 @@ orquestrador integra essas mudanças na branch do dashboard sempre que aparecere
 **preservando o comportamento de produção** (é a verdade da operação), e avisa o
 usuário a cada integração. Antes de qualquer deploy, `git fetch` e verificação de
 divergência com `origin/master` são obrigatórios.
+
+## ADR-020 — Sem modo legado: o worker só publica bots do dashboard
+**Data:** 2026-09-24 · **Status:** aceita · **Decisor:** usuário · **Substitui:** o
+fallback para `config.json`/env descrito em BOT_INTEGRATION (fase 6)
+
+O bot antigo continua rodando em produção até o deploy; a versão nova não precisa
+reproduzi-lo. Decisão: **tudo que o worker publica vem do dashboard.**
+
+- Sem bot `active` com telefone e grupo, o worker fica ocioso e avisa no log uma
+  vez. Não há mais fallback para `config.json`, `WHATSAPP_GROUP_ID*` nem para as
+  credenciais de plataforma da env.
+- O envio usa a instância Evolution do **telefone do bot** (`phones.evolution_instance`),
+  não `EVOLUTION_INSTANCE`.
+- Credenciais só da conta vinculada ao bot. O ciclo só busca e publica ofertas das
+  plataformas em que o bot tem conta ativa com credencial não invalidada: sem
+  conta, o link sairia sem comissão.
+- A API só ativa um bot que o worker consegue rodar: telefone com instância, ao
+  menos um grupo e ao menos uma conta com credencial. A mensagem diz o que falta.
+- A env do worker fica só com infraestrutura: `DATABASE_URL`, `EVOLUTION_API_URL`,
+  `EVOLUTION_API_KEY`, `CHECK_INTERVAL`, `REENVIO_QUEDA_MINIMA`, `LOG_LEVEL`.
+- `config.json`/`config.auto.json` servem só ao seed, que os importa como bots
+  pausados.
+
+Consequência: pausar todos os bots **para** a publicação (antes, devolvia ao
+legado). O deploy configura e ativa os bots no dashboard **antes** de trocar o
+worker — o código antigo ignora a tabela `bots` — para não haver janela sem envio.
+

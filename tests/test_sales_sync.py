@@ -398,7 +398,7 @@ class SchedulerSpy:
 
 def test_job_diario_registrado_as_seis_com_max_instances_um() -> None:
     scheduler = SchedulerSpy()
-    _registrar_jobs(scheduler, ("achadinhos",), datetime(2026, 9, 23, 5, 0))
+    _registrar_jobs(scheduler, datetime(2026, 9, 23, 5, 0))
     daily = next(job for job in scheduler.jobs if job[2]["id"] == "sales-sync-daily")
     assert daily[1] == "cron"
     assert daily[2]["hour"] == 6

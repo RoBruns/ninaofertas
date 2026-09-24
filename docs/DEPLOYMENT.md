@@ -73,9 +73,9 @@ Classificação para a migração:
 | `EVOLUTION_INSTANCE` | → `phones.evolution_instance` |
 | `*_APP_ID`, `*_APP_SECRET`, `*_COOKIE`, `*_TAG` | → `platform_credentials` (cifrado) e `platform_accounts.config` |
 
-A remoção das env vars migradas é o **último** passo (fase 14), depois de
-confirmar em produção que o banco é a origem. Enquanto isso elas permanecem como
-fallback.
+O worker novo **não lê** as variáveis migradas (ADR-020): o dashboard é a única
+origem. Elas continuam no serviço só enquanto o rollback para o código antigo for
+possível, e são removidas no último passo do deploy.
 
 ### `nina-api` (novo)
 
@@ -167,8 +167,10 @@ worker. Alerta de `bot_offline` dispara com 3 intervalos sem heartbeat.
   `startCommand = "python -m worker.main"` e subiria **um segundo bot** no mesmo
   número — risco de ban. Cada serviço novo usa um arquivo de config próprio
   (config-as-code por serviço na Railway).
-- Com os bots do seed **pausados** (fase 6b), o worker continua no modo legado
-  depois do deploy: mesmo canal, mesmo grupo, mesmo `config.json`.
+- **Não há modo legado** (ADR-020): o worker novo só publica bots ativos no
+  dashboard. O worker **antigo** ignora a tabela `bots`, então os bots podem ser
+  configurados e ativados no dashboard enquanto ele ainda roda — é isso que evita
+  uma janela sem envio na troca.
 
 ### Arquitetura de publicação
 
@@ -196,14 +198,16 @@ público** — só é alcançável pelo proxy.
 | 3 | Variáveis da API: `JWT_SECRET`, `CREDENTIALS_KEY`, `WORKER_TOKEN` gerados; `DATABASE_URL` e `EVOLUTION_*` por referência. `ADMIN_EMAIL`/`ADMIN_PASSWORD` **definidos pelo usuário** (a senha não passa pela conversa) | trocar valor |
 | 4 | `alembic upgrade head` no banco de produção (só aditivo; `ofertas`/`envios` ganham colunas nullable) e `python -m core.seed` (bots pausados) | downgrade testado; backup do passo 1 |
 | 5 | Subir API e dashboard; checar `/api/health`, login, telas | redeploy anterior |
-| 6 | Merge de `feat/dashboard` na `master` de produção → a Railway republica o worker com `python -m worker.main` | redeploy do deployment anterior do worker |
-| 7 | Conferir no log do worker: mesmas mensagens de antes, mesmo canal e grupo; nenhum envio perdido na primeira hora | — |
-| 8 | Rodar a suíte **dentro da Railway** (sem túnel) com `METRICS_LATENCY_CHECK=1`, e refazer a verificação V5 | — |
-| 9 | Só então o usuário configura telefone, grupos, etiquetas do ML e ativa o primeiro bot | pausar o bot volta ao legado |
+| 6 | No dashboard de produção: contas (Shopee: App ID + App Secret; ML: etiqueta + cookie), telefone com a instância `ofertas-bot`, grupos (sincronizar), e nos bots do seed: vincular telefone, grupos e contas, conferir o ritmo e **ativar**. O worker antigo segue publicando e ignora isso | pausar o bot |
+| 7 | Merge de `feat/dashboard` na `master` de produção → a Railway republica o worker com `python -m worker.main`, que passa a publicar pelos bots ativos | redeploy do deployment anterior do worker |
+| 8 | Conferir no log do worker: bots e grupos esperados, nenhum aviso "sem conta"; envios com `bot_id` na primeira hora | — |
+| 9 | Rodar a suíte **dentro da Railway** (sem túnel) com `METRICS_LATENCY_CHECK=1`, e refazer a verificação V5 | — |
+| 10 | Estável: remover do worker as variáveis migradas (`EVOLUTION_INSTANCE`, `WHATSAPP_GROUP_ID*`, `SHOPEE_*`, `MERCADOLIVRE_*`) | recriar as variáveis |
 
 ### Rollback
 
 Migrations aditivas: o código antigo do worker roda sobre o schema novo. Se o
 worker novo se comportar mal, `railway redeploy` do deployment anterior devolve
-o comportamento de hoje sem tocar no banco. Pausar todos os bots no dashboard
-também devolve o worker ao modo legado (verificado na fase 6b).
+o comportamento de hoje sem tocar no banco — por isso as variáveis antigas só
+saem no passo 10. Pausar todos os bots no dashboard **para** a publicação; não
+há mais volta automática ao legado (ADR-020).

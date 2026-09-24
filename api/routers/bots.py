@@ -42,7 +42,7 @@ from core.models import (
 router = APIRouter(prefix="/bots", tags=["bots"])
 AdminUser = Annotated[User, Depends(require_role("admin"))]
 OperatorUser = Annotated[User, Depends(require_role("operator", "admin"))]
-ACTIVATION_CONFLICT = "Vincule um telefone e ao menos um grupo antes de ativar o bot"
+ACTIVATION_CONFLICT = "Para ativar o bot, falta: {}"
 
 
 def _owned(session: Session, bot_id: UUID, owner_id: UUID) -> Bot:
@@ -135,9 +135,34 @@ def _has_publishable_group(session: Session, bot_id: UUID) -> bool:
     ) is not None
 
 
+def _has_usable_account(session: Session, bot_id: UUID) -> bool:
+    return session.scalar(
+        select(PlatformAccount.id)
+        .join(BotPlatformAccount, BotPlatformAccount.account_id == PlatformAccount.id)
+        .join(PlatformCredential, PlatformCredential.account_id == PlatformAccount.id)
+        .where(
+            BotPlatformAccount.bot_id == bot_id,
+            PlatformAccount.status == "active",
+            PlatformCredential.status != "invalid",
+        )
+        .limit(1)
+    ) is not None
+
+
 def _ensure_can_activate(session: Session, bot: Bot) -> None:
-    if bot.phone_id is None or not _has_publishable_group(session, bot.id):
-        raise APIError(409, "CONFLICT", ACTIVATION_CONFLICT)
+    """O worker só roda bots do dashboard (ADR-020): ativo precisa poder publicar."""
+    missing = []
+    phone = session.get(Phone, bot.phone_id) if bot.phone_id is not None else None
+    if phone is None:
+        missing.append("um telefone")
+    elif not phone.evolution_instance:
+        missing.append("a instância Evolution do telefone")
+    if not _has_publishable_group(session, bot.id):
+        missing.append("ao menos um grupo")
+    if not _has_usable_account(session, bot.id):
+        missing.append("ao menos uma conta de plataforma com credencial")
+    if missing:
+        raise APIError(409, "CONFLICT", ACTIVATION_CONFLICT.format(", ".join(missing)))
 
 
 def _ensure_accounts(
@@ -486,6 +511,8 @@ def set_accounts(
     before = _audit(bot_response(session, bot))
     _replace_accounts(session, bot, payload.account_ids)
     session.flush()
+    if bot.status == "active":
+        _ensure_can_activate(session, bot)
     response = bot_response(session, bot)
     record_audit(session, user, "bot", str(bot.id), "set_accounts", before, _audit(response), client_ip(request))
     session.commit()

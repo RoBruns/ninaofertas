@@ -1,8 +1,11 @@
-"""Configuracao dos canais: banco primeiro, arquivos legados como fallback."""
+"""Canais do worker: um por (bot ativo, grupo), sempre vindos do dashboard.
+
+Nao ha modo legado (ADR-020): sem bot ativo com telefone e grupo, o worker
+nao publica nada.
+"""
 
 from __future__ import annotations
 
-import os
 from contextlib import contextmanager
 from contextvars import ContextVar
 from uuid import UUID
@@ -10,7 +13,6 @@ from uuid import UUID
 from sqlalchemy import select
 
 from core import db
-from core.channels import CANAIS
 from core.config_provider import (
     BotRuntime,
     bot_runtime_atual,
@@ -19,9 +21,8 @@ from core.config_provider import (
     usar_bot_runtime,
 )
 from core.models import BotGroup, Group
-from core.settings import usar_arquivo_config
 
-_canal: ContextVar[str] = ContextVar("canal", default="achadinhos")
+_canal: ContextVar[str] = ContextVar("canal", default="")
 _grupo: ContextVar[str | None] = ContextVar("grupo_runtime", default=None)
 
 
@@ -40,24 +41,19 @@ def _resolver_token(canal: str) -> tuple[BotRuntime, str] | None:
 
 
 def canais_ativos() -> tuple[str, ...]:
-    runtimes = bots_ativos()
-    if runtimes:
-        return tuple(_token(runtime, grupo) for runtime in runtimes for grupo in runtime.group_ids)
-    return tuple(key for key, value in CANAIS.items() if value.get("ativo", True))
+    return tuple(_token(runtime, grupo) for runtime in bots_ativos() for grupo in runtime.group_ids)
 
 
 @contextmanager
 def usar_canal(canal: str):
     resolved = _resolver_token(canal)
-    if canal not in CANAIS and resolved is None:
-        raise ValueError(f"Canal desconhecido: {canal}")
+    if resolved is None:
+        raise ValueError(f"Canal desconhecido ou bot nao esta mais ativo: {canal}")
     canal_token = _canal.set(canal)
-    grupo_token = _grupo.set(resolved[1] if resolved else None)
+    grupo_token = _grupo.set(resolved[1])
     try:
-        arquivo = str(CANAIS[canal]["arquivo"]) if canal in CANAIS else "config.json"
-        with usar_bot_runtime(resolved[0] if resolved else None):
-            with usar_arquivo_config(arquivo):
-                yield
+        with usar_bot_runtime(resolved[0]):
+            yield
     finally:
         _grupo.reset(grupo_token)
         _canal.reset(canal_token)
@@ -69,19 +65,15 @@ def canal_atual() -> str:
 
 def nome_canal() -> str:
     runtime = bot_runtime_atual()
-    return runtime.nome if runtime is not None else str(CANAIS[_canal.get()]["nome"])
+    return runtime.nome if runtime is not None else "sem bot"
 
 
 def grupo_whatsapp() -> str:
-    grupo = _grupo.get()
-    if grupo is not None:
-        return grupo
-    env_name = str(CANAIS[_canal.get()]["grupo_env"])
-    return os.getenv(env_name, "") or os.getenv("WHATSAPP_GROUP_ID", "")
+    return _grupo.get() or ""
 
 
 def load_filtros() -> dict:
-    """Le o config do bot atual; sem bot no banco, le o mesmo JSON legado."""
+    """Le os settings do bot atual, editados no dashboard."""
     return load_filtros_runtime()
 
 
@@ -116,7 +108,6 @@ def grupo_db_id() -> UUID | None:
 
 
 __all__ = [
-    "CANAIS",
     "bot_atual",
     "canal_atual",
     "canais_ativos",

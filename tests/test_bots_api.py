@@ -21,6 +21,7 @@ from core.models import (
     Phone,
     Platform,
     PlatformAccount,
+    PlatformCredential,
 )
 from tests.test_api import (
     add_user,
@@ -124,6 +125,13 @@ def add_catalog(
                 for index, account_id in enumerate(account_ids, start=1)
             ]
         )
+        session.flush()
+        # Bot só ativa com conta que tenha credencial (ADR-020); o conteúdo
+        # cifrado não importa para a API, que nunca o lê de volta.
+        session.add_all(
+            PlatformCredential(account_id=account_id, kind="cookie", ciphertext=b"x")
+            for account_id in account_ids
+        )
         niche_id = niche.id
     return {
         "niche_id": niche_id,
@@ -217,6 +225,7 @@ def test_status_auditoria_run_now_e_health_desconhecida(
         slug="operacional",
         catalog=catalog,
         group_ids=[catalog["group_ids"][0]],
+        account_ids=[catalog["account_ids"][0]],
     )
 
     for endpoint, expected in (
@@ -251,17 +260,18 @@ def test_status_auditoria_run_now_e_health_desconhecida(
     assert {"activate", "pause", "disable"} <= actions
 
 
-def test_ativacao_exige_telefone_e_grupo_e_preserva_bot_ativo(
+def test_ativacao_exige_telefone_grupo_e_conta_e_preserva_bot_ativo(
     client: object,
     session_factory: sessionmaker[Session],
 ) -> None:
     _admin, headers, catalog = admin_context(client, session_factory)
     bot = create_bot(client, headers, name="Bot Protegido", slug="protegido")
-    message = "Vincule um telefone e ao menos um grupo antes de ativar o bot"
-
     without_phone = client.post(f"/api/bots/{bot['id']}/activate", headers=headers)
     assert_error(without_phone, 409, "CONFLICT")
-    assert without_phone.json()["error"]["message"] == message
+    assert without_phone.json()["error"]["message"] == (
+        "Para ativar o bot, falta: um telefone, ao menos um grupo, "
+        "ao menos uma conta de plataforma com credencial"
+    )
 
     linked_phone = client.patch(
         f"/api/bots/{bot['id']}",
@@ -280,8 +290,20 @@ def test_ativacao_exige_telefone_e_grupo_e_preserva_bot_ativo(
         json={"group_ids": [str(catalog["group_ids"][0])]},
     )
     assert linked_group.status_code == 200
+    without_account = client.post(f"/api/bots/{bot['id']}/activate", headers=headers)
+    assert_error(without_account, 409, "CONFLICT")
+    assert without_account.json()["error"]["message"] == (
+        "Para ativar o bot, falta: ao menos uma conta de plataforma com credencial"
+    )
+
+    linked_account = client.put(
+        f"/api/bots/{bot['id']}/accounts",
+        headers=headers,
+        json={"account_ids": [str(catalog["account_ids"][0])]},
+    )
+    assert linked_account.status_code == 200
     activated = client.post(f"/api/bots/{bot['id']}/activate", headers=headers)
-    assert activated.status_code == 200
+    assert activated.status_code == 200, activated.text
 
     remove_phone = client.patch(
         f"/api/bots/{bot['id']}", headers=headers, json={"phone_id": None}
@@ -289,8 +311,12 @@ def test_ativacao_exige_telefone_e_grupo_e_preserva_bot_ativo(
     remove_group = client.put(
         f"/api/bots/{bot['id']}/groups", headers=headers, json={"group_ids": []}
     )
+    remove_accounts = client.put(
+        f"/api/bots/{bot['id']}/accounts", headers=headers, json={"account_ids": []}
+    )
     assert_error(remove_phone, 409, "CONFLICT")
     assert_error(remove_group, 409, "CONFLICT")
+    assert_error(remove_accounts, 409, "CONFLICT")
     current = client.get(f"/api/bots/{bot['id']}", headers=headers)
     assert current.json()["status"] == "active"
     assert current.json()["phone_id"] == str(catalog["phone_id"])

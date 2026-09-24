@@ -20,19 +20,21 @@ class WhatsAppError(Exception):
     pass
 
 
-# Fallback de producao: usado somente quando nao existe bot configurado no banco.
-LEGACY_PHONE_NUMBER = "558531791835"
-
-
 def enviar_mensagem(texto: str, imagem: str | None = None, grupo: str | None = None) -> bool:
     """Envia `texto` (com `imagem` opcional) para o grupo do canal atual.
-    Retorna True em sucesso, False em falha (nunca lança para não parar o bot)."""
+    Retorna True em sucesso, False em falha (nunca lança para não parar o bot).
 
-    from worker.channels import grupo_whatsapp
+    A instância é a do telefone cadastrado no bot (dashboard), não da env."""
+
+    from worker.channels import grupo_whatsapp, instancia_evolution
 
     destino = grupo or grupo_whatsapp()
-    if not settings.evolution_instance or not destino:
-        logger.error("WhatsApp não configurado: defina EVOLUTION_INSTANCE e o ID do grupo no .env")
+    instancia = instancia_evolution()
+    if not instancia or not destino:
+        logger.error(
+            "WhatsApp não configurado: o telefone do bot precisa de instância Evolution "
+            "e o bot, de um grupo (dashboard)."
+        )
         return False
 
     headers = {"apikey": settings.evolution_api_key, "Content-Type": "application/json"}
@@ -40,7 +42,7 @@ def enviar_mensagem(texto: str, imagem: str | None = None, grupo: str | None = N
     try:
         with httpx.Client(timeout=25.0) as client:
             if imagem:
-                url = f"{settings.evolution_api_url}/message/sendMedia/{settings.evolution_instance}"
+                url = f"{settings.evolution_api_url}/message/sendMedia/{instancia}"
                 payload = {
                     "number": destino,
                     "mediatype": "image",
@@ -56,7 +58,7 @@ def enviar_mensagem(texto: str, imagem: str | None = None, grupo: str | None = N
                         payload["mimetype"] = "image/png"
                         payload["fileName"] = "cupom.png"
             else:
-                url = f"{settings.evolution_api_url}/message/sendText/{settings.evolution_instance}"
+                url = f"{settings.evolution_api_url}/message/sendText/{instancia}"
                 payload = {"number": destino, "text": texto}
 
             resp = client.post(url, json=payload, headers=headers)
@@ -89,49 +91,11 @@ def _participante_do_numero(part: dict, numero: str) -> bool:
 
 def avisar_permissao_grupos() -> None:
     """Grupo 'somente admins' + número sem admin = API 200 e ninguém vê a msg."""
-    from worker.channels import CANAIS, canais_ativos, grupo_whatsapp, usar_canal
+    from worker.channels import canais_ativos
 
     ativos = canais_ativos()
-    if any(canal.startswith("db:") for canal in ativos):
+    if ativos:
         _avisar_permissao_banco(ativos)
-        return
-
-    headers = {"apikey": settings.evolution_api_key}
-    url = f"{settings.evolution_api_url}/group/fetchAllGroups/{settings.evolution_instance}"
-    try:
-        with httpx.Client(timeout=30.0) as client:
-            resp = client.get(url, headers=headers, params={"getParticipants": "true"})
-        resp.raise_for_status()
-        data = resp.json()
-    except Exception as e:
-        logger.warning(f"Não deu pra checar permissão dos grupos: {e}")
-        return
-
-    grupos = data if isinstance(data, list) else (data.get("data") or data.get("groups") or [])
-    por_id = {}
-    for g in grupos:
-        if isinstance(g, dict):
-            por_id[str(g.get("id") or g.get("jid") or "")] = g
-
-    for canal in ativos:
-        with usar_canal(canal):
-            gid = grupo_whatsapp()
-            g = por_id.get(gid)
-            if not g:
-                logger.warning(f"[{CANAIS[canal]['nome']}] grupo {gid} não apareceu na lista da Evolution")
-                continue
-            announce = bool(g.get("announce"))
-            parts = g.get("participants") or []
-            eu = next((p for p in parts if _participante_do_numero(p, LEGACY_PHONE_NUMBER)), None)
-            admin = (eu or {}).get("admin") if isinstance(eu, dict) else None
-            if announce and not admin:
-                logger.error(
-                    f"[{CANAIS[canal]['nome']}] grupo está 'somente admins' e o número do bot "
-                    f"NÃO é admin — o WhatsApp engole a mensagem. "
-                    f"Promova {LEGACY_PHONE_NUMBER} a admin."
-                )
-            elif announce:
-                logger.info(f"[{CANAIS[canal]['nome']}] grupo somente admins; bot é admin ({admin}).")
 
 
 def _avisar_permissao_banco(canais: tuple[str, ...]) -> None:
@@ -176,7 +140,13 @@ def _avisar_permissao_banco(canais: tuple[str, ...]) -> None:
                 continue
             if not bool(group.get("announce")):
                 continue
-            number = telefone_bot() or LEGACY_PHONE_NUMBER
+            number = telefone_bot()
+            if not number:
+                logger.warning(
+                    f"[{nome_canal()}] grupo somente admins; cadastre o número do telefone "
+                    "no dashboard para conferir se o bot é admin."
+                )
+                continue
             participant = next(
                 (
                     item

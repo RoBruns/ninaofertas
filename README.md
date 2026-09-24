@@ -14,11 +14,11 @@ despesas, métricas (ROI, ROAS, lucro) e alertas.
 
 ## ⚠️ Antes de rodar qualquer coisa localmente
 
-**Não use as credenciais reais do WhatsApp na sua máquina.** Com
-`EVOLUTION_API_*` e `WHATSAPP_GROUP_ID` de produção no `.env`, o worker local
-**publica nos grupos reais** — e dois processos mandando pelo mesmo número ao
-mesmo tempo é o caminho mais rápido para banir o chip. Para testar o worker,
-deixe essas variáveis vazias ou use uma instância/grupo de teste.
+**Não cadastre grupo de produção no seu dashboard local.** O worker publica nos
+grupos dos bots ativos, pela instância do telefone do bot. Se o telefone for o
+número de produção, use **só um grupo de teste**, deixe o ritmo baixo e ligue o
+worker só enquanto testa: dois processos mandando pelo mesmo número somam
+envios, e é assim que chip é banido.
 
 **Nunca aponte `DATABASE_URL` ou `TEST_DATABASE_URL` para o banco de produção.**
 Os testes apagam o schema inteiro do banco de teste. A suíte se recusa a rodar
@@ -39,16 +39,19 @@ configuração pode vir.
 | `database.py` | `core/db.py` (conexão), `core/models.py` (tabelas), `core/repositories.py` (consultas) |
 | `config.py` | `core/settings.py` (variáveis de ambiente) e `worker/channels.py` (canais) |
 | `logger.py` | `worker/logger.py` |
-| `config.json`, `config.auto.json` | continuam na raiz, lidos do mesmo jeito |
+| `config.json`, `config.auto.json` | continuam na raiz, mas **só o seed os lê** (viram os 2 bots) |
 
 **Comando de início:** `railway.toml` e `Procfile` agora usam
 `python -m worker.main`. Com o `python main.py` antigo o bot não sobe.
 
-**Modo legado continua sendo o padrão.** O worker lê bots do banco, mas **só
-sai do modo de hoje** (config.json + `WHATSAPP_GROUP_ID`) quando existe pelo
-menos um bot **ativo, com telefone e grupo** cadastrados no dashboard. O seed
-cria os dois canais atuais como bots **pausados**. Ou seja: depois do deploy o
-bot continua publicando igual, até alguém ativar um bot pelo dashboard.
+**Tudo vem do dashboard — não há modo legado** (ADR-020). O worker só publica
+bots **ativos** no dashboard, e cada bot traz telefone (instância Evolution),
+grupos, contas de plataforma e ritmo. Nada de `config.json`, `WHATSAPP_GROUP_ID`,
+`EVOLUTION_INSTANCE` ou credencial de Shopee/ML na env. O seed importa os dois
+`config*.json` como bots **pausados**; sem bot ativo, o worker fica ocioso.
+Ele também só publica ofertas das plataformas em que o bot tem conta com
+credencial (sem conta, o link sairia sem comissão), e a API não ativa bot sem
+telefone, grupo e conta.
 
 **Suas mudanças de 2026-09-23 estão integradas** (sem teto diário, baseline
 desligado, dedup ignorando o "visto", falha de envio não conta no limite do
@@ -137,8 +140,16 @@ Com o banco vazio, a Visão geral mostra **"sem dados"** na maioria dos cards.
 python -m worker.main
 ```
 
-Releia o aviso do topo antes. Sem `EVOLUTION_*`/`WHATSAPP_GROUP_ID`, ele captura
-e filtra ofertas normalmente, loga "WhatsApp incompleto" e não publica nada.
+Releia o aviso do topo antes. Sem bot ativo no dashboard ele sobe, avisa
+"Nenhum bot ativo no dashboard" e não faz nada. Para publicar, no dashboard:
+
+1. **Contas** → Shopee (App ID + App Secret) e/ou Mercado Livre (etiqueta +
+   cookie de sessão). O dashboard testa a credencial ao salvar.
+2. **Telefones** → o número, com a instância da Evolution.
+3. **Grupos** → sincronize pelo telefone ou cadastre o id do grupo.
+4. **Bots** → vincule telefone, grupos e contas, ajuste o ritmo e **Ativar**.
+
+Em até 30 s o worker pega o bot, sem reiniciar.
 
 ---
 
@@ -157,7 +168,7 @@ npm run lint
 ```
 
 Sem `TEST_DATABASE_URL`, os testes que precisam de banco são **pulados** (com
-mensagem), não falham. A suíte completa tem 116 testes de backend e 36 de
+mensagem), não falham. A suíte completa tem 117 testes de backend e 36 de
 frontend.
 
 ## Mudou a API? Regenere os tipos do dashboard

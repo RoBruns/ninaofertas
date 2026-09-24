@@ -69,24 +69,22 @@ class AffiliateHTTPClient:
         return httpx.Response(status, json=payload, request=httpx.Request("POST", url))
 
 
-def test_modo_legado_preserva_links_e_nao_encurta_offerlink_shopee(
+def test_sem_conta_vinculada_nao_usa_credencial_da_env(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    # ADR-020: credencial só vem da conta do bot; a env não é mais fallback.
     AffiliateHTTPClient.calls = []
-    AffiliateHTTPClient.responses = [(200, {"urls": [{"short_url": "https://meli.la/hoje"}]})]
+    AffiliateHTTPClient.responses = []
     monkeypatch.setattr(affiliate.httpx, "Client", AffiliateHTTPClient)
-    monkeypatch.setattr(affiliate, "_runtime_auth", lambda _slug: (None, None))
-    monkeypatch.setattr(affiliate.settings, "mercadolivre_affiliate_tag", "tag-hoje")
-    monkeypatch.setattr(affiliate.settings, "mercadolivre_affiliate_cookie", "cookie=hoje")
+    monkeypatch.setattr(affiliate, "_runtime_auth", lambda _slug: (_runtime(), None))
+    monkeypatch.setenv("MERCADOLIVRE_AFFILIATE_TAG", "tag-da-env")
+    monkeypatch.setenv("MERCADOLIVRE_AFFILIATE_COOKIE", "cookie=da-env")
+    monkeypatch.setenv("SHOPEE_APP_ID", "app-da-env")
+    monkeypatch.setenv("SHOPEE_APP_SECRET", "secret-da-env")
 
-    shopee_today = "https://s.shopee.com.br/offer-link-atual"
-    assert affiliate.garantir_afiliado("Shopee", shopee_today) == shopee_today
+    assert affiliate.converter_shopee("https://shopee.com.br/produto") is None
+    assert affiliate.converter_mercadolivre("https://produto.example/ml") is None
     assert AffiliateHTTPClient.calls == []
-
-    ml = affiliate.garantir_afiliado("Mercado Livre", "https://produto.example/ml")
-    assert ml == "https://meli.la/hoje"
-    post = next(call for method, call in AffiliateHTTPClient.calls if method == "POST")
-    assert post["json"] == {"urls": ["https://produto.example/ml"], "tag": "tag-hoje"}
 
 
 def test_links_por_bot_usam_tag_ml_e_subids_shopee(monkeypatch: pytest.MonkeyPatch) -> None:

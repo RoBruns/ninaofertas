@@ -4,7 +4,9 @@ from __future__ import annotations
 import pytest
 
 from core.platforms.base import OfertaCapturada
-from worker.channels import load_filtros, usar_canal
+from core.config_provider import usar_bot_runtime
+from tests.runtime_helpers import runtime_do_config
+from worker.channels import load_filtros
 from worker.filters import passa_nos_filtros
 
 
@@ -24,7 +26,8 @@ def _oferta(**alteracoes) -> OfertaCapturada:
 
 @pytest.fixture
 def filtros_reais() -> dict:
-    with usar_canal("achadinhos"):
+    # config.json chega ao worker importado pelo seed como settings do bot.
+    with usar_bot_runtime(runtime_do_config("config.json")):
         return load_filtros()
 
 

@@ -102,7 +102,7 @@ def test_rotas_de_escrita_sem_cobertura_respondem_sem_500(
 
     bot = create_bot(
         client, headers, name="Bot Dev", slug="bot-dev", catalog=catalog,
-        group_ids=[group.json()["id"]],
+        group_ids=[group.json()["id"]], account_ids=[catalog["account_ids"][0]],
     )
     for acao, status in (("activate", "active"), ("pause", "paused"), ("disable", "disabled")):
         response = client.post(f"/api/bots/{bot['id']}/{acao}", headers=headers)

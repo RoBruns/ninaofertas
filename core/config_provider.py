@@ -18,7 +18,6 @@ from sqlalchemy.exc import DBAPIError, OperationalError, ProgrammingError, SQLAl
 from core import db
 from core.bot_settings import BotSettings
 from core.models import Bot, BotGroup, BotPlatformAccount, Event, Group, Niche, Phone
-from core.settings import load_filtros_atual
 
 
 @dataclass(frozen=True)
@@ -56,7 +55,8 @@ def bot_runtime_atual() -> BotRuntime | None:
 def load_filtros_runtime() -> dict:
     runtime = _runtime_context.get()
     if runtime is None:
-        return load_filtros_atual()
+        # Fora de um bot não há filtro: o worker só roda dentro de usar_canal (ADR-020).
+        return {}
     dumped = runtime.settings.model_dump(mode="python")
     if runtime.settings.legacy_input:
         return dumped
