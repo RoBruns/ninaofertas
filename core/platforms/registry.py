@@ -17,7 +17,9 @@ from core.platforms.affiliate import (
 from core.platforms.shopee import API_URL, _assinar
 
 TEST_TIMEOUT_SECONDS = 5.0
-TEST_PRODUCT_URL = "https://www.mercadolivre.com.br/p/MLB1"
+# Produto real de catálogo: com um id inventado o ML responde 200 com
+# "URL not allowed in affiliates program" e o teste reprovava cookie válido.
+TEST_PRODUCT_URL = "https://www.mercadolivre.com.br/apple-iphone-15-128-gb-preto/p/MLB1027172669"
 
 
 class PlatformNotIntegratedError(Exception):
@@ -141,10 +143,23 @@ class MercadoLivreClient:
         if response.status_code >= 400:
             return _http_failure(response, "createLink")
         try:
-            generated_url = _extrair_url_afiliada(response.json())
+            data = response.json()
         except ValueError:
-            generated_url = None
+            data = None
+        generated_url = _extrair_url_afiliada(data) if data is not None else None
         if generated_url is None:
+            # Sessão recusada é 401/403 (tratado acima); aqui o ML aceitou o cookie
+            # e recusou o link — repassa o motivo dele em vez de "resposta invalida".
+            urls = data.get("urls") if isinstance(data, dict) else None
+            motivos = [
+                str(item["message"])
+                for item in urls or []
+                if isinstance(item, dict) and item.get("message")
+            ]
+            if motivos:
+                return CredentialTestResult(
+                    False, f"Sessao aceita, mas o ML recusou o link de teste: {motivos[0]}"
+                )
             return CredentialTestResult(False, "createLink retornou uma resposta invalida")
         return CredentialTestResult(True, "Credencial Mercado Livre valida")
 

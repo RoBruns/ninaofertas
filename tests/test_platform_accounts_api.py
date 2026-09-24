@@ -545,3 +545,49 @@ def test_erro_inesperado_no_teste_de_credencial_nao_vira_500(
     assert response.json()["ok"] is False
     assert "UnicodeEncodeError" in response.json()["message"]
     assert "a=1" not in response.text
+
+
+class MLRejectsURLHTTPClient(UnauthorizedHTTPClient):
+    # Resposta real do createLink para URL fora do programa (capturada em 2026-09-24).
+    def post(self, url: str, **kwargs: object) -> httpx.Response:
+        origin = kwargs["json"]["urls"][0]
+        body = {
+            "status": 200,
+            "urls": [
+                {
+                    "origin_url": origin,
+                    "message": "URL not allowed in affiliates program",
+                    "error_code": 111,
+                    "status": 200,
+                }
+            ],
+            "total_items": 1,
+            "total_success": 0,
+            "total_error": 1,
+        }
+        return httpx.Response(200, json=body, request=httpx.Request("POST", url))
+
+
+class MLSuccessHTTPClient(UnauthorizedHTTPClient):
+    def post(self, url: str, **kwargs: object) -> httpx.Response:
+        body = {"urls": [{"short_url": "https://meli.la/teste"}], "total_success": 1}
+        return httpx.Response(200, json=body, request=httpx.Request("POST", url))
+
+
+def test_ml_testa_com_produto_real_e_repassa_motivo_da_recusa(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from core.platforms import registry
+
+    # Com o id inventado "MLB1" o ML reprovava todo cookie válido.
+    assert "/p/MLB1027172669" in registry.TEST_PRODUCT_URL
+
+    monkeypatch.setattr("core.platforms.registry.httpx.Client", MLSuccessHTTPClient)
+    ok = MercadoLivreClient().test_credentials({"cookie": "ssid=a"}, {"affiliate_tag": "t"})
+    assert ok.ok is True
+
+    monkeypatch.setattr("core.platforms.registry.httpx.Client", MLRejectsURLHTTPClient)
+    recusa = MercadoLivreClient().test_credentials({"cookie": "ssid=a"}, {"affiliate_tag": "t"})
+    assert recusa.ok is False
+    assert recusa.invalid is False
+    assert "URL not allowed in affiliates program" in recusa.message
