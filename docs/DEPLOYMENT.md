@@ -109,6 +109,15 @@ VITE_API_URL          https://<api>.up.railway.app/api
 Só isso. **Nenhum segredo entra no bundle do frontend** — tudo em `VITE_*` é
 público para quem abrir o DevTools.
 
+
+### Fuso horário (worker e API)
+
+`TZ=<-03>3` em **nina-worker** e **nina-api**. O container roda em UTC e o código
+legado usa `datetime.now()` sem fuso: o horário da mensagem ("⏰ Oferta encontrada
+às …") e o "início do dia" dos limites diários sairiam em UTC. O formato POSIX é
+obrigatório: `TZ=America/Sao_Paulo` é ignorado pelo Python da imagem Railpack
+(verificado no container). O Brasil não tem horário de verão desde 2019.
+
 ## Migrations
 
 ```bash
