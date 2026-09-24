@@ -43,7 +43,7 @@ it('limpa a credencial, testa e não mantém o valor no DOM nem no cache', async
   const queryClient = renderAccounts()
   const user = userEvent.setup()
   await user.click(await screen.findByRole('button', { name: 'Renovar credencial' }))
-  const field = screen.getByLabelText('Novo cookie ou token')
+  const field = screen.getByLabelText('Cookie de sessão')
   await user.type(field, 'segredo-super-secreto')
   await user.click(screen.getByRole('button', { name: 'Salvar e testar' }))
   expect(field).toHaveValue('')
@@ -64,7 +64,7 @@ it('limpa a credencial também quando o envio falha', async () => {
   renderAccounts()
   const user = userEvent.setup()
   await user.click(await screen.findByRole('button', { name: 'Renovar credencial' }))
-  const field = screen.getByLabelText('Novo cookie ou token')
+  const field = screen.getByLabelText('Cookie de sessão')
   await user.type(field, 'outro-segredo')
   await user.click(screen.getByRole('button', { name: 'Salvar e testar' }))
   expect(field).toHaveValue('')
@@ -91,4 +91,48 @@ it('não mostra ações de edição para viewer', async () => {
   await screen.findByText('Conta ML')
   await waitFor(() => expect(screen.queryByRole('button', { name: 'Editar' })).not.toBeInTheDocument())
   expect(screen.queryByRole('button', { name: 'Renovar credencial' })).not.toBeInTheDocument()
+})
+
+const shopee: Platform = { id: 2, slug: 'shopee', name: 'Shopee', is_active: true, capabilities: {} }
+
+it('nova conta Shopee exige App ID e o envia em config', async () => {
+  const bodies: unknown[] = []
+  vi.stubGlobal('fetch', vi.fn(async (request: Request) => {
+    const url = new URL(request.url)
+    if (url.pathname === '/api/platforms') return json([shopee, platform])
+    if (request.method === 'POST' && url.pathname === '/api/accounts') {
+      bodies.push(await request.json())
+      return json({ ...account, id: 'account-2', platform: shopee, credentials: [] }, 201)
+    }
+    return json({ items: [], total: 0, page: 1, page_size: 100 })
+  }))
+  renderAccounts()
+  const user = userEvent.setup()
+  await user.click(await screen.findByRole('button', { name: 'Nova conta' }))
+  await user.type(screen.getByLabelText('Rótulo'), 'Shopee principal')
+  expect(screen.getByLabelText('App ID')).toBeRequired()
+  await user.type(screen.getByLabelText('App ID'), '18378021201')
+  await user.click(screen.getByRole('button', { name: 'Salvar' }))
+  await waitFor(() => expect(bodies).toHaveLength(1))
+  expect(bodies[0]).toMatchObject({ platform_id: 2, label: 'Shopee principal', config: { app_id: '18378021201' } })
+})
+
+it('credencial da Shopee é cadastrada como app_secret', async () => {
+  const requests: string[] = []
+  const conta: Account = { ...account, id: 'account-2', platform: { id: 2, slug: 'shopee', name: 'Shopee' }, label: 'Shopee principal', config: { app_id: '1' }, credentials: [] }
+  vi.stubGlobal('fetch', vi.fn(async (request: Request) => {
+    const url = new URL(request.url)
+    requests.push(`${request.method} ${url.pathname}`)
+    if (url.pathname === '/api/platforms') return json([shopee])
+    if (url.pathname.endsWith('/test')) return json({ ok: true, checked_at: '2026-09-23T10:01:00Z', message: 'válida' })
+    if (request.method === 'PUT') return new Response(null, { status: 204 })
+    return json({ items: [conta], total: 1, page: 1, page_size: 100 })
+  }))
+  renderAccounts()
+  const user = userEvent.setup()
+  await user.click(await screen.findByRole('button', { name: 'Cadastrar credencial' }))
+  await user.type(screen.getByLabelText('App Secret'), 'segredo')
+  await user.click(screen.getByRole('button', { name: 'Salvar e testar' }))
+  expect(await screen.findByText('Funcionou')).toBeInTheDocument()
+  expect(requests).toContain('PUT /api/accounts/account-2/credentials/app_secret')
 })
