@@ -212,7 +212,7 @@ O CSV continua existindo como caminho de reserva e de importação histórica.
 ---
 
 ## ADR-015 — Atribuição no Mercado Livre por etiqueta de rastreamento
-**Data:** 2026-09-23 · **Status:** proposta (decisão final na fase 7)
+**Data:** 2026-09-23 · **Status:** aceita em 2026-09-24 — **uma etiqueta por bot** (decisão do usuário)
 
 O painel do ML agrega cliques, conversão e ganhos por **etiqueta de
 rastreamento** (`earnings.item_list[].tag`). Hoje a conta usa uma só
@@ -255,3 +255,25 @@ a 0004 é de mão única. Aceito: voltar ao desenho antigo reintroduziria o bug.
 **Processo:** a spec pedia para relatar antes de criar migration; o agente criou
 e relatou depois. A mudança foi revisada e mantida por ser a correção certa de
 um erro do orquestrador.
+
+---
+
+## ADR-017 — Granularidade da atribuição: bot no ML, bot+grupo na Shopee; sem redirect
+**Data:** 2026-09-24 · **Status:** aceita · **Decisor:** usuário
+
+- **Mercado Livre: uma etiqueta de rastreamento por bot.** Menos etiquetas para
+  criar e manter no painel do ML. Consequência aceita: no ML o dashboard mostra
+  desempenho por bot, não por grupo dentro do bot.
+- **Shopee: identificador automático de bot e grupo no link** (`subIds` do
+  `generateShortLink`, que volta como `utmContent` no `conversionReport`). O
+  cliente não vê diferença no link.
+- **Sem redirect próprio (`/r/{code}`)**: ele trocaria o link que chega aos
+  grupos, e o usuário pediu atribuição sem mudança visível. Cliques vêm das
+  plataformas (o painel do ML traz cliques por etiqueta), não de um contador
+  nosso. A tabela `clicks` fica sem uso por ora.
+
+**Pendência técnica:** a venda individual do ML não traz a etiqueta. O painel
+agrega por etiqueta e tem um filtro por etiqueta (`generalAudiences.filterTag`),
+mas o parâmetro de URL desse filtro é desconhecido. Descobri-lo exige um spike
+com cookie válido da conta — feito pela credencial cifrada do dashboard, não
+por cookie colado na conversa.
