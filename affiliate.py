@@ -136,6 +136,16 @@ def converter_shopee(url: str) -> str | None:
         return None
 
 
+def link_rastreado(loja: str, url: str) -> bool:
+    """True quando a URL já carrega a comissão da loja."""
+    nome = (loja or "").lower()
+    if "mercado" in nome:
+        return _ja_parece_afiliado_ml(url)
+    if "shopee" in nome:
+        return _ja_parece_afiliado_shopee(url)
+    return True
+
+
 def garantir_afiliado(oferta_loja: str, url: str) -> str:
     """Retorna URL afiliada quando possível; senão a original (com log)."""
     loja = (oferta_loja or "").lower()

@@ -130,6 +130,20 @@ def upsert_oferta(session: Session, dados: dict) -> Oferta:
     return oferta
 
 
+def ultima_loja_enviada(session: Session, grupo: str) -> str | None:
+    """Loja do último blip com sucesso nesse grupo."""
+    row = (
+        session.query(Oferta.loja)
+        .join(Envio, Envio.oferta_id == Oferta.id)
+        .filter(Envio.grupo == grupo, Envio.status == "sucesso")
+        .order_by(Envio.enviado_em.desc(), Envio.id.desc())
+        .first()
+    )
+    if not row:
+        return None
+    return row[0]
+
+
 def ultimo_envio(session: Session, oferta_id: int, grupo: str | None = None) -> Envio | None:
     """Último envio com sucesso no WhatsApp (falha de rede não bloqueia retry)."""
     q = (

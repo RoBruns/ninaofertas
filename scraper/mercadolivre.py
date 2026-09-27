@@ -12,11 +12,13 @@ transformar o permalink em link afiliado.
 from __future__ import annotations
 
 import json
+import re
 from urllib.parse import quote_plus
 
 import httpx
 
-from config import load_filtros
+from config import grupo_whatsapp, load_filtros
+from cozinha import eh_cozinha
 from http_headers import MELI_HTML_HEADERS
 from logger import logger
 from scraper.base import OfertaCapturada, Scraper
@@ -95,6 +97,31 @@ def _url_item(card: dict) -> str | None:
     return "https://" + raw.lstrip("/")
 
 
+def _beneficio_cupom(card: dict) -> str | None:
+    """Código real do card, ou o desconto escrito (R$ X OFF). Sem inventar código."""
+    blob = json.dumps(card, ensure_ascii=False)
+    m = re.search(r'"(?:coupon_code|couponCode)"\s*:\s*"([A-Za-z0-9]{4,16})"', blob)
+    if m:
+        code = m.group(1).upper()
+        if code not in {"HTTP", "HTTPS", "MLB", "JSON", "TYPE", "CUPOM"}:
+            return code
+    for comp in card.get("components") or []:
+        if comp.get("type") != "promotions":
+            continue
+        for promo in comp.get("promotions") or []:
+            if promo.get("type") != "coupon":
+                continue
+            text = str(promo.get("text") or "")
+            for val in promo.get("values") or []:
+                if val.get("key") != "amount":
+                    continue
+                price = (val.get("price") or {}).get("value")
+                if isinstance(price, (int, float)) and price > 0 and "OFF" in text.upper():
+                    n = int(price) if abs(price - round(price)) < 0.001 else price
+                    return f"R$ {n} OFF"
+    return None
+
+
 def _parse_card(card: dict) -> OfertaCapturada | None:
     nome = _comp_titulo(card)
     preco, preco_anterior = _comp_precos(card)
@@ -102,6 +129,7 @@ def _parse_card(card: dict) -> OfertaCapturada | None:
     sku = (card.get("metadata") or {}).get("id")
     if not nome or preco is None or not url:
         return None
+    codigo = _beneficio_cupom(card) if eh_cozinha(grupo_whatsapp()) else None
     return OfertaCapturada(
         nome=nome,
         preco=preco,
@@ -110,6 +138,7 @@ def _parse_card(card: dict) -> OfertaCapturada | None:
         url=url,
         imagem=_imagem(card),
         sku=str(sku) if sku else None,
+        codigo_cupom=codigo,
     )
 
 
@@ -170,6 +199,7 @@ class MercadoLivreScraper(Scraper):
                     if chave in vistas:
                         continue
                     vistas.add(chave)
+                    oferta.categoria = "meli_nicho"
                     out.append(oferta)
         return out
 

@@ -6,6 +6,7 @@ Depois: só ofertas novas/quentes — com freio anti-ban no WhatsApp.
 from __future__ import annotations
 
 import affiliate
+import cozinha
 import cupom_card
 import dedup
 import database
@@ -168,6 +169,9 @@ def _processar_oferta(session, oferta: OfertaCapturada, filtros: dict) -> str:
     oferta.url = affiliate.garantir_afiliado(oferta.loja, oferta.url)
     if oferta.url_carrinho:
         oferta.url_carrinho = affiliate.garantir_afiliado(oferta.loja, oferta.url_carrinho)
+    if cozinha.eh_cozinha(grupo) and not affiliate.link_rastreado(oferta.loja, oferta.url):
+        logger.warning(f"[{nome_canal()}] Cozinha: sem link de afiliado, pulando '{oferta.nome[:60]}'")
+        return "pulou"
     if (oferta.categoria or "").lower() == "cupom":
         try:
             card = cupom_card.gerar_card(oferta)
@@ -231,6 +235,17 @@ def ciclo() -> None:
     logger.info(f"[{nome_canal()}] {len(todas_ofertas)} ofertas encontradas na varredura.")
 
     with database.get_session() as session:
+        if cozinha.eh_cozinha(grupo):
+            ultima = database.ultima_loja_enviada(session, grupo) or ""
+            if "shopee" in ultima.lower():
+                prioridade = "Mercado Livre"
+            elif "mercado" in ultima.lower():
+                prioridade = "Shopee"
+            else:
+                prioridade = "Mercado Livre"
+            todas_ofertas = _ordenar_envio(todas_ofertas, n, prioridade)
+            logger.info(f"[{nome_canal()}] Cozinha DEV: próximo blip prioriza {prioridade}.")
+
         # Restart no Railway zera a memória; se o grupo já blipou, não marca o catálogo de novo.
         if feitos < baseline_alvo and database.grupo_ja_enviou(session, grupo):
             feitos = baseline_alvo

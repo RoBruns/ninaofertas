@@ -3,6 +3,8 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
+from config import grupo_whatsapp
+from cozinha import TERMOS_NATAL, eh_cozinha
 from scraper.base import OfertaCapturada
 
 # Casa + público feminino (campanhas Shopee off-topic).
@@ -393,11 +395,17 @@ def passa_nos_filtros(oferta: OfertaCapturada, filtros: dict) -> tuple[bool, str
     if categorias and oferta.categoria and not _contem_alguma(oferta.categoria, categorias):
         return False, f"categoria '{oferta.categoria}' não está na lista permitida"
 
+    no_cozinha = eh_cozinha(grupo_whatsapp())
+    if no_cozinha and (oferta.categoria or "") == "meli_nicho":
+        return True, ""
+
     termos_nicho = (
         filtros.get("palavras_chave")
         or filtros.get("termos_peca")
         or list(_FOCO_CASA_PADRAO)
     )
+    if no_cozinha:
+        termos_nicho = list(termos_nicho) + list(TERMOS_NATAL)
     if termos_nicho and not _nome_do_nicho(oferta.nome, termos_nicho):
         n = oferta.nome.lower().replace("á", "a")
         bomba_auto = (
