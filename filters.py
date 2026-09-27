@@ -360,6 +360,9 @@ def passa_nos_filtros(oferta: OfertaCapturada, filtros: dict) -> tuple[bool, str
         if not _contem_alguma(oferta.nome, termos_nicho):
             return False, "campanha fora do nicho do grupo"
 
+    no_cozinha = eh_cozinha(grupo_whatsapp())
+    ml_no_cozinha = no_cozinha and "mercado" in (oferta.loja or "").lower()
+
     if not eh_campanha:
         preco_maximo = filtros.get("preco_maximo")
         if preco_maximo and oferta.preco > preco_maximo:
@@ -370,11 +373,21 @@ def passa_nos_filtros(oferta: OfertaCapturada, filtros: dict) -> tuple[bool, str
             return False, f"preço R${oferta.preco:.2f} abaixo do mínimo R${preco_minimo:.2f}"
 
         desconto_minimo = filtros.get("desconto_minimo")
-        if desconto_minimo and oferta.desconto is not None and oferta.desconto < desconto_minimo:
+        if (
+            not ml_no_cozinha
+            and desconto_minimo
+            and oferta.desconto is not None
+            and oferta.desconto < desconto_minimo
+        ):
             return False, f"desconto {oferta.desconto}% abaixo do mínimo {desconto_minimo}%"
 
         max_vendas = filtros.get("max_vendas")
-        if max_vendas is not None and oferta.vendas is not None and oferta.vendas > int(max_vendas):
+        if (
+            not ml_no_cozinha
+            and max_vendas is not None
+            and oferta.vendas is not None
+            and oferta.vendas > int(max_vendas)
+        ):
             return False, f"vendas {oferta.vendas} acima do máximo {max_vendas} (provável anúncio antigo)"
 
         max_idade_h = filtros.get("max_idade_oferta_horas")
@@ -395,7 +408,6 @@ def passa_nos_filtros(oferta: OfertaCapturada, filtros: dict) -> tuple[bool, str
     if categorias and oferta.categoria and not _contem_alguma(oferta.categoria, categorias):
         return False, f"categoria '{oferta.categoria}' não está na lista permitida"
 
-    no_cozinha = eh_cozinha(grupo_whatsapp())
     if no_cozinha and (oferta.categoria or "") == "meli_nicho":
         return True, ""
 
