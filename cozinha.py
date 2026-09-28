@@ -1,4 +1,4 @@
-"""Nina Cozinha é o ambiente de DEV. Achadinhos continua produção."""
+"""Cozinha é o DEV. Achadinhos é a produção e recebe a promoção já vista no Cozinha."""
 from __future__ import annotations
 
 GRUPO_COZINHA = "120363432562048111@g.us"
@@ -25,3 +25,8 @@ TERMOS_NATAL = (
 
 def eh_cozinha(grupo: str | None) -> bool:
     return (grupo or "").strip() == GRUPO_COZINHA
+
+
+def promocao_liberada(grupo: str | None) -> bool:
+    """Mesma promoção nos dois grupos: Cozinha (teste) e Achadinhos (produção)."""
+    return (grupo or "").strip() in {GRUPO_COZINHA, GRUPO_ACHADINHOS}

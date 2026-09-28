@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import relogio
 from config import grupo_whatsapp, load_filtros
-from cozinha import eh_cozinha
+from cozinha import promocao_liberada
 from scraper.base import OfertaCapturada
 
 TEMPLATE_PADRAO = "🔥 {nome}\n\n✅ R$ {preco}\n\n{url}\n\n⏰ {hora}"
@@ -62,7 +62,7 @@ _SIRENE = "🚨\ufe0f"
 
 def _emoji_abertura_cozinha(oferta: OfertaCapturada) -> str | None:
     """No Cozinha, 50% ou mais abre com sirene. Abaixo disso, foguinho."""
-    if not eh_cozinha(grupo_whatsapp()):
+    if not promocao_liberada(grupo_whatsapp()):
         return None
     if oferta.desconto is not None and oferta.desconto >= 50:
         return _SIRENE

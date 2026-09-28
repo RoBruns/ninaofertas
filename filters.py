@@ -4,7 +4,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 
 from config import grupo_whatsapp
-from cozinha import TERMOS_NATAL, eh_cozinha
+from cozinha import TERMOS_NATAL, promocao_liberada
 from scraper.base import OfertaCapturada
 
 # Casa + público feminino (campanhas Shopee off-topic).
@@ -360,8 +360,8 @@ def passa_nos_filtros(oferta: OfertaCapturada, filtros: dict) -> tuple[bool, str
         if not _contem_alguma(oferta.nome, termos_nicho):
             return False, "campanha fora do nicho do grupo"
 
-    no_cozinha = eh_cozinha(grupo_whatsapp())
-    ml_no_cozinha = no_cozinha and "mercado" in (oferta.loja or "").lower()
+    liberada = promocao_liberada(grupo_whatsapp())
+    ml_liberado = liberada and "mercado" in (oferta.loja or "").lower()
 
     if not eh_campanha:
         preco_maximo = filtros.get("preco_maximo")
@@ -374,7 +374,7 @@ def passa_nos_filtros(oferta: OfertaCapturada, filtros: dict) -> tuple[bool, str
 
         desconto_minimo = filtros.get("desconto_minimo")
         if (
-            not ml_no_cozinha
+            not ml_liberado
             and desconto_minimo
             and oferta.desconto is not None
             and oferta.desconto < desconto_minimo
@@ -383,7 +383,7 @@ def passa_nos_filtros(oferta: OfertaCapturada, filtros: dict) -> tuple[bool, str
 
         max_vendas = filtros.get("max_vendas")
         if (
-            not ml_no_cozinha
+            not ml_liberado
             and max_vendas is not None
             and oferta.vendas is not None
             and oferta.vendas > int(max_vendas)
@@ -408,7 +408,7 @@ def passa_nos_filtros(oferta: OfertaCapturada, filtros: dict) -> tuple[bool, str
     if categorias and oferta.categoria and not _contem_alguma(oferta.categoria, categorias):
         return False, f"categoria '{oferta.categoria}' não está na lista permitida"
 
-    if no_cozinha and (oferta.categoria or "") == "meli_nicho":
+    if liberada and (oferta.categoria or "") == "meli_nicho":
         return True, ""
 
     termos_nicho = (
@@ -416,7 +416,7 @@ def passa_nos_filtros(oferta: OfertaCapturada, filtros: dict) -> tuple[bool, str
         or filtros.get("termos_peca")
         or list(_FOCO_CASA_PADRAO)
     )
-    if no_cozinha:
+    if liberada:
         termos_nicho = list(termos_nicho) + list(TERMOS_NATAL)
     if termos_nicho and not _nome_do_nicho(oferta.nome, termos_nicho):
         n = oferta.nome.lower().replace("á", "a")

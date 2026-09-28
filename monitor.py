@@ -181,8 +181,8 @@ def _processar_oferta(session, oferta: OfertaCapturada, filtros: dict) -> str:
     oferta.url = affiliate.garantir_afiliado(oferta.loja, oferta.url)
     if oferta.url_carrinho:
         oferta.url_carrinho = affiliate.garantir_afiliado(oferta.loja, oferta.url_carrinho)
-    if cozinha.eh_cozinha(grupo) and not affiliate.link_rastreado(oferta.loja, oferta.url):
-        logger.debug(f"[{nome_canal()}] Cozinha: sem link de afiliado, pulando '{oferta.nome[:60]}'")
+    if cozinha.promocao_liberada(grupo) and not affiliate.link_rastreado(oferta.loja, oferta.url):
+        logger.debug(f"[{nome_canal()}] sem link de afiliado, pulando '{oferta.nome[:60]}'")
         return "afiliado"
     if (oferta.categoria or "").lower() == "cupom":
         try:
@@ -244,11 +244,11 @@ def ciclo() -> None:
     _ciclo_n[canal] = n
     prioridade = _loja_do_ciclo(n)
     logger.info(f"[{nome_canal()}] {len(todas_ofertas)} ofertas encontradas na varredura.")
-    if cozinha.eh_cozinha(grupo):
+    if cozinha.promocao_liberada(grupo):
         # Uma loja por ciclo. A outra não ocupa o slot se esta não tiver o que enviar.
         todas_ofertas = [o for o in todas_ofertas if _mesma_loja(o.loja, prioridade)]
         logger.info(
-            f"[{nome_canal()}] Cozinha DEV: este ciclo é só {prioridade} "
+            f"[{nome_canal()}] este ciclo é só {prioridade} "
             f"({len(todas_ofertas)} capturadas)."
         )
     todas_ofertas = _ordenar_envio(todas_ofertas, n, prioridade)
@@ -310,9 +310,9 @@ def ciclo() -> None:
                         )
                         break
             if enviadas_ciclo == 0:
-                if cozinha.eh_cozinha(grupo):
+                if cozinha.promocao_liberada(grupo):
                     logger.warning(
-                        f"[{nome_canal()}] Cozinha: ciclo só {prioridade} sem blip — "
+                        f"[{nome_canal()}] ciclo só {prioridade} sem blip — "
                         f"{len(todas_ofertas)} capturadas, "
                         f"{motivos['filtro']} filtro, {motivos['dedup']} dedup, "
                         f"{motivos['afiliado']} sem afiliado, {falhas} falhas de envio."

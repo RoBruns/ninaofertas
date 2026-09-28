@@ -18,7 +18,7 @@ from urllib.parse import quote_plus
 import httpx
 
 from config import grupo_whatsapp, load_filtros, settings
-from cozinha import eh_cozinha
+from cozinha import promocao_liberada
 from http_headers import MELI_HTML_HEADERS
 from logger import logger
 from scraper.base import OfertaCapturada, Scraper
@@ -137,7 +137,7 @@ def _parse_card(card: dict) -> OfertaCapturada | None:
     sku = (card.get("metadata") or {}).get("id")
     if not nome or preco is None or not url:
         return None
-    codigo = _beneficio_cupom(card) if eh_cozinha(grupo_whatsapp()) else None
+    codigo = _beneficio_cupom(card) if promocao_liberada(grupo_whatsapp()) else None
     return OfertaCapturada(
         nome=nome,
         preco=preco,

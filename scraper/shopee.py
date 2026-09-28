@@ -13,7 +13,7 @@ from datetime import datetime, timezone
 import httpx
 
 from config import grupo_whatsapp, load_filtros, settings
-from cozinha import TERMOS_NATAL, eh_cozinha
+from cozinha import TERMOS_NATAL, promocao_liberada
 from logger import logger
 from scraper.base import OfertaCapturada, Scraper
 from shopee_api import escape_graphql_string, graphql_request
@@ -64,7 +64,7 @@ class ShopeeScraper(Scraper):
             or filtros.get("categorias")
             or ["oferta"]
         )
-        if eh_cozinha(grupo_whatsapp()):
+        if promocao_liberada(grupo_whatsapp()):
             ja = {t.lower() for t in termos}
             termos.extend(t for t in TERMOS_NATAL if t.lower() not in ja)
         return termos

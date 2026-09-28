@@ -56,6 +56,10 @@ def nome_canal() -> str:
 
 
 def grupo_whatsapp() -> str:
+    if _canal.get() == "achadinhos":
+        from cozinha import GRUPO_ACHADINHOS
+
+        return GRUPO_ACHADINHOS
     env_name = str(CANAIS[_canal.get()]["grupo_env"])
     return os.getenv(env_name, "") or os.getenv("WHATSAPP_GROUP_ID", "")
 
