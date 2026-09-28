@@ -2,7 +2,8 @@
 from __future__ import annotations
 
 import relogio
-from config import load_filtros
+from config import grupo_whatsapp, load_filtros
+from cozinha import eh_cozinha
 from scraper.base import OfertaCapturada
 
 TEMPLATE_PADRAO = "🔥 {nome}\n\n✅ R$ {preco}\n\n{url}\n\n⏰ {hora}"
@@ -54,11 +55,23 @@ def montar_mensagem(oferta: OfertaCapturada) -> str:
     return _mensagem_curta(oferta, template)
 
 
+def _emoji_abertura_cozinha(oferta: OfertaCapturada) -> str | None:
+    """No Cozinha, 50% ou mais abre com sirene. Abaixo disso, foguinho."""
+    if not eh_cozinha(grupo_whatsapp()):
+        return None
+    if oferta.desconto is not None and oferta.desconto >= 50:
+        return "🚨"
+    return "🔥"
+
+
 def _mensagem_curta(oferta: OfertaCapturada, template: str) -> str:
     nome = _escape_template_field(oferta.nome)
     url = _escape_template_field(oferta.url)
     preco = _preco_fmt(oferta.preco) if oferta.preco and oferta.preco > 0 else ""
     hora = relogio.formatar_hora(oferta.capturado_em)
+    emoji = _emoji_abertura_cozinha(oferta)
+    if emoji and template.startswith("🔥"):
+        template = emoji + template[1:]
     corpo = template.format(nome=nome, preco=preco, url=url, hora=hora)
     if not preco:
         corpo = corpo.replace("✅ R$ \n\n", "").replace("✅ R$ \n", "")

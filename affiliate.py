@@ -17,6 +17,22 @@ from shopee_api import generate_short_link
 ML_CREATE_LINK = "https://www.mercadolivre.com.br/affiliate-program/api/v2/affiliates/createLink"
 ML_LINKBUILDER = "https://www.mercadolivre.com.br/afiliados/linkbuilder"
 
+_aviso_createlink_neste_ciclo = False
+
+
+def reset_aviso_ciclo() -> None:
+    """Um ciclo avisa uma vez se o createLink estiver morto."""
+    global _aviso_createlink_neste_ciclo
+    _aviso_createlink_neste_ciclo = False
+
+
+def _avisar_createlink(msg: str) -> None:
+    global _aviso_createlink_neste_ciclo
+    if _aviso_createlink_neste_ciclo:
+        return
+    _aviso_createlink_neste_ciclo = True
+    logger.warning(msg)
+
 
 def _cookie_value(cookie: str, name: str) -> str | None:
     for part in cookie.split(";"):
@@ -72,7 +88,7 @@ def converter_mercadolivre(url: str) -> str | None:
     tag = settings.mercadolivre_affiliate_tag
     cookie = settings.mercadolivre_affiliate_cookie
     if not tag or not cookie:
-        logger.warning("[afiliado] MELI sem TAG/COOKIE no .env — mantendo URL original")
+        _avisar_createlink("[afiliado] MELI sem TAG/COOKIE — createLink não roda neste ciclo.")
         return None
     if _ja_parece_afiliado_ml(url):
         return url
@@ -98,24 +114,32 @@ def converter_mercadolivre(url: str) -> str | None:
 
             resp = client.post(ML_CREATE_LINK, headers=headers, json={"urls": [url], "tag": tag})
             if resp.status_code >= 400:
-                logger.error(
-                    f"[afiliado] MELI createLink HTTP {resp.status_code}: "
-                    f"{safe_log_text(resp.text, 200)}"
-                )
+                if resp.status_code in (401, 403):
+                    _avisar_createlink(
+                        f"[afiliado] MELI createLink HTTP {resp.status_code} — "
+                        "cookie expirado; renove MERCADOLIVRE_AFFILIATE_COOKIE."
+                    )
+                else:
+                    _avisar_createlink(
+                        f"[afiliado] MELI createLink HTTP {resp.status_code}: "
+                        f"{safe_log_text(resp.text, 200)}"
+                    )
                 return None
             data = resp.json()
     except httpx.HTTPError as e:
-        logger.error(f"[afiliado] MELI createLink falhou: {e}")
+        _avisar_createlink(f"[afiliado] MELI createLink falhou: {e}")
         return None
     except Exception as e:
-        logger.error(f"[afiliado] MELI createLink falhou: {e}")
+        _avisar_createlink(f"[afiliado] MELI createLink falhou: {e}")
         return None
 
     convertida = _extrair_url_afiliada(data)
     if convertida:
         logger.info(f"[afiliado] MELI convertida: {convertida}")
         return convertida
-    logger.error(f"[afiliado] MELI createLink resposta inesperada: {safe_log_text(str(data), 240)}")
+    _avisar_createlink(
+        f"[afiliado] MELI createLink resposta inesperada: {safe_log_text(str(data), 240)}"
+    )
     return None
 
 
@@ -153,7 +177,6 @@ def garantir_afiliado(oferta_loja: str, url: str) -> str:
         convertida = converter_mercadolivre(url)
         if convertida:
             return convertida
-        logger.warning("[afiliado] MELI sem conversão — enviando URL original")
         return url
     if "shopee" in loja:
         convertida = converter_shopee(url)

@@ -40,6 +40,18 @@ def _intercalar_lojas(ofertas: list[OfertaCapturada], prioridade: str) -> list[O
     return out
 
 
+def _loja_do_ciclo(n: int) -> str:
+    """Ciclo par: Mercado Livre. Ciclo ímpar: Shopee."""
+    return "Mercado Livre" if n % 2 == 0 else "Shopee"
+
+
+def _mesma_loja(loja: str, alvo: str) -> bool:
+    nome = (loja or "").lower()
+    if "mercado" in alvo.lower():
+        return "mercado" in nome
+    return "shopee" in nome
+
+
 def _ordenar_envio(ofertas: list[OfertaCapturada], n: int, prioridade: str) -> list[OfertaCapturada]:
     cupons = [o for o in ofertas if (o.categoria or "").lower() == "cupom"]
     produtos = [o for o in ofertas if (o.categoria or "").lower() != "cupom"]
@@ -130,11 +142,11 @@ def _freio_anti_ban(session, filtros: dict, grupo: str, oferta: OfertaCapturada 
 
 
 def _processar_oferta(session, oferta: OfertaCapturada, filtros: dict) -> str:
-    """Retorna: 'enviou' | 'pulou' | 'freio' (parar o ciclo de envios)."""
+    """Retorna: 'enviou' | 'filtro' | 'dedup' | 'afiliado' | 'freio' | 'falhou'."""
     passou, motivo = passa_nos_filtros(oferta, filtros)
     if not passou:
         logger.debug(f"Descartada '{oferta.nome[:60]}': {motivo}")
-        return "pulou"
+        return "filtro"
 
     oferta_db = _salvar_oferta(session, oferta)
     grupo = grupo_whatsapp()
@@ -154,7 +166,7 @@ def _processar_oferta(session, oferta: OfertaCapturada, filtros: dict) -> str:
             if not database.ja_conhecida(session, oferta_db.id, grupo=grupo):
                 database.registrar_visto(session, oferta_db.id, oferta.preco, grupo=grupo)
         logger.debug(f"Pulando '{oferta.nome[:60]}': {motivo_dedup}")
-        return "pulou"
+        return "dedup"
 
     ok_ritmo, motivo_freio = _freio_anti_ban(session, filtros, grupo, oferta)
     if not ok_ritmo:
@@ -170,8 +182,8 @@ def _processar_oferta(session, oferta: OfertaCapturada, filtros: dict) -> str:
     if oferta.url_carrinho:
         oferta.url_carrinho = affiliate.garantir_afiliado(oferta.loja, oferta.url_carrinho)
     if cozinha.eh_cozinha(grupo) and not affiliate.link_rastreado(oferta.loja, oferta.url):
-        logger.warning(f"[{nome_canal()}] Cozinha: sem link de afiliado, pulando '{oferta.nome[:60]}'")
-        return "pulou"
+        logger.debug(f"[{nome_canal()}] Cozinha: sem link de afiliado, pulando '{oferta.nome[:60]}'")
+        return "afiliado"
     if (oferta.categoria or "").lower() == "cupom":
         try:
             card = cupom_card.gerar_card(oferta)
@@ -202,6 +214,7 @@ def _processar_oferta(session, oferta: OfertaCapturada, filtros: dict) -> str:
 
 
 def ciclo() -> None:
+    affiliate.reset_aviso_ciclo()
     canal = canal_atual()
     feitos = _baseline_ciclos_feitos.get(canal, 0)
     n = _ciclo_n.get(canal, 0)
@@ -229,23 +242,18 @@ def ciclo() -> None:
 
     n += 1
     _ciclo_n[canal] = n
-    prioridade = "Shopee" if n % 2 == 1 else "Mercado Livre"
+    prioridade = _loja_do_ciclo(n)
+    logger.info(f"[{nome_canal()}] {len(todas_ofertas)} ofertas encontradas na varredura.")
+    if cozinha.eh_cozinha(grupo):
+        # Uma loja por ciclo. A outra não ocupa o slot se esta não tiver o que enviar.
+        todas_ofertas = [o for o in todas_ofertas if _mesma_loja(o.loja, prioridade)]
+        logger.info(
+            f"[{nome_canal()}] Cozinha DEV: este ciclo é só {prioridade} "
+            f"({len(todas_ofertas)} capturadas)."
+        )
     todas_ofertas = _ordenar_envio(todas_ofertas, n, prioridade)
 
-    logger.info(f"[{nome_canal()}] {len(todas_ofertas)} ofertas encontradas na varredura.")
-
     with database.get_session() as session:
-        if cozinha.eh_cozinha(grupo):
-            ultima = database.ultima_loja_enviada(session, grupo) or ""
-            if "shopee" in ultima.lower():
-                prioridade = "Mercado Livre"
-            elif "mercado" in ultima.lower():
-                prioridade = "Shopee"
-            else:
-                prioridade = "Mercado Livre"
-            todas_ofertas = _ordenar_envio(todas_ofertas, n, prioridade)
-            logger.info(f"[{nome_canal()}] Cozinha DEV: próximo blip prioriza {prioridade}.")
-
         # Restart no Railway zera a memória; se o grupo já blipou, não marca o catálogo de novo.
         if feitos < baseline_alvo and database.grupo_ja_enviou(session, grupo):
             feitos = baseline_alvo
@@ -276,7 +284,7 @@ def ciclo() -> None:
                 )
         else:
             enviadas_ciclo = 0
-            puladas = 0
+            motivos = {"filtro": 0, "dedup": 0, "afiliado": 0}
             falhas = 0
             for oferta in todas_ofertas:
                 try:
@@ -287,8 +295,8 @@ def ciclo() -> None:
                     continue
                 if resultado == "freio":
                     break
-                if resultado == "pulou":
-                    puladas += 1
+                if resultado in motivos:
+                    motivos[resultado] += 1
                     continue
                 if resultado == "falhou":
                     falhas += 1
@@ -302,9 +310,18 @@ def ciclo() -> None:
                         )
                         break
             if enviadas_ciclo == 0:
-                logger.warning(
-                    f"[{nome_canal()}] Ciclo sem blip: {len(todas_ofertas)} capturadas, "
-                    f"{puladas} puladas (filtro/dedup), {falhas} falhas de envio."
-                )
+                if cozinha.eh_cozinha(grupo):
+                    logger.warning(
+                        f"[{nome_canal()}] Cozinha: ciclo só {prioridade} sem blip — "
+                        f"{len(todas_ofertas)} capturadas, "
+                        f"{motivos['filtro']} filtro, {motivos['dedup']} dedup, "
+                        f"{motivos['afiliado']} sem afiliado, {falhas} falhas de envio."
+                    )
+                else:
+                    puladas = motivos["filtro"] + motivos["dedup"] + motivos["afiliado"]
+                    logger.warning(
+                        f"[{nome_canal()}] Ciclo sem blip: {len(todas_ofertas)} capturadas, "
+                        f"{puladas} puladas (filtro/dedup), {falhas} falhas de envio."
+                    )
 
     logger.info(f"[{nome_canal()}] Próxima verificação em {settings.check_interval}s.")

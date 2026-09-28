@@ -6,8 +6,8 @@ página pública de ofertas por categoria:
 
     https://www.mercadolivre.com.br/ofertas?category=MLB1574
 
-O cookie/tag do .env continua sendo usado depois, no `affiliate.py`, pra
-transformar o permalink em link afiliado.
+O cookie de afiliado vai neste GET (pra não cair em verificação) e de novo
+no `affiliate.py`, pra transformar o permalink em link afiliado.
 """
 from __future__ import annotations
 
@@ -17,13 +17,21 @@ from urllib.parse import quote_plus
 
 import httpx
 
-from config import grupo_whatsapp, load_filtros
+from config import grupo_whatsapp, load_filtros, settings
 from cozinha import eh_cozinha
 from http_headers import MELI_HTML_HEADERS
 from logger import logger
 from scraper.base import OfertaCapturada, Scraper
 
 HEADERS = MELI_HTML_HEADERS
+
+
+def _headers_html() -> dict[str, str]:
+    headers = dict(MELI_HTML_HEADERS)
+    cookie = settings.mercadolivre_affiliate_cookie
+    if cookie:
+        headers["Cookie"] = cookie
+    return headers
 
 OFERTAS_URL = "https://www.mercadolivre.com.br/ofertas"
 # Casa/móveis, eletro, beleza, moda, joias.
@@ -163,11 +171,18 @@ class MercadoLivreScraper(Scraper):
     def buscar(self) -> list[OfertaCapturada]:
         vistas: set[str] = set()
         ofertas: list[OfertaCapturada] = []
-        with httpx.Client(timeout=self.timeout, headers=HEADERS, follow_redirects=True) as client:
+        self._bloqueio_avisado = False
+        with httpx.Client(timeout=self.timeout, headers=_headers_html(), follow_redirects=True) as client:
             ofertas.extend(self._buscar_ofertas_categoria(client, vistas))
             ofertas.extend(self._buscar_lista_termos(client, vistas))
         logger.info(f"[Mercado Livre] {len(ofertas)} ofertas capturadas.")
         return ofertas
+
+    def _registrar_bloqueio(self, detalhe: str) -> None:
+        if self._bloqueio_avisado:
+            return
+        self._bloqueio_avisado = True
+        logger.warning(f"[Mercado Livre] página de ofertas bloqueada ({detalhe}).")
 
     def _buscar_ofertas_categoria(self, client: httpx.Client, vistas: set[str]) -> list[OfertaCapturada]:
         out: list[OfertaCapturada] = []
@@ -181,14 +196,19 @@ class MercadoLivreScraper(Scraper):
                 except httpx.HTTPError as e:
                     logger.warning(f"[Mercado Livre] ofertas cat={cat} page={page}: {e}")
                     break
-                if resp.status_code != 200 or "captcha" in str(resp.url) or "account-verification" in str(resp.url):
-                    logger.warning(
-                        f"[Mercado Livre] ofertas cat={cat} page={page} "
-                        f"HTTP {resp.status_code} url={resp.url}"
-                    )
+                url = str(resp.url).lower()
+                if (
+                    resp.status_code != 200
+                    or "captcha" in url
+                    or "account-verification" in url
+                ):
+                    self._registrar_bloqueio(f"HTTP {resp.status_code} cat={cat}")
                     break
                 cards = _extrair_items_json(resp.text)
                 if not cards:
+                    corpo = resp.text.lower()
+                    if "captcha" in corpo or "account-verification" in corpo:
+                        self._registrar_bloqueio(f"HTTP {resp.status_code} cat={cat} sem cards")
                     break
                 for raw in cards:
                     card = raw.get("card") or raw
