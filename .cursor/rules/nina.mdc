@@ -1,0 +1,26 @@
+---
+description: Nina blipa Mercado Livre e Shopee. Cozinha é DEV, Achadinhos é produção.
+alwaysApply: true
+---
+
+# Nina
+
+A Nina promove ofertas em grupos de afiliados. Ela blipa Mercado Livre e Shopee, e também cupons que ajudam na promoção e no preço. O link enviado tem de ser de afiliado (`meli.la` ou `s.shopee.com.br`). Não invente código de cupom.
+
+## Grupos
+
+- DEV: `[NINA] Cozinha` (`120363432562048111@g.us`). Formato de mensagem e promoção nova se testa aqui.
+- Produção: `Achadinhos da Vó Nina` (`120363412803208148@g.us`). Não muda até pedirem para promover o que já foi visto no Cozinha.
+
+## Fora deste projeto
+
+Não retome o Nina Ofertas do nicho automotivo. O produto inteiro é o grupo de achadinhos. Não reative o canal `auto` nem `config.auto.json` para peça de carro.
+
+```python
+# ❌ publicar teste no Achadinhos, ou blipar só Shopee
+whatsapp.enviar_mensagem(texto, grupo="120363412803208148@g.us")
+
+# ✅ teste no Cozinha, com as duas lojas e cupom só quando o card tiver o desconto ou o código
+if grupo == "120363432562048111@g.us":
+    enviar_meli_e_shopee()
+```
