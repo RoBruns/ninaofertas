@@ -146,6 +146,31 @@ _FOCO_CASA_PADRAO = (
     "presilha",
     "elástico cabelo",
     "elastico cabelo",
+    "cozinha",
+    "jogo de cozinha",
+    "jogos de cozinha",
+    "jogo de panelas",
+    "faqueiro",
+    "talher",
+    "assadeira",
+    "xícara",
+    "xicara",
+    "caneca",
+    "body splash",
+    "body kit",
+    "loção",
+    "locao",
+    "corporal",
+    "gloss",
+    "blush",
+    "corretivo",
+    "delineador",
+    "iluminador",
+    "primer",
+    "cílios",
+    "cilios",
+    "demaquilante",
+    "acetona",
 )
 
 _BOMBA_AUTO = (
@@ -240,6 +265,9 @@ _BLOQUEIO_AUTO_PADRAO = (
     "para moto",
     "p/ moto",
     "veicular",
+    "parachoque",
+    "para-choque",
+    "spoiler",
 )
 
 

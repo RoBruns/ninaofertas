@@ -34,7 +34,15 @@
     "espelho decorativo",
     "lingerie feminina",
     "chapinha cabelo",
-    "skincare hidratante"
+    "skincare hidratante",
+    "jogo de cozinha",
+    "jogo de panelas",
+    "jogo de talheres",
+    "body splash",
+    "body kit feminino",
+    "kit maquiagem",
+    "gloss labial",
+    "loção corporal"
   ],
   "palavras_chave": [
     "poltrona",
@@ -115,7 +123,32 @@
     "creme",
     "necessaire",
     "nécessaire",
-    "pincel"
+    "pincel",
+    "cozinha",
+    "jogo de cozinha",
+    "jogos de cozinha",
+    "jogo de panelas",
+    "faqueiro",
+    "talher",
+    "assadeira",
+    "xícara",
+    "xicara",
+    "caneca",
+    "body splash",
+    "body kit",
+    "loção",
+    "locao",
+    "corporal",
+    "gloss",
+    "blush",
+    "corretivo",
+    "delineador",
+    "iluminador",
+    "primer",
+    "cílios",
+    "cilios",
+    "demaquilante",
+    "acetona"
   ],
   "produtos_especificos": [],
   "bloquear_produtos": [
@@ -138,7 +171,10 @@
     "ngk",
     "para moto",
     "p/ moto",
-    "veicular"
+    "veicular",
+    "parachoque",
+    "para-choque",
+    "spoiler"
   ],
   "bloquear_termos": [
     "infantil",
