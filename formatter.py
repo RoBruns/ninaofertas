@@ -55,13 +55,28 @@ def montar_mensagem(oferta: OfertaCapturada) -> str:
     return _mensagem_curta(oferta, template)
 
 
+# FE0F pede o desenho colorido. Sem isso o WhatsApp pode mostrar o símbolo preto.
+_FOGO = "🔥\ufe0f"
+_SIRENE = "🚨\ufe0f"
+
+
 def _emoji_abertura_cozinha(oferta: OfertaCapturada) -> str | None:
     """No Cozinha, 50% ou mais abre com sirene. Abaixo disso, foguinho."""
     if not eh_cozinha(grupo_whatsapp()):
         return None
     if oferta.desconto is not None and oferta.desconto >= 50:
-        return "🚨"
-    return "🔥"
+        return _SIRENE
+    return _FOGO
+
+
+def _aplicar_emoji_inicial(template: str, emoji: str) -> str:
+    """Troca o primeiro símbolo da mensagem. Letras no começo ganham o emoji na frente."""
+    resto = template.lstrip()
+    if resto and ord(resto[0]) > 0x2500:
+        resto = resto[1:].lstrip("\ufe0e\ufe0f")
+    if resto.startswith(" "):
+        return emoji + resto
+    return f"{emoji} {resto}" if resto else emoji
 
 
 def _mensagem_curta(oferta: OfertaCapturada, template: str) -> str:
@@ -70,8 +85,8 @@ def _mensagem_curta(oferta: OfertaCapturada, template: str) -> str:
     preco = _preco_fmt(oferta.preco) if oferta.preco and oferta.preco > 0 else ""
     hora = relogio.formatar_hora(oferta.capturado_em)
     emoji = _emoji_abertura_cozinha(oferta)
-    if emoji and template.startswith("🔥"):
-        template = emoji + template[1:]
+    if emoji:
+        template = _aplicar_emoji_inicial(template, emoji)
     corpo = template.format(nome=nome, preco=preco, url=url, hora=hora)
     if not preco:
         corpo = corpo.replace("✅ R$ \n\n", "").replace("✅ R$ \n", "")
