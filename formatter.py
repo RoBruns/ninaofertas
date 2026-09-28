@@ -4,11 +4,10 @@ from __future__ import annotations
 import re
 
 import relogio
-from config import grupo_whatsapp, load_filtros
-from cozinha import promocao_liberada
+from config import load_filtros
 from scraper.base import OfertaCapturada
 
-TEMPLATE_PADRAO = "🔥 {nome}\n\n✅ R$ {preco}\n\n{url}\n\n⏰ {hora}"
+TEMPLATE_PADRAO = "{nome}\n\n💰 De R$ {preco_anterior} por R$ {preco}\n\n🛒 {url}"
 
 TEMPLATE_LEGADO = (
     "🔥 OFERTA ENCONTRADA!\n\n"
@@ -52,50 +51,35 @@ def montar_mensagem(oferta: OfertaCapturada) -> str:
         )
 
     template = filtros.get("mensagem_template", TEMPLATE_PADRAO)
-    if "{preco_anterior}" in template:
+    if "{loja}" in template or "{hora}" in template or "{desconto}" in template:
         return _mensagem_legada(oferta, template)
-    return _mensagem_curta(oferta, template)
+    return _mensagem_oferta(oferta)
 
 
-# FE0F pede o desenho colorido. Sem isso o WhatsApp pode mostrar o símbolo preto.
-_FOGO = "🔥\ufe0f"
-_SIRENE = "🚨\ufe0f"
-
-
-def _emoji_abertura_cozinha(oferta: OfertaCapturada) -> str | None:
-    """No Cozinha, 50% ou mais abre com sirene. Abaixo disso, foguinho."""
-    if not promocao_liberada(grupo_whatsapp()):
-        return None
-    if oferta.desconto is not None and oferta.desconto >= 50:
-        return _SIRENE
-    return _FOGO
-
-
-def _aplicar_emoji_inicial(template: str, emoji: str) -> str:
-    """Troca o primeiro símbolo da mensagem. Letras no começo ganham o emoji na frente."""
-    resto = template.lstrip()
-    if resto and ord(resto[0]) > 0x2500:
-        resto = resto[1:].lstrip("\ufe0e\ufe0f")
-    if resto.startswith(" "):
-        return emoji + resto
-    return f"{emoji} {resto}" if resto else emoji
-
-
-def _mensagem_curta(oferta: OfertaCapturada, template: str) -> str:
+def _mensagem_oferta(oferta: OfertaCapturada) -> str:
+    """Legenda do Cozinha: nome, de/por numa linha, link com carrinho."""
     nome = _escape_template_field(oferta.nome)
     url = _escape_template_field(oferta.url)
-    preco = _preco_fmt(oferta.preco) if oferta.preco and oferta.preco > 0 else ""
-    hora = relogio.formatar_hora(oferta.capturado_em)
-    emoji = _emoji_abertura_cozinha(oferta)
-    if emoji:
-        template = _aplicar_emoji_inicial(template, emoji)
-    corpo = template.format(nome=nome, preco=preco, url=url, hora=hora)
-    if not preco:
-        corpo = corpo.replace("✅ R$ \n\n", "").replace("✅ R$ \n", "")
+    partes = [nome] if nome else []
+    linha_preco = _linha_preco(oferta)
+    if linha_preco:
+        partes.append(linha_preco)
     codigo = _cupom_digitavel(oferta.codigo_cupom)
-    if codigo and f"Cupom: {codigo}" not in corpo:
-        corpo = corpo.replace(f"\n\n{url}", f"\n🎟️ Cupom: {codigo}\n\n{url}", 1)
-    return corpo
+    if codigo:
+        partes.append(f"🎟️ Cupom: {codigo}")
+    if url:
+        partes.append(f"🛒 {url}")
+    return "\n\n".join(partes)
+
+
+def _linha_preco(oferta: OfertaCapturada) -> str:
+    if not oferta.preco or oferta.preco <= 0:
+        return ""
+    atual = _preco_fmt(oferta.preco)
+    anterior = oferta.preco_anterior
+    if anterior and anterior > oferta.preco:
+        return f"💰 De R$ {_preco_fmt(anterior)} por R$ {atual}"
+    return f"💰 R$ {atual}"
 
 
 def _cupom_digitavel(codigo: str | None) -> str | None:

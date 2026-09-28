@@ -260,5 +260,5 @@
   "max_ofertas_por_dia": 0,
   "max_ofertas_globais_por_hora": 8,
   "max_ofertas_globais_por_dia": 0,
-  "mensagem_template": "🔥 {nome}\n\n✅ R$ {preco}\n\n{url}\n\n⏰ {hora}"
+  "mensagem_template": "{nome}\n\n💰 De R$ {preco_anterior} por R$ {preco}\n\n🛒 {url}"
 }
