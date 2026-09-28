@@ -342,9 +342,33 @@ def _eh_conteudo_infantil(nome: str, filtros: dict) -> bool:
     return _contem_alguma(nome, bloqueios)
 
 
+_SEMPRE_FORA = (
+    "papel higiênico",
+    "papel higienico",
+    "câmera de segurança",
+    "camera de segurança",
+    "câmera de seguranca",
+    "camera de seguranca",
+    "câmera ip",
+    "camera ip",
+    "cftv",
+)
+
+
+def _sem_acento(texto: str) -> str:
+    return texto.lower().translate(str.maketrans("áàâãéêíóôõúüç", "aaaaeeiooouuc"))
+
+
+def _eh_camera(nome: str) -> bool:
+    """Câmera não é achadinho: segurança, IP, fotográfica ou CFTV."""
+    n = _sem_acento(nome)
+    return "camera" in n or "cftv" in n
+
+
 def _fora_do_foco(nome: str, filtros: dict) -> bool:
-    termos = filtros.get("bloquear_produtos") or list(_BLOQUEIO_AUTO_PADRAO)
-    return _contem_alguma(nome, termos)
+    termos = list(filtros.get("bloquear_produtos") or list(_BLOQUEIO_AUTO_PADRAO))
+    termos.extend(_SEMPRE_FORA)
+    return _contem_alguma(nome, termos) or _eh_camera(nome)
 
 
 def _nome_do_nicho(nome: str, termos: list[str]) -> bool:

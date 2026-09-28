@@ -1,6 +1,8 @@
 """Monta a mensagem do WhatsApp a partir do template configurável em config.json."""
 from __future__ import annotations
 
+import re
+
 import relogio
 from config import grupo_whatsapp, load_filtros
 from cozinha import promocao_liberada
@@ -90,10 +92,20 @@ def _mensagem_curta(oferta: OfertaCapturada, template: str) -> str:
     corpo = template.format(nome=nome, preco=preco, url=url, hora=hora)
     if not preco:
         corpo = corpo.replace("✅ R$ \n\n", "").replace("✅ R$ \n", "")
-    codigo = (oferta.codigo_cupom or "").strip()
+    codigo = _cupom_digitavel(oferta.codigo_cupom)
     if codigo and f"Cupom: {codigo}" not in corpo:
         corpo = corpo.replace(f"\n\n{url}", f"\n🎟️ Cupom: {codigo}\n\n{url}", 1)
     return corpo
+
+
+def _cupom_digitavel(codigo: str | None) -> str | None:
+    """Código que a pessoa digita no checkout. 'R$ 100 OFF' não é código."""
+    code = (codigo or "").strip().upper()
+    if not re.fullmatch(r"[A-Z0-9]{4,16}", code):
+        return None
+    if code in {"HTTP", "HTTPS", "MLB", "JSON", "TYPE", "CUPOM", "OFF"}:
+        return None
+    return code
 
 
 def _mensagem_legada(oferta: OfertaCapturada, template: str) -> str:
@@ -114,8 +126,9 @@ def _mensagem_legada(oferta: OfertaCapturada, template: str) -> str:
 
 def _mensagem_cupom_legada(oferta: OfertaCapturada) -> str:
     linha = oferta.nome
-    if oferta.codigo_cupom and oferta.codigo_cupom not in linha:
-        linha = f"{oferta.beneficio or linha}: {oferta.codigo_cupom}"
+    codigo = _cupom_digitavel(oferta.codigo_cupom)
+    if codigo and codigo not in linha:
+        linha = f"{oferta.beneficio or linha}: {codigo}"
     loja = (oferta.loja or "").lower()
     if "shopee" in loja:
         texto = f"🎁 CUPOM SHOPEE 🎁\n\n🎫 {linha}\n\n✅ Resgate aqui:\n{oferta.url}"

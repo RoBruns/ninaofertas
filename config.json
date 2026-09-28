@@ -2,7 +2,7 @@
   "lojas": ["Mercado Livre", "Shopee"],
   "nicho": "casa",
   "categorias": [],
-  "categorias_meli": ["MLB1574", "MLB5726", "MLB1246", "MLB1430", "MLB3937"],
+  "categorias_meli": ["MLB1574", "MLB5726", "MLB1246", "MLB1430", "MLB3937", "MLB117806", "MLB117801", "MLB189949"],
   "desconto_minimo": 15,
   "envio_hora_inicio": 8,
   "envio_hora_fim": 0,
@@ -42,7 +42,17 @@
     "body kit feminino",
     "kit maquiagem",
     "gloss labial",
-    "loção corporal"
+    "loção corporal",
+    "árvore de natal",
+    "pisca-pisca",
+    "guirlanda",
+    "enfeite de natal",
+    "bola de natal",
+    "bolas de natal",
+    "enfeites de natal",
+    "presépio",
+    "luzes de natal",
+    "adorno de natal"
   ],
   "palavras_chave": [
     "poltrona",
@@ -148,7 +158,23 @@
     "cílios",
     "cilios",
     "demaquilante",
-    "acetona"
+    "acetona",
+    "árvore de natal",
+    "arvore de natal",
+    "pinheiro",
+    "pisca-pisca",
+    "pisca pisca",
+    "guirlanda",
+    "enfeite de natal",
+    "bola de natal",
+    "bolas de natal",
+    "enfeites de natal",
+    "natalina",
+    "natalino",
+    "presépio",
+    "presepio",
+    "luzes de natal",
+    "adorno de natal"
   ],
   "produtos_especificos": [],
   "bloquear_produtos": [
@@ -174,7 +200,14 @@
     "veicular",
     "parachoque",
     "para-choque",
-    "spoiler"
+    "spoiler",
+    "papel higiênico",
+    "papel higienico",
+    "câmera de segurança",
+    "camera de segurança",
+    "câmera ip",
+    "camera ip",
+    "cftv"
   ],
   "bloquear_termos": [
     "infantil",

@@ -13,6 +13,10 @@ TERMOS_NATAL = (
     "guirlanda",
     "enfeite de natal",
     "bola de natal",
+    "bolas de natal",
+    "enfeites de natal",
+    "natalina",
+    "natalino",
     "presépio",
     "presepio",
     "toalha de mesa natal",
@@ -20,6 +24,13 @@ TERMOS_NATAL = (
     "caminho de mesa natal",
     "luzes de natal",
     "adorno de natal",
+)
+
+# Árvores, enfeites e pisca-pisca na página de ofertas do Mercado Livre.
+CATEGORIAS_NATAL_MELI = (
+    "MLB117806",
+    "MLB117801",
+    "MLB189949",
 )
 
 

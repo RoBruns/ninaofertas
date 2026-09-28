@@ -18,7 +18,7 @@ from urllib.parse import quote_plus
 import httpx
 
 from config import grupo_whatsapp, load_filtros, settings
-from cozinha import promocao_liberada
+from cozinha import CATEGORIAS_NATAL_MELI, promocao_liberada
 from http_headers import MELI_HTML_HEADERS
 from logger import logger
 from scraper.base import OfertaCapturada, Scraper
@@ -105,29 +105,19 @@ def _url_item(card: dict) -> str | None:
     return "https://" + raw.lstrip("/")
 
 
+_CODIGO_LIXO = {"HTTP", "HTTPS", "MLB", "JSON", "TYPE", "CUPOM", "OFF"}
+
+
 def _beneficio_cupom(card: dict) -> str | None:
-    """Código real do card, ou o desconto escrito (R$ X OFF). Sem inventar código."""
+    """Só o código digitável do card. O selo 'R$ X OFF' não é cupom e não entra na mensagem."""
     blob = json.dumps(card, ensure_ascii=False)
     m = re.search(r'"(?:coupon_code|couponCode)"\s*:\s*"([A-Za-z0-9]{4,16})"', blob)
-    if m:
-        code = m.group(1).upper()
-        if code not in {"HTTP", "HTTPS", "MLB", "JSON", "TYPE", "CUPOM"}:
-            return code
-    for comp in card.get("components") or []:
-        if comp.get("type") != "promotions":
-            continue
-        for promo in comp.get("promotions") or []:
-            if promo.get("type") != "coupon":
-                continue
-            text = str(promo.get("text") or "")
-            for val in promo.get("values") or []:
-                if val.get("key") != "amount":
-                    continue
-                price = (val.get("price") or {}).get("value")
-                if isinstance(price, (int, float)) and price > 0 and "OFF" in text.upper():
-                    n = int(price) if abs(price - round(price)) < 0.001 else price
-                    return f"R$ {n} OFF"
-    return None
+    if not m:
+        return None
+    code = m.group(1).upper()
+    if code in _CODIGO_LIXO or not re.fullmatch(r"[A-Z0-9]{4,16}", code):
+        return None
+    return code
 
 
 def _parse_card(card: dict) -> OfertaCapturada | None:
@@ -165,7 +155,11 @@ class MercadoLivreScraper(Scraper):
 
     def _categorias_meli(self) -> tuple[str, ...]:
         filtros = load_filtros()
-        cats = filtros.get("categorias_meli") or CATEGORIAS_CASA
+        cats = list(filtros.get("categorias_meli") or CATEGORIAS_CASA)
+        if promocao_liberada(grupo_whatsapp()):
+            for cat in CATEGORIAS_NATAL_MELI:
+                if cat not in cats:
+                    cats.append(cat)
         return tuple(cats)
 
     def buscar(self) -> list[OfertaCapturada]:
