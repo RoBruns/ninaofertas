@@ -51,6 +51,12 @@ link sairia sem comissão. A falta é avisada no log quando muda.
 O job de ciclo é registrado uma vez, no boot. Os bots são relidos com o cache de
 30 s, então ativar ou pausar no dashboard entra no próximo ciclo sem reiniciar.
 
+O ciclo é **por bot**, não por grupo: faz uma só busca e filtragem e entrega cada
+oferta escolhida aos grupos que ainda não a receberam. A deduplicação e os links
+de afiliado continuam por grupo; os grupos saem em ordem de quem está há mais
+tempo sem receber. A telemetria registra uma execução por bot e `offers_sent`
+conta mensagens enviadas.
+
 ## Comandos: o que precisa ser imediato
 
 Config muda por leitura; ação muda por comando. Tabela `commands` como caixa de

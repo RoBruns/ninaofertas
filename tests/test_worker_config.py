@@ -112,7 +112,7 @@ def test_job_sem_bots_fica_ocioso_e_avisa_uma_vez(
 ) -> None:
     ciclos: list[str] = []
     avisos: list[str] = []
-    monkeypatch.setattr(worker_main, "canais_ativos", lambda: ())
+    monkeypatch.setattr(worker_main, "bots_ativos", lambda: [])
     monkeypatch.setattr(worker_main.monitor, "ciclo", lambda: ciclos.append("ciclo"))
     monkeypatch.setattr(worker_main.logger, "warning", avisos.append)
     worker_main._avisou_sem_bots = False
@@ -123,6 +123,26 @@ def test_job_sem_bots_fica_ocioso_e_avisa_uma_vez(
     assert ciclos == []
     assert len(avisos) == 1
     assert "Nenhum bot ativo" in avisos[0]
+
+
+def test_job_executa_um_ciclo_por_bot_e_nao_por_grupo(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    runtimes = [
+        SimpleNamespace(id="bot-1", group_ids=("a@g.us", "b@g.us")),
+        SimpleNamespace(id="bot-2", group_ids=("c@g.us",)),
+    ]
+    executados: list[str] = []
+    monkeypatch.setattr(worker_main, "bots_ativos", lambda: runtimes)
+    monkeypatch.setattr(
+        worker_main.monitor,
+        "ciclo",
+        lambda: executados.append(str(config_provider.bot_runtime_atual().id)),
+    )
+
+    worker_main._ciclos_banco()
+
+    assert executados == ["bot-1", "bot-2"]
 
 
 def test_whatsapp_envia_pela_instancia_do_telefone_do_bot(

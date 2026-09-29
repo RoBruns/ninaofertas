@@ -5,6 +5,9 @@ Depois: só ofertas novas/quentes — com freio anti-ban no WhatsApp.
 """
 from __future__ import annotations
 
+import copy
+import time
+from contextlib import nullcontext
 from typing import Any, Callable
 
 from core import db, relogio, repositories
@@ -20,6 +23,7 @@ from worker.channels import (
     grupo_whatsapp,
     load_filtros,
     nome_canal,
+    usar_canal,
 )
 from worker.filters import passa_nos_filtros
 from worker.logger import logger
@@ -161,42 +165,11 @@ def _freio_anti_ban(session, filtros: dict, grupo: str, oferta: OfertaCapturada 
     return True, ""
 
 
-def _processar_oferta(session, oferta: OfertaCapturada, filtros: dict) -> str:
-    """Retorna: 'enviou' | 'pulou' | 'freio' (parar o ciclo de envios)."""
-    passou, motivo = passa_nos_filtros(oferta, filtros)
-    if not passou:
-        logger.debug(f"Descartada '{oferta.nome[:60]}': {motivo}")
-        return "pulou"
-
-    oferta_db = _salvar_oferta(session, oferta)
+def _enviar_oferta_no_grupo(session, oferta: OfertaCapturada, oferta_db) -> str:
+    """Envia uma oferta ja escolhida para o grupo ativo e registra o resultado."""
     grupo = grupo_whatsapp()
-
-    pode_enviar, motivo_dedup = dedup.deve_enviar(
-        session,
-        oferta_db.id,
-        oferta.preco,
-        settings.reenvio_queda_minima,
-        nome=oferta.nome,
-        sku=oferta.sku,
-        loja=oferta.loja,
-        grupo=grupo,
-    )
-    if not pode_enviar:
-        if "duplicata" in motivo_dedup or "igual/parecida" in motivo_dedup:
-            if not repositories.ja_conhecida(session, oferta_db.id, grupo=grupo):
-                repositories.registrar_visto(session, oferta_db.id, oferta.preco, grupo=grupo)
-        logger.debug(f"Pulando '{oferta.nome[:60]}': {motivo_dedup}")
-        return "pulou"
-
-    ok_ritmo, motivo_freio = _freio_anti_ban(session, filtros, grupo, oferta)
-    if not ok_ritmo:
-        logger.warning(f"[{nome_canal()}] {motivo_freio}")
-        return "freio"
-
-    logger.info(f"[{nome_canal()}] Oferta NOVA: {oferta.nome}")
     if oferta.desconto is not None:
         logger.info(f"Desconto: {oferta.desconto}%")
-    logger.info(f"Motivo: {motivo_dedup}")
 
     current_group_id = grupo_db_id()
     affiliate_link = affiliate.garantir_afiliado(
@@ -258,6 +231,36 @@ def _processar_oferta(session, oferta: OfertaCapturada, filtros: dict) -> str:
     return "falhou"
 
 
+def _processar_oferta(session, oferta: OfertaCapturada, filtros: dict) -> str:
+    """Compatibilidade para o fluxo de um grupo; retorna o resultado do envio."""
+    passou, motivo = passa_nos_filtros(oferta, filtros)
+    if not passou:
+        logger.debug(f"Descartada '{oferta.nome[:60]}': {motivo}")
+        return "pulou"
+
+    oferta_db = _salvar_oferta(session, oferta)
+    grupo = grupo_whatsapp()
+    pode_enviar, motivo_dedup = dedup.deve_enviar(
+        session, oferta_db.id, oferta.preco, settings.reenvio_queda_minima,
+        nome=oferta.nome, sku=oferta.sku, loja=oferta.loja, grupo=grupo,
+    )
+    if not pode_enviar:
+        if "duplicata" in motivo_dedup or "igual/parecida" in motivo_dedup:
+            if not repositories.ja_conhecida(session, oferta_db.id, grupo=grupo):
+                repositories.registrar_visto(session, oferta_db.id, oferta.preco, grupo=grupo)
+        logger.debug(f"Pulando '{oferta.nome[:60]}': {motivo_dedup}")
+        return "pulou"
+
+    ok_ritmo, motivo_freio = _freio_anti_ban(session, filtros, grupo, oferta)
+    if not ok_ritmo:
+        logger.warning(f"[{nome_canal()}] {motivo_freio}")
+        return "freio"
+
+    logger.info(f"[{nome_canal()}] Oferta NOVA: {oferta.nome}")
+    logger.info(f"Motivo: {motivo_dedup}")
+    return _enviar_oferta_no_grupo(session, oferta, oferta_db)
+
+
 _SLUG_POR_LOJA = {"Shopee": "shopee", "Mercado Livre": "mercadolivre"}
 _avisos_sem_conta: dict[str, frozenset[str]] = {}
 
@@ -283,12 +286,43 @@ def _plataformas_do_bot(runtime: Any) -> set[str]:
     return plataformas
 
 
+def _grupos_candidatos(
+    session, oferta_db, oferta: OfertaCapturada, grupos: tuple[str, ...]
+) -> tuple[str, ...]:
+    """Avalia deduplicacao por grupo e conserva o visto de cada um."""
+    candidatos: list[str] = []
+    for grupo in grupos:
+        pode_enviar, motivo = dedup.deve_enviar(
+            session,
+            oferta_db.id,
+            oferta.preco,
+            settings.reenvio_queda_minima,
+            nome=oferta.nome,
+            sku=oferta.sku,
+            loja=oferta.loja,
+            grupo=grupo,
+        )
+        if pode_enviar:
+            candidatos.append(grupo)
+            continue
+        if "duplicata" in motivo or "igual/parecida" in motivo:
+            if not repositories.ja_conhecida(session, oferta_db.id, grupo=grupo):
+                repositories.registrar_visto(session, oferta_db.id, oferta.preco, grupo=grupo)
+        logger.debug(f"[{nome_canal()}] Pulando '{oferta.nome[:60]}' em {grupo}: {motivo}")
+    return tuple(candidatos)
+
+
+def _contexto_do_grupo(runtime: Any, grupo: str):
+    if runtime is None:
+        return nullcontext()
+    return usar_canal(f"db:{runtime.id}:{grupo}")
+
+
 def _executar_ciclo() -> tuple[int, int, bool]:
     canal = canal_atual()
     runtime = bot_atual()
-    current_group_id = grupo_db_id()
     feitos = (
-        telemetry.quantidade_baselines(runtime.id, current_group_id)
+        telemetry.quantidade_baselines(runtime.id)
         if runtime is not None
         else _baseline_ciclos_feitos.get(canal, 0)
     )
@@ -298,7 +332,7 @@ def _executar_ciclo() -> tuple[int, int, bool]:
     filtros = load_filtros()
     baseline_alvo = int(filtros.get("baseline_ciclos") or 0)
     max_por_ciclo = int(filtros.get("max_ofertas_por_ciclo") or 1)
-    grupo = grupo_whatsapp()
+    grupos = runtime.group_ids if runtime is not None else (grupo_whatsapp(),)
 
     plataformas = _plataformas_do_bot(runtime)
     todas_ofertas: list[OfertaCapturada] = []
@@ -319,9 +353,12 @@ def _executar_ciclo() -> tuple[int, int, bool]:
     logger.info(f"[{nome_canal()}] {len(todas_ofertas)} ofertas encontradas na varredura.")
 
     enviadas_ciclo = 0
+    ofertas_enviadas = 0
     with db.get_session() as session:
         # Restart no Railway zera a memória; se o grupo já blipou, não marca o catálogo de novo.
-        if feitos < baseline_alvo and repositories.grupo_ja_enviou(session, grupo):
+        if feitos < baseline_alvo and all(
+            repositories.grupo_ja_enviou(session, grupo) for grupo in grupos
+        ):
             feitos = baseline_alvo
             if runtime is None:
                 _baseline_ciclos_feitos[canal] = feitos
@@ -341,11 +378,13 @@ def _executar_ciclo() -> tuple[int, int, bool]:
             )
             novas_marcadas = 0
             for oferta in todas_ofertas:
-                try:
-                    if _baseline_oferta(session, oferta, filtros):
-                        novas_marcadas += 1
-                except Exception as e:
-                    logger.error(f"Erro no baseline '{oferta.nome[:60]}': {e}")
+                for grupo in grupos:
+                    try:
+                        with _contexto_do_grupo(runtime, grupo):
+                            if _baseline_oferta(session, oferta, filtros):
+                                novas_marcadas += 1
+                    except Exception as e:
+                        logger.error(f"Erro no baseline para {grupo}: {e}")
             logger.info(f"[{nome_canal()}] Baseline: +{novas_marcadas} ofertas marcadas neste ciclo.")
             if feitos >= baseline_alvo:
                 logger.info(
@@ -357,24 +396,47 @@ def _executar_ciclo() -> tuple[int, int, bool]:
             falhas = 0
             for oferta in todas_ofertas:
                 try:
-                    resultado = _processar_oferta(session, oferta, filtros)
+                    passou, motivo = passa_nos_filtros(oferta, filtros)
+                    if not passou:
+                        logger.debug(f"Descartada '{oferta.nome[:60]}': {motivo}")
+                        puladas += 1
+                        continue
+                    oferta_db = _salvar_oferta(session, oferta)
+                    grupos_ordenados = repositories.ordenar_grupos_por_ultimo_envio(session, grupos)
+                    candidatos = _grupos_candidatos(session, oferta_db, oferta, grupos_ordenados)
                 except Exception as e:
                     logger.error(f"Erro ao processar oferta '{oferta.nome[:60]}': {e}")
                     falhas += 1
                     continue
-                if resultado == "freio":
-                    break
-                if resultado == "pulou":
+                if not candidatos:
                     puladas += 1
                     continue
-                if resultado == "falhou":
-                    falhas += 1
-                    continue
-                if resultado == "enviou":
-                    enviadas_ciclo += 1
-                    if enviadas_ciclo >= max_por_ciclo:
+                ok_ritmo, motivo_freio = _freio_anti_ban(session, filtros, candidatos[0], oferta)
+                if not ok_ritmo:
+                    logger.warning(f"[{nome_canal()}] {motivo_freio}")
+                    break
+                logger.info(f"[{nome_canal()}] Oferta NOVA: {oferta.nome}")
+                mensagens_enviadas = 0
+                for indice, grupo in enumerate(candidatos):
+                    if indice:
+                        time.sleep(8)
+                    try:
+                        with _contexto_do_grupo(runtime, grupo):
+                            resultado = _enviar_oferta_no_grupo(session, copy.copy(oferta), oferta_db)
+                    except Exception as e:
+                        logger.error(f"Erro ao enviar oferta para {grupo}: {e}")
+                        falhas += 1
+                        continue
+                    if resultado == "enviou":
+                        mensagens_enviadas += 1
+                    else:
+                        falhas += 1
+                enviadas_ciclo += mensagens_enviadas
+                if mensagens_enviadas:
+                    ofertas_enviadas += 1
+                if mensagens_enviadas and ofertas_enviadas >= max_por_ciclo:
                         logger.info(
-                            f"[{nome_canal()}] Freio anti-ban: já enviou {enviadas_ciclo} neste ciclo "
+                            f"[{nome_canal()}] Freio anti-ban: já enviou {ofertas_enviadas} neste ciclo "
                             f"(máx {max_por_ciclo})."
                         )
                         break
@@ -413,7 +475,7 @@ def ciclo() -> None:
     inicio = _telemetria_best_effort(
         telemetry.iniciar_ciclo,
         runtime.id if runtime else None,
-        grupo_db_id(),
+        None,
         default=(None, 0.0),
     )
     # Telemetria nunca derruba o ciclo: retorno fora do formato vira "sem run".

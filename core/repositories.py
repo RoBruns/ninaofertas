@@ -125,12 +125,32 @@ def grupo_ja_enviou(session: Session, grupo: str | None = None) -> bool:
 
 
 def contar_envios_desde(session: Session, desde: datetime, grupo: str | None = None) -> int:
-    q = session.query(func.count(Envio.id)).filter(
+    # Na conta, uma oferta disparada para varios grupos consome um unico slot
+    # do freio anti-ban. Por grupo continua sendo uma linha por oferta.
+    count_column = Envio.id if grupo else Envio.oferta_id.distinct()
+    q = session.query(func.count(count_column)).filter(
         Envio.enviado_em >= desde, Envio.status == "sucesso"
     )
     if grupo:
         q = q.filter(Envio.grupo == grupo)
     return q.scalar() or 0
+
+
+def ordenar_grupos_por_ultimo_envio(session: Session, grupos: tuple[str, ...]) -> tuple[str, ...]:
+    """Prioriza quem esta ha mais tempo sem receber uma mensagem.
+
+    Grupos sem envio anterior vao primeiro; o identificador desempata para a
+    ordem ser deterministica.
+    """
+    if not grupos:
+        return ()
+    ultimos = dict(
+        session.query(Envio.grupo, func.max(Envio.enviado_em))
+        .filter(Envio.status == "sucesso", Envio.grupo.in_(grupos))
+        .group_by(Envio.grupo)
+        .all()
+    )
+    return tuple(sorted(grupos, key=lambda grupo: (ultimos.get(grupo) is not None, ultimos.get(grupo), grupo)))
 
 
 def contar_envios_ultima_hora(session: Session, grupo: str | None = None) -> int:

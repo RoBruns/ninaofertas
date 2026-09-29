@@ -13,11 +13,11 @@ from apscheduler.schedulers.background import BackgroundScheduler
 
 from core import db, relogio
 from core.alerts import cleanup_events, detect_alerts
-from core.config_provider import bots_ativos
+from core.config_provider import bots_ativos, usar_bot_runtime
 from core.sales_sync import sync_all_active_accounts
 from core.settings import settings
 from worker import commands, monitor, promo_instagram, telemetry
-from worker.channels import canais_ativos, usar_canal
+from worker.channels import canais_ativos
 from worker.logger import logger
 
 _avisou_sem_bots = False
@@ -40,10 +40,10 @@ def _limpar_eventos() -> None:
 
 
 def _ciclos_banco() -> None:
-    """Um ciclo por (bot ativo, grupo), mantendo monitor.ciclo() com o contrato historico."""
+    """Um ciclo por bot: uma varredura alimenta todos os seus grupos."""
     global _avisou_sem_bots
-    canais = canais_ativos()
-    if not canais:
+    runtimes = bots_ativos()
+    if not runtimes:
         if not _avisou_sem_bots:
             logger.warning(
                 "Nenhum bot ativo no dashboard: nada a publicar. "
@@ -52,13 +52,13 @@ def _ciclos_banco() -> None:
             _avisou_sem_bots = True
         return
     _avisou_sem_bots = False
-    for canal in canais:
+    for runtime in runtimes:
         try:
-            with usar_canal(canal):
+            with usar_bot_runtime(runtime):
                 monitor.ciclo()
         except ValueError as exc:
             # O bot foi pausado entre a listagem e o ciclo (cache de 30 s).
-            logger.info(f"Canal ignorado: {exc}")
+            logger.info(f"Bot ignorado: {exc}")
 
 
 def _comandos_imediatos() -> None:
@@ -66,10 +66,9 @@ def _comandos_imediatos() -> None:
     bot_ids = commands.consumir_run_now()
     if not bot_ids:
         return
-    for canal in canais_ativos():
-        bot_id = canal.split(":", 2)[1]
-        if any(str(wanted) == bot_id for wanted in bot_ids):
-            with usar_canal(canal):
+    for runtime in bots_ativos():
+        if any(str(wanted) == str(runtime.id) for wanted in bot_ids):
+            with usar_bot_runtime(runtime):
                 monitor.ciclo()
 
 

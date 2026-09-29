@@ -335,3 +335,18 @@ Consequência: pausar todos os bots **para** a publicação (antes, devolvia ao
 legado). O deploy configura e ativa os bots no dashboard **antes** de trocar o
 worker — o código antigo ignora a tabela `bots` — para não haver janela sem envio.
 
+---
+
+## ADR-021 — Uma oferta por bot é entregue a todos os seus grupos
+**Data:** 2026-09-29 · **Status:** aceita · **Decisor:** usuário
+
+Com mais de um grupo, rodar um ciclo completo por grupo fazia o primeiro grupo
+consumir sempre a janela do freio anti-ban e deixava os seguintes sem ofertas.
+Decisão: o ciclo seleciona a oferta uma vez por bot e a envia aos grupos que
+ainda não a receberam; o freio por número conta uma oferta distinta, mesmo que
+gere várias mensagens.
+
+**Consequência:** dois grupos dobram o volume de mensagens do número. Para
+reduzir esse volume, o controle é o limite por hora do bot; o intervalo segue
+entre ofertas, não entre as mensagens da mesma oferta.
+
