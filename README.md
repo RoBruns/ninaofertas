@@ -41,8 +41,8 @@ configuração pode vir.
 | `logger.py` | `worker/logger.py` |
 | `config.json`, `config.auto.json` | continuam na raiz, mas **só o seed os lê** (viram os 2 bots) |
 
-**Comando de início:** `railway.toml` e `Procfile` agora usam
-`python -m worker.main`. Com o `python main.py` antigo o bot não sobe.
+**Comando de início:** `python -m worker.main` (settings do serviço na Railway e
+`Procfile`). Com o `python main.py` antigo o bot não sobe. Ver docs/DEPLOYMENT.md.
 
 **Tudo vem do dashboard — não há modo legado** (ADR-020). O worker só publica
 bots **ativos** no dashboard, e cada bot traz telefone (instância Evolution),

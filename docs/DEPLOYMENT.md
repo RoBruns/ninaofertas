@@ -174,11 +174,22 @@ worker. Alerta de `bot_offline` dispara com 3 intervalos sem heartbeat.
 - A Railway publica o bot a partir de **`RoBruns/ninaofertas`, branch `master`**
   (remoto local `producao`). O `origin` local (`DiegoMiuraDev/ninaofertas`) fica
   atrás da produção. Outro desenvolvedor faz commit direto na `master` de produção.
-- O `railway.toml` da raiz vale para **todo serviço criado do repositório**. Se a
-  API fosse criada do mesmo repo sem config própria, herdaria
-  `startCommand = "python -m worker.main"` e subiria **um segundo bot** no mesmo
-  número — risco de ban. Cada serviço novo usa um arquivo de config próprio
-  (config-as-code por serviço na Railway).
+- **Sem config-as-code no repositório** (removido em 2026-09-30). A Railway
+  descontinuou o `railway.toml`/`railway.json` (vale até 2026-12-01) e não aceita mais
+  o arquivo em serviço novo. Os serviços da V2 são configurados nas settings da
+  Railway (tabela abaixo; pela API GraphQL, `serviceInstanceUpdate`). Antes, o
+  `railway.toml` da raiz era herdado por todo serviço criado do repositório e podia
+  subir **um segundo bot** no mesmo número; sem o arquivo, esse risco acabou. Serviço
+  novo: defina o comando de início **antes** do primeiro deploy.
+
+  | Serviço | Builder | Início | Pré-deploy | Healthcheck |
+  |---|---|---|---|---|
+  | `nina-api` | Railpack | `python -m api.serve` | `alembic upgrade head` | `/api/health` |
+  | `nina-worker` | Railpack | `python -m worker.main` | — | — |
+  | `nina-dashboard` | Dockerfile (`RAILWAY_DOCKERFILE_PATH=deploy/dashboard.Dockerfile`) | do Dockerfile | — | `/healthz` |
+
+  Os três publicam a branch `master` de `RoBruns/ninaofertas`. A V1 (serviço
+  `ninaofertas`, desligado) está no branch `v1-legado`, com o `railway.toml` dela.
 - **Não há modo legado** (ADR-020): o worker novo só publica bots ativos no
   dashboard. O worker **antigo** ignora a tabela `bots`, então os bots podem ser
   configurados e ativados no dashboard enquanto ele ainda roda — é isso que evita
