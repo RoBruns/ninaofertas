@@ -350,3 +350,13 @@ gere várias mensagens.
 reduzir esse volume, o controle é o limite por hora do bot; o intervalo segue
 entre ofertas, não entre as mensagens da mesma oferta.
 
+---
+
+## ADR-022 — Mudanças da V1 portadas como comportamento geral e opções por bot
+**Data:** 2026-09-30 · **Status:** aceita
+
+As melhorias do Miura feitas na V1 foram trazidas para a V2 sem `cozinha.py` ou
+IDs fixos de grupo. Validação de cupom, link afiliado, cookie da conta e
+bloqueios são comportamentos gerais. Alternância de loja e exceções de filtro do
+Mercado Livre são opções em `settings.filters`, editáveis no dashboard e
+aplicadas ao bot inteiro, inclusive quando ele publica em mais de um grupo.

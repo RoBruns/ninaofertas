@@ -12,6 +12,7 @@ transformar o permalink em link afiliado.
 from __future__ import annotations
 
 import json
+import re
 from urllib.parse import quote_plus
 
 import httpx
@@ -95,6 +96,19 @@ def _url_item(card: dict) -> str | None:
     return "https://" + raw.lstrip("/")
 
 
+_CODIGOS_CUPOM_INVALIDOS = {"HTTP", "HTTPS", "MLB", "JSON", "TYPE", "CUPOM", "OFF"}
+
+
+def _beneficio_cupom(card: dict) -> str | None:
+    """Retorna somente codigo digitavel; o selo de desconto nao e cupom."""
+    blob = json.dumps(card, ensure_ascii=False)
+    match = re.search(r'"(?:coupon_code|couponCode)"\s*:\s*"([A-Za-z0-9]{4,16})"', blob)
+    if match is None:
+        return None
+    code = match.group(1).upper()
+    return None if code in _CODIGOS_CUPOM_INVALIDOS else code
+
+
 def _parse_card(card: dict) -> OfertaCapturada | None:
     nome = _comp_titulo(card)
     preco, preco_anterior = _comp_precos(card)
@@ -110,6 +124,7 @@ def _parse_card(card: dict) -> OfertaCapturada | None:
         url=url,
         imagem=_imagem(card),
         sku=str(sku) if sku else None,
+        codigo_cupom=_beneficio_cupom(card),
     )
 
 
@@ -134,11 +149,26 @@ class MercadoLivreScraper(Scraper):
     def buscar(self) -> list[OfertaCapturada]:
         vistas: set[str] = set()
         ofertas: list[OfertaCapturada] = []
-        with httpx.Client(timeout=self.timeout, headers=HEADERS, follow_redirects=True) as client:
+        headers = dict(HEADERS)
+        # Mesma credencial cifrada da conta vinculada ao bot (ADR-020).
+        from core.platforms.affiliate import _ml_auth
+
+        _, auth = _ml_auth()
+        if auth.cookie:
+            headers["cookie"] = auth.cookie
+        self._bloqueio_avisado = False
+        with httpx.Client(timeout=self.timeout, headers=headers, follow_redirects=True) as client:
             ofertas.extend(self._buscar_ofertas_categoria(client, vistas))
             ofertas.extend(self._buscar_lista_termos(client, vistas))
         logger.info(f"[Mercado Livre] {len(ofertas)} ofertas capturadas.")
         return ofertas
+
+    def _registrar_bloqueio(self, detalhe: str) -> None:
+        """Um aviso por busca: com o ML bloqueando, cada categoria repetiria o mesmo."""
+        if getattr(self, "_bloqueio_avisado", False):
+            return
+        self._bloqueio_avisado = True
+        logger.warning(f"[Mercado Livre] página de ofertas bloqueada ({detalhe}).")
 
     def _buscar_ofertas_categoria(self, client: httpx.Client, vistas: set[str]) -> list[OfertaCapturada]:
         out: list[OfertaCapturada] = []
@@ -152,13 +182,16 @@ class MercadoLivreScraper(Scraper):
                 except httpx.HTTPError as e:
                     logger.warning(f"[Mercado Livre] ofertas cat={cat} page={page}: {e}")
                     break
-                if resp.status_code != 200 or "captcha" in str(resp.url) or "account-verification" in str(resp.url):
-                    logger.warning(
-                        f"[Mercado Livre] ofertas cat={cat} page={page} "
-                        f"HTTP {resp.status_code} url={resp.url}"
-                    )
-                    break
                 cards = _extrair_items_json(resp.text)
+                bloqueada = (
+                    resp.status_code != 200
+                    or "captcha" in str(resp.url).lower()
+                    or "account-verification" in str(resp.url).lower()
+                    or (not cards and any(x in resp.text.lower() for x in ("captcha", "account-verification")))
+                )
+                if bloqueada:
+                    self._registrar_bloqueio(f"HTTP {resp.status_code} cat={cat}")
+                    break
                 if not cards:
                     break
                 for raw in cards:
@@ -170,6 +203,7 @@ class MercadoLivreScraper(Scraper):
                     if chave in vistas:
                         continue
                     vistas.add(chave)
+                    oferta.origem_categoria_meli = True
                     out.append(oferta)
         return out
 

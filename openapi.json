@@ -13298,6 +13298,21 @@
       "minimum": 0.0,
       "title": "Max Idade Oferta Horas",
       "default": 0
+     },
+     "uma_loja_por_ciclo": {
+      "type": "boolean",
+      "title": "Uma Loja Por Ciclo",
+      "default": false
+     },
+     "ml_ignora_desconto_e_vendas": {
+      "type": "boolean",
+      "title": "Ml Ignora Desconto E Vendas",
+      "default": false
+     },
+     "ml_categoria_dispensa_nicho": {
+      "type": "boolean",
+      "title": "Ml Categoria Dispensa Nicho",
+      "default": false
      }
     },
     "additionalProperties": true,
@@ -14999,19 +15014,17 @@
      "start": {
       "type": "string",
       "pattern": "^(?:[01]\\d|2[0-3]):[0-5]\\d$",
-      "title": "Start"
+      "title": "Start",
+      "default": "00:00"
      },
      "end": {
       "type": "string",
       "pattern": "^(?:[01]\\d|2[0-3]):[0-5]\\d$",
-      "title": "End"
+      "title": "End",
+      "default": "08:00"
      }
     },
     "type": "object",
-    "required": [
-     "start",
-     "end"
-    ],
     "title": "QuietHours"
    },
    "RatioKPI": {

@@ -18,6 +18,20 @@ from core.platforms.shopee_api import generate_short_link
 
 ML_CREATE_LINK = "https://www.mercadolivre.com.br/affiliate-program/api/v2/affiliates/createLink"
 ML_LINKBUILDER = "https://www.mercadolivre.com.br/afiliados/linkbuilder"
+_aviso_createlink_neste_ciclo = False
+
+
+def reset_aviso_ciclo() -> None:
+    """Permite um aviso de createLink a cada ciclo do bot."""
+    global _aviso_createlink_neste_ciclo
+    _aviso_createlink_neste_ciclo = False
+
+
+def _avisar_createlink(mensagem: str) -> None:
+    global _aviso_createlink_neste_ciclo
+    if not _aviso_createlink_neste_ciclo:
+        _aviso_createlink_neste_ciclo = True
+        logger.warning(mensagem)
 
 
 class AffiliateLink(str):
@@ -116,7 +130,7 @@ def _converter_mercadolivre_com_tag(
     url: str, tag: str, auth: _MLAuth, runtime: Any
 ) -> str | None:
     if not tag or not auth.cookie:
-        logger.warning("[afiliado] MELI sem TAG/COOKIE — mantendo URL original")
+        _avisar_createlink("[afiliado] MELI sem TAG/COOKIE — createLink não roda neste ciclo.")
         return None
     if _ja_parece_afiliado_ml(url):
         return url
@@ -154,21 +168,23 @@ def _converter_mercadolivre_com_tag(
                         f"HTTP {response.status_code}",
                         bot_id=runtime.id if runtime else None,
                     )
-                logger.error(
-                    f"[afiliado] MELI createLink HTTP {response.status_code}: "
-                    f"{safe_log_text(response.text, 200)}"
-                )
+                    _avisar_createlink(
+                        f"[afiliado] MELI createLink HTTP {response.status_code} — cookie da conta expirou; "
+                        "renove no dashboard → Contas."
+                    )
+                else:
+                    _avisar_createlink(f"[afiliado] MELI createLink HTTP {response.status_code}.")
                 return None
             data = response.json()
     except Exception as exc:
-        logger.error(f"[afiliado] MELI createLink falhou: {safe_log_text(exc)}")
+        _avisar_createlink(f"[afiliado] MELI createLink falhou: {safe_log_text(exc)}")
         return None
 
     converted = _extrair_url_afiliada(data)
     if converted:
         logger.info(f"[afiliado] MELI convertida: {converted}")
         return converted
-    logger.error(
+    _avisar_createlink(
         f"[afiliado] MELI createLink resposta inesperada: {safe_log_text(data, 240)}"
     )
     return None
@@ -254,7 +270,6 @@ def garantir_afiliado(
             fallback = _converter_mercadolivre_com_tag(url, account_tag, auth, runtime)
             if fallback:
                 return AffiliateLink(fallback)
-        logger.warning("[afiliado] MELI sem conversão — enviando URL original")
         return AffiliateLink(url)
 
     if "shopee" in loja:
@@ -280,9 +295,21 @@ def garantir_afiliado(
     return AffiliateLink(url)
 
 
+def link_rastreado(loja: str, url: str) -> bool:
+    """True quando a URL contem a marcacao de comissao da plataforma."""
+    nome = (loja or "").lower()
+    if "mercado" in nome:
+        return _ja_parece_afiliado_ml(url)
+    if "shopee" in nome:
+        return _ja_parece_afiliado_shopee(url)
+    return True
+
+
 __all__ = [
     "AffiliateLink",
     "converter_mercadolivre",
     "converter_shopee",
     "garantir_afiliado",
+    "link_rastreado",
+    "reset_aviso_ciclo",
 ]

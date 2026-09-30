@@ -19,6 +19,8 @@ export const defaultSettings: BotSettings = {
     lojas: [], categorias_meli: [], termos_busca: [], palavras_chave: [],
     bloquear_produtos: [], bloquear_termos: [], excecoes_bloqueio: [],
     max_vendas: 20, max_idade_oferta_horas: 0,
+    uma_loja_por_ciclo: false, ml_ignora_desconto_e_vendas: false,
+    ml_categoria_dispensa_nicho: false,
   },
   pacing: {
     max_ofertas_por_ciclo: 1, intervalo_minutos_entre_ofertas: 5,

@@ -39,6 +39,8 @@ class OfertaCapturada:
     # URL original usada para gerar tracking; `url` continua sendo o offerLink
     # afiliado entregue pela fonte e serve de fallback seguro.
     product_url: Optional[str] = None
+    # Mantem a origem separada de `categoria`, usada por cupons e campanhas.
+    origem_categoria_meli: bool = False
 
     def __post_init__(self):
         if self.desconto is None and self.preco_anterior and self.preco_anterior > 0:

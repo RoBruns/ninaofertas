@@ -179,6 +179,9 @@ def _enviar_oferta_no_grupo(session, oferta: OfertaCapturada, oferta_db) -> str:
         origin_url=oferta.product_url,
     )
     oferta.url = str(affiliate_link)
+    if not affiliate.link_rastreado(oferta.loja, oferta.url):
+        logger.debug(f"[{nome_canal()}] Sem link de afiliado; pulando '{oferta.nome[:60]}'.")
+        return "afiliado"
     envio_sub_id = getattr(affiliate_link, "sub_id", None)
     if oferta.url_carrinho:
         oferta.url_carrinho = str(
@@ -329,6 +332,7 @@ def _executar_ciclo() -> tuple[int, int, bool]:
     n = _ciclo_n.get(canal, 0)
 
     logger.info(f"[{nome_canal()}] Buscando novas ofertas...")
+    affiliate.reset_aviso_ciclo()
     filtros = load_filtros()
     baseline_alvo = int(filtros.get("baseline_ciclos") or 0)
     max_por_ciclo = int(filtros.get("max_ofertas_por_ciclo") or 1)
@@ -348,6 +352,15 @@ def _executar_ciclo() -> tuple[int, int, bool]:
     n += 1
     _ciclo_n[canal] = n
     prioridade = "Shopee" if n % 2 == 1 else "Mercado Livre"
+    if filtros.get("uma_loja_por_ciclo") and len(plataformas) > 1:
+        loja_do_ciclo = "Mercado Livre" if n % 2 == 0 else "Shopee"
+        slug_do_ciclo = _SLUG_POR_LOJA[loja_do_ciclo]
+        if slug_do_ciclo not in plataformas:
+            # Alterna somente entre as plataformas utilizaveis pelo bot.
+            loja_do_ciclo = next(loja for loja, slug in _SLUG_POR_LOJA.items() if slug in plataformas)
+        todas_ofertas = [oferta for oferta in todas_ofertas if oferta.loja == loja_do_ciclo]
+        prioridade = loja_do_ciclo
+        logger.info(f"[{nome_canal()}] Uma loja por ciclo: {loja_do_ciclo}.")
     todas_ofertas = _ordenar_envio(todas_ofertas, n, prioridade)
 
     logger.info(f"[{nome_canal()}] {len(todas_ofertas)} ofertas encontradas na varredura.")
@@ -394,6 +407,7 @@ def _executar_ciclo() -> tuple[int, int, bool]:
         else:
             puladas = 0
             falhas = 0
+            sem_afiliado = 0
             for oferta in todas_ofertas:
                 try:
                     passou, motivo = passa_nos_filtros(oferta, filtros)
@@ -429,6 +443,8 @@ def _executar_ciclo() -> tuple[int, int, bool]:
                         continue
                     if resultado == "enviou":
                         mensagens_enviadas += 1
+                    elif resultado == "afiliado":
+                        sem_afiliado += 1
                     else:
                         falhas += 1
                 enviadas_ciclo += mensagens_enviadas
@@ -443,7 +459,7 @@ def _executar_ciclo() -> tuple[int, int, bool]:
             if enviadas_ciclo == 0:
                 logger.warning(
                     f"[{nome_canal()}] Ciclo sem blip: {len(todas_ofertas)} capturadas, "
-                    f"{puladas} puladas (filtro/dedup), {falhas} falhas de envio."
+                    f"{puladas} filtro/dedup, {sem_afiliado} sem afiliado, {falhas} falhas de envio."
                 )
 
     logger.info(f"[{nome_canal()}] Próxima verificação em {settings.check_interval}s.")

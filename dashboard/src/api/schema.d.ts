@@ -1802,6 +1802,21 @@ export interface components {
              * @default 0
              */
             max_idade_oferta_horas: number;
+            /**
+             * Uma Loja Por Ciclo
+             * @default false
+             */
+            uma_loja_por_ciclo: boolean;
+            /**
+             * Ml Ignora Desconto E Vendas
+             * @default false
+             */
+            ml_ignora_desconto_e_vendas: boolean;
+            /**
+             * Ml Categoria Dispensa Nicho
+             * @default false
+             */
+            ml_categoria_dispensa_nicho: boolean;
         } & {
             [key: string]: unknown;
         };
@@ -2338,9 +2353,15 @@ export interface components {
         };
         /** QuietHours */
         QuietHours: {
-            /** Start */
+            /**
+             * Start
+             * @default 00:00
+             */
             start: string;
-            /** End */
+            /**
+             * End
+             * @default 08:00
+             */
             end: string;
         };
         /** RatioKPI */

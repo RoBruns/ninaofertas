@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from unicodedata import combining, normalize
 
 from core.platforms.base import OfertaCapturada
 
@@ -144,6 +145,47 @@ _FOCO_CASA_PADRAO = (
     "presilha",
     "elástico cabelo",
     "elastico cabelo",
+    "cozinha",
+    "jogo de cozinha",
+    "jogos de cozinha",
+    "jogo de panelas",
+    "faqueiro",
+    "talher",
+    "assadeira",
+    "xícara",
+    "xicara",
+    "caneca",
+    "body splash",
+    "body kit",
+    "loção",
+    "locao",
+    "corporal",
+    "gloss",
+    "blush",
+    "corretivo",
+    "delineador",
+    "iluminador",
+    "primer",
+    "cílios",
+    "cilios",
+    "demaquilante",
+    "acetona",
+    "árvore de natal",
+    "arvore de natal",
+    "pinheiro",
+    "pisca-pisca",
+    "pisca pisca",
+    "guirlanda",
+    "enfeite de natal",
+    "bola de natal",
+    "bolas de natal",
+    "enfeites de natal",
+    "natalina",
+    "natalino",
+    "presépio",
+    "presepio",
+    "luzes de natal",
+    "adorno de natal",
 )
 
 _BOMBA_AUTO = (
@@ -203,8 +245,11 @@ _BOMBA_NAO_AUTO = (
 
 
 def _contem_alguma(texto: str, termos: list[str]) -> bool:
-    texto_lower = texto.lower()
-    return any(termo.lower() in texto_lower for termo in termos)
+    def sem_acento(valor: str) -> str:
+        return "".join(char for char in normalize("NFD", valor.lower()) if not combining(char))
+
+    texto_lower = sem_acento(texto)
+    return any(sem_acento(termo) in texto_lower for termo in termos)
 
 
 def _bomba_dagua_ok_no_auto(nome: str) -> bool:
@@ -238,6 +283,14 @@ _BLOQUEIO_AUTO_PADRAO = (
     "para moto",
     "p/ moto",
     "veicular",
+    "parachoque",
+    "para-choque",
+    "spoiler",
+    "papel higiênico",
+    "papel higienico",
+    "câmera",
+    "camera",
+    "cftv",
 )
 
 
@@ -367,8 +420,16 @@ def passa_nos_filtros(oferta: OfertaCapturada, filtros: dict) -> tuple[bool, str
         if preco_minimo and oferta.preco < preco_minimo:
             return False, f"preço R${oferta.preco:.2f} abaixo do mínimo R${preco_minimo:.2f}"
 
+        ignora_regras_ml = oferta.loja.lower() == "mercado livre" and filtros.get(
+            "ml_ignora_desconto_e_vendas", False
+        )
         desconto_minimo = filtros.get("desconto_minimo")
-        if desconto_minimo and oferta.desconto is not None and oferta.desconto < desconto_minimo:
+        if (
+            not ignora_regras_ml
+            and desconto_minimo
+            and oferta.desconto is not None
+            and oferta.desconto < desconto_minimo
+        ):
             return False, f"desconto {oferta.desconto}% abaixo do mínimo {desconto_minimo}%"
 
         max_vendas = filtros.get("max_vendas")
@@ -376,7 +437,8 @@ def passa_nos_filtros(oferta: OfertaCapturada, filtros: dict) -> tuple[bool, str
         # Antes, max_vendas=0 descartava todo produto com 1 venda ou mais — na
         # prática, quase toda a Shopee, a única fonte que informa vendas.
         if (
-            max_vendas not in (None, 0, "0")
+            not ignora_regras_ml
+            and max_vendas not in (None, 0, "0")
             and oferta.vendas is not None
             and oferta.vendas > int(max_vendas)
         ):
@@ -405,7 +467,12 @@ def passa_nos_filtros(oferta: OfertaCapturada, filtros: dict) -> tuple[bool, str
         or filtros.get("termos_peca")
         or list(_FOCO_CASA_PADRAO)
     )
-    if termos_nicho and not _nome_do_nicho(oferta.nome, termos_nicho):
+    dispensa_nicho_ml = (
+        filtros.get("ml_categoria_dispensa_nicho", False)
+        and oferta.loja.lower() == "mercado livre"
+        and oferta.origem_categoria_meli
+    )
+    if not dispensa_nicho_ml and termos_nicho and not _nome_do_nicho(oferta.nome, termos_nicho):
         n = oferta.nome.lower().replace("á", "a")
         bomba_auto = (
             filtros.get("nicho") == "auto"

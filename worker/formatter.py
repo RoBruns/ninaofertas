@@ -24,6 +24,14 @@ TEMPLATE_LEGADO = (
 )
 
 _CAMPO = re.compile(r"\{(\w+)\}")
+_CODIGOS_CUPOM_INVALIDOS = {"HTTP", "HTTPS", "MLB", "JSON", "TYPE", "CUPOM", "OFF"}
+
+
+def _cupom_digitavel(codigo: str | None) -> str | None:
+    code = (codigo or "").strip().upper()
+    if re.fullmatch(r"[A-Z0-9]{4,16}", code) is None or code in _CODIGOS_CUPOM_INVALIDOS:
+        return None
+    return code
 
 
 def _preco_fmt(valor: float) -> str:
@@ -74,7 +82,7 @@ def _de_por(oferta: OfertaCapturada) -> str:
 
 def _mensagem_curta(oferta: OfertaCapturada, template: str) -> str:
     """Substitui as variáveis; a linha cuja variável ficou vazia sai da mensagem."""
-    codigo = (oferta.codigo_cupom or "").strip()
+    codigo = _cupom_digitavel(oferta.codigo_cupom)
     valores = {
         # "*" e "~" no nome quebrariam o negrito do WhatsApp.
         "nome": (oferta.nome or "").replace("*", "").replace("~", "").strip(),
@@ -117,8 +125,9 @@ def _mensagem_legada(oferta: OfertaCapturada, template: str) -> str:
 
 def _mensagem_cupom_legada(oferta: OfertaCapturada) -> str:
     linha = oferta.nome
-    if oferta.codigo_cupom and oferta.codigo_cupom not in linha:
-        linha = f"{oferta.beneficio or linha}: {oferta.codigo_cupom}"
+    codigo = _cupom_digitavel(oferta.codigo_cupom)
+    if codigo and codigo not in linha:
+        linha = f"{oferta.beneficio or linha}: {codigo}"
     loja = (oferta.loja or "").lower()
     if "shopee" in loja:
         texto = f"🎁 CUPOM SHOPEE 🎁\n\n🎫 {linha}\n\n✅ Resgate aqui:\n{oferta.url}"

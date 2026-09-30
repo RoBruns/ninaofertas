@@ -25,10 +25,13 @@ from tests.test_worker_config import _active_bot, _patch_sessions, _reset_cache
 from worker import monitor
 
 
-def _preparar(monkeypatch: pytest.MonkeyPatch, factory: sessionmaker[Session], ofertas):
+def _preparar(
+    monkeypatch: pytest.MonkeyPatch, factory: sessionmaker[Session], ofertas, filtros_extra=None
+):
     _patch_sessions(monkeypatch, factory)
     settings = safe_settings()
     settings["content"]["baseline_ciclos"] = 0  # sem os ciclos de baseline do bot novo
+    settings["filters"].update(filtros_extra or {})
     bot, catalog = _active_bot(factory, settings=settings)
     _reset_cache()
     runtime = config_provider.bots_ativos(ttl=0)[0]
@@ -48,6 +51,7 @@ def _preparar(monkeypatch: pytest.MonkeyPatch, factory: sessionmaker[Session], o
         "garantir_afiliado",
         lambda _loja, url, **kw: AffiliateLink(f"{url}?grupo={kw.get('group_id')}", None),
     )
+    monkeypatch.setattr(monitor.affiliate, "link_rastreado", lambda *_args: True)
     monkeypatch.setattr(
         monitor.whatsapp,
         "enviar_mensagem",

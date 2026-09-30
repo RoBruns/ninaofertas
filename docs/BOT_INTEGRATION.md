@@ -139,3 +139,9 @@ segue o plano de deploy em [DEPLOYMENT.md](DEPLOYMENT.md).
 
 Em qualquer ponto, reverter = redeploy do commit anterior do worker. O banco novo
 é aditivo e não atrapalha a versão antiga.
+## Preferências de seleção por bot
+
+O worker confere o link depois da conversão: se a plataforma não produzir URL
+rastreável, a oferta é pulada sem criar `envio`. Alternância de loja por ciclo e
+exceções de filtro do Mercado Livre ficam em `bots.settings.filters`; por isso
+valem para o bot inteiro e todos os seus grupos.

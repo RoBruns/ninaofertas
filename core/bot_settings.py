@@ -27,6 +27,9 @@ FILTER_KEYS = {
     "excecoes_bloqueio",
     "max_vendas",
     "max_idade_oferta_horas",
+    "uma_loja_por_ciclo",
+    "ml_ignora_desconto_e_vendas",
+    "ml_categoria_dispensa_nicho",
 }
 PACING_KEYS = {
     "max_ofertas_por_ciclo",
@@ -65,6 +68,9 @@ class Filters(BaseModel):
     excecoes_bloqueio: list[str] = Field(default_factory=list)
     max_vendas: int = Field(default=20, ge=0)
     max_idade_oferta_horas: int = Field(default=0, ge=0)
+    uma_loja_por_ciclo: bool = False
+    ml_ignora_desconto_e_vendas: bool = False
+    ml_categoria_dispensa_nicho: bool = False
 
 
 class Pacing(BaseModel):
