@@ -491,6 +491,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/groups/from-invite": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create Group From Invite */
+        post: operations["create_group_from_invite_api_groups_from_invite_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/groups/{group_id}": {
         parameters: {
             query?: never;
@@ -1222,7 +1239,7 @@ export interface components {
         Attribution: {
             /**
              * Ml Tag
-             * @description Etiqueta de rastreamento do Mercado Livre: 3 a 40 caracteres, somente letras minusculas, numeros, _ e -.
+             * @description Etiqueta de rastreamento do Mercado Livre: 3 a 40 caracteres, somente letras minúsculas, números, _ e -.
              */
             ml_tag?: string | null;
         };
@@ -1860,6 +1877,16 @@ export interface components {
              */
             status: "active" | "inaccessible" | "archived";
         };
+        /** GroupFromInvite */
+        GroupFromInvite: {
+            /**
+             * Phone Id
+             * Format: uuid
+             */
+            phone_id: string;
+            /** Invite Link */
+            invite_link: string;
+        };
         /** GroupResponse */
         GroupResponse: {
             /**
@@ -1922,6 +1949,13 @@ export interface components {
             db: "ok" | "error";
             /** Worker Last Seen */
             worker_last_seen: string | null;
+            /**
+             * Worker Status
+             * @enum {string}
+             */
+            worker_status: "online" | "offline" | "unknown";
+            /** Worker Offline Since */
+            worker_offline_since: string | null;
         };
         /** HeartbeatRequest */
         HeartbeatRequest: {
@@ -2770,7 +2804,7 @@ export interface operations {
                     "application/json": components["schemas"]["LoginResponse"];
                 };
             };
-            /** @description Credenciais invalidas */
+            /** @description Credenciais inválidas */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -5930,6 +5964,109 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["ErrorEnvelope"];
                 };
+            };
+        };
+    };
+    create_group_from_invite_api_groups_from_invite_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GroupFromInvite"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GroupResponse"];
+                };
+            };
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GroupResponse"];
+                };
+            };
+            /** @description Não autenticado */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Sem permissão */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Não encontrado */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflito (ex.: entidade em uso) */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Dados inválidos */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Limite de requisições */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Erro interno */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Evolution indisponível */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };

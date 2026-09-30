@@ -237,7 +237,7 @@
       }
      },
      "401": {
-      "description": "Credenciais invalidas"
+      "description": "Credenciais inválidas"
      },
      "403": {
       "description": "Sem permissão",
@@ -4594,6 +4594,125 @@
       }
      }
     }
+   }
+  },
+  "/api/groups/from-invite": {
+   "post": {
+    "tags": [
+     "groups"
+    ],
+    "summary": "Create Group From Invite",
+    "operationId": "create_group_from_invite_api_groups_from_invite_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/GroupFromInvite"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "201": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/GroupResponse"
+        }
+       }
+      }
+     },
+     "401": {
+      "description": "Não autenticado",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "403": {
+      "description": "Sem permissão",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "404": {
+      "description": "Não encontrado",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "409": {
+      "description": "Conflito (ex.: entidade em uso)",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Dados inválidos",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "429": {
+      "description": "Limite de requisições",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "500": {
+      "description": "Erro interno",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/GroupResponse"
+        }
+       }
+      }
+     },
+     "503": {
+      "description": "Evolution indisponível"
+     }
+    },
+    "security": [
+     {
+      "HTTPBearer": []
+     }
+    ]
    }
   },
   "/api/groups/{group_id}": {
@@ -11312,7 +11431,7 @@
        }
       ],
       "title": "Ml Tag",
-      "description": "Etiqueta de rastreamento do Mercado Livre: 3 a 40 caracteres, somente letras minusculas, numeros, _ e -."
+      "description": "Etiqueta de rastreamento do Mercado Livre: 3 a 40 caracteres, somente letras minúsculas, números, _ e -."
      }
     },
     "additionalProperties": false,
@@ -13469,6 +13588,27 @@
     ],
     "title": "GroupCreate"
    },
+   "GroupFromInvite": {
+    "properties": {
+     "phone_id": {
+      "type": "string",
+      "format": "uuid",
+      "title": "Phone Id"
+     },
+     "invite_link": {
+      "type": "string",
+      "maxLength": 500,
+      "minLength": 1,
+      "title": "Invite Link"
+     }
+    },
+    "type": "object",
+    "required": [
+     "phone_id",
+     "invite_link"
+    ],
+    "title": "GroupFromInvite"
+   },
    "GroupResponse": {
     "properties": {
      "id": {
@@ -13718,13 +13858,36 @@
        }
       ],
       "title": "Worker Last Seen"
+     },
+     "worker_status": {
+      "type": "string",
+      "enum": [
+       "online",
+       "offline",
+       "unknown"
+      ],
+      "title": "Worker Status"
+     },
+     "worker_offline_since": {
+      "anyOf": [
+       {
+        "type": "string",
+        "format": "date-time"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Worker Offline Since"
      }
     },
     "type": "object",
     "required": [
      "status",
      "db",
-     "worker_last_seen"
+     "worker_last_seen",
+     "worker_status",
+     "worker_offline_since"
     ],
     "title": "HealthResponse"
    },

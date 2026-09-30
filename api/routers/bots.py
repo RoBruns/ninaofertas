@@ -48,7 +48,7 @@ ACTIVATION_CONFLICT = "Para ativar o bot, falta: {}"
 def _owned(session: Session, bot_id: UUID, owner_id: UUID) -> Bot:
     bot = session.scalar(select(Bot).where(Bot.id == bot_id, Bot.owner_id == owner_id))
     if bot is None:
-        raise APIError(404, "NOT_FOUND", "Bot nao encontrado")
+        raise APIError(404, "NOT_FOUND", "Bot não encontrado")
     return bot
 
 
@@ -62,11 +62,11 @@ def _validate_refs(
     if niche_id is not None and session.scalar(
         select(Niche.id).where(Niche.id == niche_id, Niche.owner_id == owner_id)
     ) is None:
-        raise APIError(404, "NOT_FOUND", "Nicho nao encontrado")
+        raise APIError(404, "NOT_FOUND", "Nicho não encontrado")
     if phone_id is not None and session.scalar(
         select(Phone.id).where(Phone.id == phone_id, Phone.owner_id == owner_id)
     ) is None:
-        raise APIError(404, "NOT_FOUND", "Telefone nao encontrado")
+        raise APIError(404, "NOT_FOUND", "Telefone não encontrado")
 
 
 def _group_ids(session: Session, bot_id: UUID) -> list[UUID]:
@@ -118,7 +118,7 @@ def _ensure_groups(session: Session, owner_id: UUID, group_ids: list[UUID]) -> l
         session.scalars(select(Group).where(Group.owner_id == owner_id, Group.id.in_(unique_ids)))
     ) if unique_ids else []
     if len(groups) != len(unique_ids):
-        raise APIError(404, "NOT_FOUND", "Um ou mais grupos nao foram encontrados")
+        raise APIError(404, "NOT_FOUND", "Um ou mais grupos não foram encontrados")
     return groups
 
 
@@ -177,7 +177,7 @@ def _ensure_accounts(
         )
     ) if unique_ids else []
     if len(accounts) != len(unique_ids):
-        raise APIError(404, "NOT_FOUND", "Uma ou mais contas nao foram encontradas")
+        raise APIError(404, "NOT_FOUND", "Uma ou mais contas não foram encontradas")
     return accounts
 
 
@@ -231,7 +231,7 @@ def create_bot(
     session: Annotated[Session, Depends(get_db)],
 ) -> BotResponse:
     if session.scalar(select(Bot.id).where(Bot.owner_id == admin.id, Bot.slug == payload.slug)):
-        raise APIError(409, "CONFLICT", "Ja existe um bot com este slug")
+        raise APIError(409, "CONFLICT", "Já existe um bot com este slug")
     _validate_refs(session, admin.id, niche_id=payload.niche_id, phone_id=payload.phone_id)
     now = datetime.now(timezone.utc)
     bot = Bot(
@@ -277,11 +277,11 @@ def update_bot(
         or changes.get("settings", "ok") is None
         or changes.get("status", "ok") is None
     ):
-        raise APIError(422, "VALIDATION_ERROR", "name, slug, settings e status nao aceitam null")
+        raise APIError(422, "VALIDATION_ERROR", "name, slug, settings e status não aceitam null")
     if "slug" in changes and session.scalar(
         select(Bot.id).where(Bot.owner_id == admin.id, Bot.slug == changes["slug"], Bot.id != bot.id)
     ):
-        raise APIError(409, "CONFLICT", "Ja existe um bot com este slug")
+        raise APIError(409, "CONFLICT", "Já existe um bot com este slug")
     _validate_refs(
         session, admin.id,
         niche_id=changes.get("niche_id") if "niche_id" in changes else None,

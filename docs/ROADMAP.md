@@ -29,6 +29,7 @@ conclusão. Nenhuma fase pode deixar o bot fora do ar.
 | 16 | Portar mudanças operacionais do Miura para o dashboard | ✅ | 6, 12 | Codex |
 | 17 | Bot com vários grupos: mesma oferta em todos (ADR-021) | ✅ | 6 | Codex |
 | 18 | Mudanças do Miura na V1 viram opções por bot (ADR-022) | ✅ | 16 | Codex |
+| 19 | Aviso global de worker parado, grupo por convite e mensagens acentuadas | ✅ | 18 | Codex |
 
 **2026-09-30:** a V2 (bot + dashboard) é o `master` e o bot em produção na Railway
 (`nina-api`, `nina-worker`, `nina-dashboard`, banco `nina-db`). A V1 ficou no branch

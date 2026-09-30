@@ -14,7 +14,32 @@ class EvolutionUnavailable(Exception):
     """A evolution-api nao respondeu de forma utilizavel."""
 
 
+class EvolutionInvalidInvite(Exception):
+    """Convite inválido ou sem acesso ao grupo."""
+
+
 class EvolutionClient:
+    def invite_info(self, instance: str | None, code: str) -> dict[str, Any]:
+        if not instance:
+            raise EvolutionUnavailable("Telefone sem instância da evolution-api")
+        try:
+            with httpx.Client(timeout=5.0) as client:
+                response = client.get(
+                    f"{self.base_url}/group/inviteInfo/{instance}",
+                    params={"inviteCode": code}, headers=self.headers,
+                )
+            if response.status_code in {400, 404, 410}:
+                raise EvolutionInvalidInvite("Convite inválido ou expirado; confira o link do grupo")
+            if response.status_code == 403:
+                raise EvolutionInvalidInvite("O telefone precisa já ser membro do grupo")
+            response.raise_for_status()
+            payload = response.json()
+            if not isinstance(payload, dict) or not isinstance(payload.get("id"), str) or not payload["id"].endswith("@g.us"):
+                raise EvolutionUnavailable("Resposta de grupo inválida da evolution-api")
+            return payload
+        except (httpx.HTTPError, ValueError, TypeError) as exc:
+            raise EvolutionUnavailable("evolution-api indisponível") from exc
+
     def __init__(self, base_url: str | None = None, api_key: str | None = None) -> None:
         self.base_url = (base_url or settings.evolution_api_url).rstrip("/")
         self.api_key = settings.evolution_api_key if api_key is None else api_key
@@ -48,7 +73,7 @@ class EvolutionClient:
 
     def qrcode(self, instance: str | None) -> tuple[str, datetime]:
         if not instance:
-            raise EvolutionUnavailable("Telefone sem instancia da evolution-api")
+            raise EvolutionUnavailable("Telefone sem instância da evolution-api")
         try:
             with httpx.Client(timeout=5.0) as client:
                 response = client.get(
@@ -58,7 +83,7 @@ class EvolutionClient:
             payload: dict[str, Any] = response.json()
             code = payload.get("base64") or payload.get("qrcode", {}).get("base64")
             if not code:
-                raise EvolutionUnavailable("QR code indisponivel")
+                raise EvolutionUnavailable("QR code indisponível")
             expires = payload.get("expires_at") or payload.get("expiresAt")
             expires_at = (
                 datetime.fromisoformat(str(expires).replace("Z", "+00:00"))
@@ -69,4 +94,4 @@ class EvolutionClient:
         except EvolutionUnavailable:
             raise
         except (httpx.HTTPError, ValueError, TypeError, AttributeError) as exc:
-            raise EvolutionUnavailable("evolution-api indisponivel") from exc
+            raise EvolutionUnavailable("evolution-api indisponível") from exc

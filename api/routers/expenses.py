@@ -37,7 +37,7 @@ def _owned(session: Session, expense_id: UUID, owner_id: UUID) -> Expense:
         select(Expense).where(Expense.id == expense_id, Expense.owner_id == owner_id)
     )
     if expense is None:
-        raise APIError(404, "NOT_FOUND", "Despesa nao encontrada")
+        raise APIError(404, "NOT_FOUND", "Despesa não encontrada")
     return expense
 
 
@@ -61,10 +61,10 @@ def _validate_refs(session: Session, owner_id: UUID, values: dict[str, object]) 
             )
             is None
         ):
-            raise APIError(404, "NOT_FOUND", f"{label} nao encontrado")
+            raise APIError(404, "NOT_FOUND", f"{label} não encontrado")
     platform_id = values.get("platform_id")
     if platform_id is not None and session.get(Platform, platform_id) is None:
-        raise APIError(404, "NOT_FOUND", "Plataforma nao encontrada")
+        raise APIError(404, "NOT_FOUND", "Plataforma não encontrada")
 
 
 @router.get("/expenses", response_model=PaginatedResponse[ExpenseResponse])
@@ -158,7 +158,7 @@ def update_expense(
     changes = payload.model_dump(exclude_unset=True)
     required = {"description", "amount", "incurred_on", "currency"}
     if any(changes.get(field, "valid") is None for field in required):
-        raise APIError(422, "VALIDATION_ERROR", "Campos obrigatorios nao aceitam null")
+        raise APIError(422, "VALIDATION_ERROR", "Campos obrigatórios não aceitam null")
     _validate_refs(session, user.id, changes)
     for field, value in changes.items():
         setattr(expense, field, value)
@@ -231,7 +231,7 @@ def create_category(
         )
     )
     if duplicate is not None:
-        raise APIError(409, "CONFLICT", "Ja existe uma categoria com este slug")
+        raise APIError(409, "CONFLICT", "Já existe uma categoria com este slug")
     category = ExpenseCategory(owner_id=user.id, **payload.model_dump())
     session.add(category)
     session.flush()
@@ -254,7 +254,7 @@ def _expense_csv(content: bytes) -> list[tuple[int, ExpenseCreate, str | None]]:
     try:
         text = content.decode("utf-8-sig")
     except UnicodeDecodeError:
-        raise APIError(422, "VALIDATION_ERROR", "CSV invalido", {"line_1": "use UTF-8"}) from None
+        raise APIError(422, "VALIDATION_ERROR", "CSV inválido", {"line_1": "use UTF-8"}) from None
     try:
         dialect = csv.Sniffer().sniff(text[:4096], delimiters=",;")
     except csv.Error:
@@ -288,9 +288,9 @@ def _expense_csv(content: bytes) -> list[tuple[int, ExpenseCreate, str | None]]:
         except ValidationError as exc:
             errors[f"line_{line}"] = "; ".join(error["msg"] for error in exc.errors())
     if errors:
-        raise APIError(422, "VALIDATION_ERROR", "CSV invalido; nenhuma linha foi importada", errors)
+        raise APIError(422, "VALIDATION_ERROR", "CSV inválido; nenhuma linha foi importada", errors)
     if not rows:
-        raise APIError(422, "VALIDATION_ERROR", "CSV nao contem despesas", {"line_1": "sem dados"})
+        raise APIError(422, "VALIDATION_ERROR", "CSV não contém despesas", {"line_1": "sem dados"})
     return rows
 
 
@@ -313,7 +313,7 @@ def import_expenses(
             raise APIError(
                 422,
                 "VALIDATION_ERROR",
-                "CSV invalido; nenhuma linha foi importada",
+                "CSV inválido; nenhuma linha foi importada",
                 {f"line_{line}": exc.message},
             ) from None
     imported = skipped = 0

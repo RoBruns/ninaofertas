@@ -187,6 +187,7 @@ def test_login_correto_e_senha_errada_nao_enumera_usuario(
         json={"email": "ausente@example.com", "password": "incorreta"},
     )
     assert_error(wrong_password, 401, "UNAUTHORIZED")
+    assert wrong_password.json()["error"]["message"] == "Email ou senha inválidos"
     assert wrong_password.json() == unknown_email.json()
 
 

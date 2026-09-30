@@ -56,8 +56,8 @@ def list_audit_logs(
         raise APIError(
             422,
             "VALIDATION_ERROR",
-            "Parametros invalidos",
-            {"sort": "campo de ordenacao invalido"},
+            "Parâmetros inválidos",
+            {"sort": "campo de ordenação inválido"},
         )
 
     count_statement = select(func.count()).select_from(statement.order_by(None).subquery())

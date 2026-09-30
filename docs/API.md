@@ -126,12 +126,18 @@ POST   /api/phones/{id}/sync-groups            → 202 {command_id}   (descobert
 
 GET    /api/groups?phone_id=&status=&bot_id=   → [Group]
 POST   /api/groups                             → Group   (cadastro manual)
+POST   /api/groups/from-invite                 {phone_id, invite_link} → Group (201; existente do dono: 200)
 PATCH  /api/groups/{id}
 ```
 
 `Group` inclui `is_announce` e `bot_is_admin` — se `is_announce && !bot_is_admin`,
 a resposta traz `"warning": "Grupo somente-admins e o bot não é admin: mensagens
 não serão entregues"`. Hoje isso só existe como log na partida do bot.
+
+`from-invite` aceita link `https://chat.whatsapp.com/<código>` ou código de convite.
+Consulta `GET /group/inviteInfo/{instance}?inviteCode=...` na Evolution v2 (`id`/`subject`),
+sem entrar no grupo: o telefone precisa já ser membro. Convite inválido ou indicação
+de não membro: 422; Evolution indisponível: 503. O cadastro é auditado como o manual.
 
 ## Bots
 
@@ -272,7 +278,7 @@ diariamente às 06:00 em `America/Sao_Paulo`.
 GET    /api/alerts?status=open&severity=       → {items,total,page,page_size} de Alert
 POST   /api/alerts/{id}/acknowledge | /resolve
 GET    /api/events?level=&bot_id=&type=&from=  → {items,...} de Event   (área técnica)
-GET    /api/health                             → {status, db, worker_last_seen}
+GET    /api/health                             → {status, db, worker_last_seen, worker_status, worker_offline_since}
 GET    /api/system/status                      → visão consolidada por bot/conta/telefone
 GET    /api/audit-logs?entity_type=&entity_id=&user_id=&from=&to=
                                                → {items,total,page,page_size}
@@ -281,6 +287,10 @@ GET    /api/audit-logs?entity_type=&entity_id=&user_id=&from=&to=
 Cada item traz `user_email` e `user_name` do autor (ambos `null` em ação do sistema; usuário desativado continua identificado). `/api/audit-logs` exige papel `admin` e também aceita `page`, `page_size` e
 `sort`. O health desta fase deliberadamente não consulta serviços externos; o
 estado consolidado deles pertence a `/api/system/status`.
+
+`worker_status`: `unknown` se nunca visto, `offline` após mais de 5 minutos sem sinal,
+`online` nos demais casos. `worker_offline_since` é o último sinal + 5 minutos
+quando offline; caso contrário, `null`. `status` continua refletindo apenas API/banco.
 
 ## Interno (worker ↔ API)
 

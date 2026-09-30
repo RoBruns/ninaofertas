@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Generator
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from uuid import uuid4
 
 import pytest
@@ -35,6 +35,8 @@ def test_heartbeat_valido_atualiza_health(client: TestClient, monkeypatch: pytes
     assert response.status_code == 204, response.text
     last_seen = datetime.fromisoformat(client.get("/api/health").json()["worker_last_seen"])
     assert before <= last_seen <= after
+    assert client.get("/api/health").json()["worker_status"] == "online"
+    assert client.get("/api/health").json()["worker_offline_since"] is None
     stored = health.get_worker_heartbeat()
     assert stored is not None
     assert stored.worker_id == "worker-1"
@@ -74,3 +76,15 @@ def test_health_sem_heartbeat_e_sem_runs_retorna_null(client: TestClient) -> Non
 
     assert response.status_code == 200, response.text
     assert response.json()["worker_last_seen"] is None
+    assert response.json()["worker_status"] == "unknown"
+    assert response.json()["worker_offline_since"] is None
+
+
+def test_worker_offline_keeps_api_healthy(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
+    seen = datetime.now(timezone.utc) - timedelta(minutes=6)
+    monkeypatch.setattr(health, "_worker_heartbeat", health.WorkerHeartbeat(seen, "worker", ()))
+    payload = client.get("/api/health").json()
+    assert payload["status"] == "ok"
+    assert payload["db"] == "ok"
+    assert payload["worker_status"] == "offline"
+    assert datetime.fromisoformat(payload["worker_offline_since"]) == seen + health.WORKER_OFFLINE_THRESHOLD

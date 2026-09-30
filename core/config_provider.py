@@ -112,7 +112,7 @@ def _registrar_config_invalida(bot: Bot, exc: ValidationError) -> None:
                     entity_id=str(bot.id),
                     level="error",
                     type="config_invalid",
-                    message=f"Configuracao invalida no bot {bot.slug}",
+                    message=f"Configuração inválida no bot {bot.slug}",
                     detail={
                         "errors": json.loads(exc.json(include_url=False, include_input=False))
                     },
@@ -134,7 +134,7 @@ def _registrar_bot_nao_executavel(bot: Bot, reasons: list[str]) -> None:
                     entity_id=str(bot.id),
                     level="warning",
                     type="bot_not_runnable",
-                    message=f"Bot {bot.slug} esta ativo mas nao pode publicar",
+                    message=f"Bot {bot.slug} está ativo mas não pode publicar",
                     detail={"reasons": reasons},
                 )
             )
@@ -179,7 +179,7 @@ def _carregar() -> list[BotRuntime]:
             )
             reasons: list[str] = []
             if not phone_number or not evolution_instance:
-                reasons.append("telefone ou instancia nao resolvido")
+                reasons.append("telefone ou instância não resolvido")
             if not group_ids:
                 reasons.append("nenhum grupo ativo")
             if reasons:

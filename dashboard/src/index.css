@@ -654,3 +654,7 @@ td a:hover { text-decoration: underline; }
 }
 .message-preview strong { font-weight: 700; }
 .message-preview s { color: var(--muted); }
+
+.worker-alert { display: flex; align-items: center; gap: .65rem; margin: 1rem 1.5rem 0; padding: .85rem 1rem; border: 1px solid var(--amber); border-radius: var(--r-panel); background: var(--amber-soft); color: var(--amber-ink); }
+.worker-alert svg { width: 20px; height: 20px; flex: none; }
+.worker-unknown { border-color: var(--line); background: var(--surface-2); color: var(--muted); }

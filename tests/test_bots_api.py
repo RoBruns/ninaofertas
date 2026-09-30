@@ -451,7 +451,7 @@ def test_ml_tag_invalida_retorna_422_com_regra_clara(
     assert_error(response, 422, "VALIDATION_ERROR")
     serialized = json.dumps(response.json(), ensure_ascii=False)
     assert "3 a 40" in serialized
-    assert "letras minusculas" in serialized
+    assert "letras minúsculas" in serialized
 
 
 class OfflineHTTPClient:

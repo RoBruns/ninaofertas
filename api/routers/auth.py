@@ -59,7 +59,7 @@ def _token_identity(
     "/login",
     response_model=LoginResponse,
     dependencies=[Depends(limit_login)],
-    responses={401: {"description": "Credenciais invalidas"}, 429: {"description": "Limite"}},
+    responses={401: {"description": "Credenciais inválidas"}, 429: {"description": "Limite"}},
 )
 def login(
     payload: LoginRequest,
@@ -86,7 +86,7 @@ def login(
             client_ip(request),
         )
         session.commit()
-        raise APIError(401, "UNAUTHORIZED", "Email ou senha invalidos")
+        raise APIError(401, "UNAUTHORIZED", "Email ou senha inválidos")
 
     user.last_login_at = datetime.now(timezone.utc)
     record_audit(
@@ -115,11 +115,11 @@ def refresh(
         raise APIError(401, "UNAUTHORIZED", "Refresh token ausente")
     identity = _token_identity(refresh_token, "refresh")
     if identity is None:
-        raise APIError(401, "UNAUTHORIZED", "Refresh token invalido ou expirado") from None
+        raise APIError(401, "UNAUTHORIZED", "Refresh token inválido ou expirado") from None
     user_id, session_version = identity
     user = session.scalar(select(User).where(User.id == user_id))
     if user is None or not user.is_active or session_version != user.session_version:
-        raise APIError(401, "UNAUTHORIZED", "Refresh token invalido ou expirado")
+        raise APIError(401, "UNAUTHORIZED", "Refresh token inválido ou expirado")
     return AccessTokenResponse(
         access_token=create_access_token(
             str(user.id),

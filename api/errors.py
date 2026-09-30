@@ -57,7 +57,7 @@ def _validation_fields(exc: RequestValidationError) -> dict[str, str]:
     for error in exc.errors():
         location = [str(item) for item in error.get("loc", ()) if item not in {"body", "query"}]
         field = ".".join(location) or "request"
-        fields[field] = str(error.get("msg", "valor invalido"))
+        fields[field] = str(error.get("msg", "valor inválido"))
     return fields
 
 
@@ -78,7 +78,7 @@ def install_error_handlers(app: FastAPI) -> None:
         return error_response(
             422,
             "VALIDATION_ERROR",
-            safety_message or "Dados de entrada invalidos",
+            safety_message or "Dados de entrada inválidos",
             fields,
         )
 

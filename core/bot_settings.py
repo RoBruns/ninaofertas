@@ -121,7 +121,7 @@ class Attribution(BaseModel):
         default=None,
         description=(
             "Etiqueta de rastreamento do Mercado Livre: 3 a 40 caracteres, "
-            "somente letras minusculas, numeros, _ e -."
+            "somente letras minúsculas, números, _ e -."
         ),
     )
 
@@ -132,8 +132,8 @@ class Attribution(BaseModel):
 
         if value is not None and re.fullmatch(r"[a-z0-9_-]{3,40}", value) is None:
             raise ValueError(
-                "ml_tag deve ter de 3 a 40 caracteres: apenas letras minusculas, "
-                "numeros, _ e -"
+                "ml_tag deve ter de 3 a 40 caracteres: apenas letras minúsculas, "
+                "números, _ e -"
             )
         return value
 

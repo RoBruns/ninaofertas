@@ -1,12 +1,29 @@
 """Schemas de grupos de WhatsApp."""
 
 from datetime import datetime
+import re
 from typing import Literal
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
+
+from api.errors import APIError
 
 GroupState = Literal["active", "inaccessible", "archived"]
+
+
+class GroupFromInvite(BaseModel):
+    phone_id: UUID
+    invite_link: str = Field(min_length=1, max_length=500)
+
+    @field_validator("invite_link")
+    @classmethod
+    def validate_invite(cls, value: str) -> str:
+        match = re.fullmatch(r"(?:https?://chat\.whatsapp\.com/(?:invite/)?)?([A-Za-z0-9]{20,24})/?(?:\?\S*)?", value.strip())
+        if not match:
+            message = "Link de convite inválido; use https://chat.whatsapp.com/<código> ou o código"
+            raise APIError(422, "VALIDATION_ERROR", message, {"invite_link": message})
+        return match.group(1)
 
 
 class GroupCreate(BaseModel):

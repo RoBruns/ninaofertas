@@ -104,7 +104,7 @@ def _validate_row_refs(session: Session, owner_id: UUID, rows: list[SaleImportRo
             and session.scalar(select(Bot.id).where(Bot.id == row.bot_id, Bot.owner_id == owner_id))
             is None
         ):
-            errors[f"line_{row.line}"] = "bot_id nao pertence ao usuario"
+            errors[f"line_{row.line}"] = "bot_id não pertence ao usuário"
         if (
             row.group_id is not None
             and session.scalar(
@@ -112,9 +112,9 @@ def _validate_row_refs(session: Session, owner_id: UUID, rows: list[SaleImportRo
             )
             is None
         ):
-            errors[f"line_{row.line}"] = "group_id nao pertence ao usuario"
+            errors[f"line_{row.line}"] = "group_id não pertence ao usuário"
     if errors:
-        raise APIError(422, "VALIDATION_ERROR", "CSV invalido; nenhuma linha foi importada", errors)
+        raise APIError(422, "VALIDATION_ERROR", "CSV inválido; nenhuma linha foi importada", errors)
 
 
 def _sale_values(row: SaleImportRow, owner_id: UUID, platform_id: int) -> dict[str, object]:
@@ -172,20 +172,20 @@ def import_sales(
 ) -> SalesImportResult:
     platform = session.get(Platform, platform_id)
     if platform is None:
-        raise APIError(404, "NOT_FOUND", "Plataforma nao encontrada")
+        raise APIError(404, "NOT_FOUND", "Plataforma não encontrada")
     importer = IMPORTERS.get(platform.slug)
     if importer is None:
         raise APIError(
             422,
             "VALIDATION_ERROR",
-            f"Importacao CSV de {platform.name} ainda nao possui mapeamento",
+            f"Importação CSV de {platform.name} ainda não possui mapeamento",
         )
     try:
         rows = importer.parse(file.file.read())
     except ImportValidationError as exc:
         fields = {f"line_{error.line}": error.message for error in exc.errors}
         raise APIError(
-            422, "VALIDATION_ERROR", "CSV invalido; nenhuma linha foi importada", fields
+            422, "VALIDATION_ERROR", "CSV inválido; nenhuma linha foi importada", fields
         ) from None
     _validate_row_refs(session, user.id, rows)
 
@@ -197,7 +197,7 @@ def import_sales(
             select(Sale).where(Sale.platform_id == platform.id, Sale.external_id == row.external_id)
         )
         if sale is not None and sale.owner_id != user.id:
-            raise APIError(409, "CONFLICT", "Venda ja pertence a outro usuario")
+            raise APIError(409, "CONFLICT", "Venda já pertence a outro usuário")
         if sale is None:
             session.add(Sale(id=uuid4(), imported_at=now, **values))
             imported += 1
@@ -273,10 +273,10 @@ def sync_sales(
         )
     )
     if account is None:
-        raise APIError(404, "NOT_FOUND", "Conta de plataforma nao encontrada")
+        raise APIError(404, "NOT_FOUND", "Conta de plataforma não encontrada")
     platform = session.get(Platform, account.platform_id)
     if platform is None:
-        raise APIError(500, "INTERNAL", "Plataforma da conta nao encontrada")
+        raise APIError(500, "INTERNAL", "Plataforma da conta não encontrada")
     can_sync = bool(
         platform.capabilities.get("commission_api")
         or platform.capabilities.get("commission_scrape")
@@ -285,7 +285,7 @@ def sync_sales(
         raise APIError(
             501,
             "NOT_IMPLEMENTED",
-            f"{platform.name} nao oferece sincronizacao de comissoes por API; use a importacao CSV",
+            f"{platform.name} não oferece sincronização de comissões por API; use a importação CSV",
         )
     command = Command(
         bot_id=None,

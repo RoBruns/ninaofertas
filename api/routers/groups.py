@@ -3,7 +3,7 @@
 from typing import Annotated
 from uuid import UUID, uuid4
 
-from fastapi import APIRouter, Depends, Query, Request
+from fastapi import APIRouter, Depends, Query, Request, Response
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -12,7 +12,8 @@ from api.deps import get_current_user, get_db, limit_authenticated_write, requir
 from api.errors import APIError
 from api.ratelimit import client_ip
 from api.schemas.common import PaginatedResponse, PaginationParams, paginate
-from api.schemas.group import GroupCreate, GroupResponse, GroupUpdate
+from api.schemas.group import GroupCreate, GroupFromInvite, GroupResponse, GroupUpdate
+from core.evolution import EvolutionClient, EvolutionInvalidInvite, EvolutionUnavailable
 from core.models import Bot, BotGroup, Group, Phone, User
 
 router = APIRouter(prefix="/groups", tags=["groups"])
@@ -23,14 +24,14 @@ WARNING = "Grupo somente-admins e o bot não é admin: mensagens não serão ent
 def _owned(session: Session, group_id: UUID, owner_id: UUID) -> Group:
     group = session.scalar(select(Group).where(Group.id == group_id, Group.owner_id == owner_id))
     if group is None:
-        raise APIError(404, "NOT_FOUND", "Grupo nao encontrado")
+        raise APIError(404, "NOT_FOUND", "Grupo não encontrado")
     return group
 
 
 def _owned_phone(session: Session, phone_id: UUID, owner_id: UUID) -> Phone:
     phone = session.scalar(select(Phone).where(Phone.id == phone_id, Phone.owner_id == owner_id))
     if phone is None:
-        raise APIError(404, "NOT_FOUND", "Telefone nao encontrado")
+        raise APIError(404, "NOT_FOUND", "Telefone não encontrado")
     return phone
 
 
@@ -82,7 +83,7 @@ def create_group(
 ) -> GroupResponse:
     _owned_phone(session, payload.phone_id, admin.id)
     if session.scalar(select(Group.id).where(Group.phone_id == payload.phone_id, Group.whatsapp_id == payload.whatsapp_id)):
-        raise APIError(409, "CONFLICT", "Grupo ja cadastrado para este telefone")
+        raise APIError(409, "CONFLICT", "Grupo já cadastrado para este telefone")
     group = Group(id=uuid4(), owner_id=admin.id, **payload.model_dump())
     session.add(group)
     session.flush()
@@ -90,6 +91,34 @@ def create_group(
     record_audit(session, admin, "group", str(group.id), "create", None, response.model_dump(mode="json"), client_ip(request))
     session.commit()
     return response
+
+
+@router.post("/from-invite", response_model=GroupResponse, status_code=201,
+             responses={200: {"model": GroupResponse}, 503: {"description": "Evolution indisponível"}},
+             dependencies=[Depends(limit_authenticated_write)])
+def create_group_from_invite(
+    payload: GroupFromInvite, request: Request, response: Response, admin: AdminUser,
+    session: Annotated[Session, Depends(get_db)],
+) -> GroupResponse:
+    phone = _owned_phone(session, payload.phone_id, admin.id)
+    try:
+        info = EvolutionClient().invite_info(phone.evolution_instance, payload.invite_link)
+    except EvolutionUnavailable as exc:
+        raise APIError(503, "SERVICE_UNAVAILABLE", str(exc)) from exc
+    except EvolutionInvalidInvite as exc:
+        raise APIError(422, "VALIDATION_ERROR", str(exc)) from exc
+    if info.get("isMember") is False or info.get("isParticipant") is False:
+        raise APIError(422, "VALIDATION_ERROR", "O telefone precisa já ser membro do grupo")
+    existing = session.scalar(select(Group).where(
+        Group.owner_id == admin.id, Group.whatsapp_id == info["id"],
+    ).order_by(Group.discovered_at).limit(1))
+    if existing:
+        response.status_code = 200
+        return group_response(existing)
+    return create_group(GroupCreate(
+        phone_id=phone.id, whatsapp_id=info["id"], name=info.get("subject"),
+        is_announce=info.get("announce"), bot_is_admin=info.get("botIsAdmin"),
+    ), request, admin, session)
 
 
 @router.patch("/{group_id}", response_model=GroupResponse, dependencies=[Depends(limit_authenticated_write)])
@@ -104,7 +133,7 @@ def update_group(
     before = group_response(group).model_dump(mode="json")
     changes = payload.model_dump(exclude_unset=True)
     if changes.get("whatsapp_id", "ok") is None or changes.get("status", "ok") is None:
-        raise APIError(422, "VALIDATION_ERROR", "whatsapp_id e status nao aceitam null")
+        raise APIError(422, "VALIDATION_ERROR", "whatsapp_id e status não aceitam null")
     target_phone = changes.get("phone_id", group.phone_id)
     if target_phone is not None:
         _owned_phone(session, target_phone, admin.id)
@@ -112,7 +141,7 @@ def update_group(
     if session.scalar(
         select(Group.id).where(Group.phone_id == target_phone, Group.whatsapp_id == target_whatsapp, Group.id != group.id)
     ):
-        raise APIError(409, "CONFLICT", "Grupo ja cadastrado para este telefone")
+        raise APIError(409, "CONFLICT", "Grupo já cadastrado para este telefone")
     for field, value in changes.items():
         setattr(group, field, value)
     response = group_response(group)

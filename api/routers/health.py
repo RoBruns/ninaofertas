@@ -5,7 +5,7 @@ from __future__ import annotations
 import os
 import secrets
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from threading import Lock
 from typing import Annotated, Literal
 from uuid import UUID
@@ -20,6 +20,7 @@ from api.deps import get_db
 from core.models import AutomationRun
 
 router = APIRouter(tags=["health"])
+WORKER_OFFLINE_THRESHOLD = timedelta(minutes=5)
 
 
 @dataclass(frozen=True)
@@ -50,6 +51,20 @@ class HealthResponse(BaseModel):
     status: Literal["ok", "degraded"]
     db: Literal["ok", "error"]
     worker_last_seen: datetime | None
+    worker_status: Literal["online", "offline", "unknown"]
+    worker_offline_since: datetime | None
+
+
+def health_response(db_ok: bool, last_seen: datetime | None) -> HealthResponse:
+    offline_since = last_seen + WORKER_OFFLINE_THRESHOLD if last_seen else None
+    worker_status = "unknown" if last_seen is None else (
+        "offline" if datetime.now(timezone.utc) > offline_since else "online"
+    )
+    return HealthResponse(
+        status="ok" if db_ok else "degraded", db="ok" if db_ok else "error",
+        worker_last_seen=last_seen, worker_status=worker_status,
+        worker_offline_since=offline_since if worker_status == "offline" else None,
+    )
 
 
 class HeartbeatRequest(BaseModel):
@@ -67,12 +82,12 @@ def health(session: Annotated[Session, Depends(get_db)]) -> HealthResponse:
         latest_run = session.scalar(select(func.max(AutomationRun.started_at)))
     except SQLAlchemyError:
         session.rollback()
-        return HealthResponse(status="degraded", db="error", worker_last_seen=heartbeat_seen_at)
+        return health_response(False, heartbeat_seen_at)
     worker_last_seen = max(
         (seen_at for seen_at in (heartbeat_seen_at, latest_run) if seen_at is not None),
         default=None,
     )
-    return HealthResponse(status="ok", db="ok", worker_last_seen=worker_last_seen)
+    return health_response(True, worker_last_seen)
 
 
 @router.post("/internal/heartbeat", status_code=status.HTTP_204_NO_CONTENT)
@@ -83,7 +98,7 @@ def heartbeat(
     global _worker_heartbeat
     expected = os.getenv("WORKER_TOKEN")
     if not expected or not worker_token or not secrets.compare_digest(worker_token, expected):
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Worker token invalido")
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Worker token inválido")
     received = WorkerHeartbeat(
         received_at=datetime.now(timezone.utc),
         worker_id=payload.worker_id,

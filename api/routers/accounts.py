@@ -45,7 +45,7 @@ def get_owned_account(session: Session, account_id: UUID, owner_id: UUID) -> Pla
         )
     )
     if account is None:
-        raise APIError(404, "NOT_FOUND", "Conta de plataforma nao encontrada")
+        raise APIError(404, "NOT_FOUND", "Conta de plataforma não encontrada")
     return account
 
 
@@ -79,14 +79,14 @@ def _health(credentials: list[CredentialStatus]) -> AccountHealth:
     if "expiring" in states:
         return AccountHealth(status="warning", message="Uma credencial expira em menos de 48 horas")
     if not credentials or "unknown" in states:
-        return AccountHealth(status="unknown", message="Credenciais ainda nao validadas")
+        return AccountHealth(status="unknown", message="Credenciais ainda não validadas")
     return AccountHealth(status="ok", message=None)
 
 
 def account_response(session: Session, account: PlatformAccount) -> AccountResponse:
     platform = session.get(Platform, account.platform_id)
     if platform is None:
-        raise APIError(500, "INTERNAL", "Plataforma da conta nao encontrada")
+        raise APIError(500, "INTERNAL", "Plataforma da conta não encontrada")
     credentials = [
         credential_status(credential)
         for credential in session.scalars(
@@ -162,7 +162,7 @@ def create_account(
 ) -> AccountResponse:
     platform = session.get(Platform, payload.platform_id)
     if platform is None:
-        raise APIError(404, "NOT_FOUND", "Plataforma nao encontrada")
+        raise APIError(404, "NOT_FOUND", "Plataforma não encontrada")
     duplicate = session.scalar(
         select(PlatformAccount.id).where(
             PlatformAccount.owner_id == admin.id,
@@ -171,7 +171,7 @@ def create_account(
         )
     )
     if duplicate is not None:
-        raise APIError(409, "CONFLICT", "Ja existe uma conta com este label na plataforma")
+        raise APIError(409, "CONFLICT", "Já existe uma conta com este label na plataforma")
     now = datetime.now(timezone.utc)
     account = PlatformAccount(
         id=uuid4(),
@@ -227,7 +227,7 @@ def update_account(
     before = _audit_account(account_response(session, account))
     changes = payload.model_dump(exclude_unset=True)
     if changes.get("label", "valid") is None or changes.get("config", {}) is None:
-        raise APIError(422, "VALIDATION_ERROR", "label e config nao aceitam null")
+        raise APIError(422, "VALIDATION_ERROR", "label e config não aceitam null")
     if "label" in changes:
         duplicate = session.scalar(
             select(PlatformAccount.id).where(
@@ -238,7 +238,7 @@ def update_account(
             )
         )
         if duplicate is not None:
-            raise APIError(409, "CONFLICT", "Ja existe uma conta com este label na plataforma")
+            raise APIError(409, "CONFLICT", "Já existe uma conta com este label na plataforma")
     for field, value in changes.items():
         setattr(account, field, value)
     account.updated_at = datetime.now(timezone.utc)

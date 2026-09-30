@@ -33,7 +33,7 @@ def _owned(session: Session, campaign_id: UUID, owner_id: UUID) -> Campaign:
         select(Campaign).where(Campaign.id == campaign_id, Campaign.owner_id == owner_id)
     )
     if campaign is None:
-        raise APIError(404, "NOT_FOUND", "Campanha nao encontrada")
+        raise APIError(404, "NOT_FOUND", "Campanha não encontrada")
     return campaign
 
 
@@ -48,13 +48,13 @@ def _validate_refs(
         bot_id is not None
         and session.scalar(select(Bot.id).where(Bot.id == bot_id, Bot.owner_id == owner_id)) is None
     ):
-        raise APIError(404, "NOT_FOUND", "Bot nao encontrado")
+        raise APIError(404, "NOT_FOUND", "Bot não encontrado")
     if (
         niche_id is not None
         and session.scalar(select(Niche.id).where(Niche.id == niche_id, Niche.owner_id == owner_id))
         is None
     ):
-        raise APIError(404, "NOT_FOUND", "Nicho nao encontrado")
+        raise APIError(404, "NOT_FOUND", "Nicho não encontrado")
 
 
 @router.get("", response_model=PaginatedResponse[CampaignResponse])
@@ -138,7 +138,7 @@ def update_campaign(
     before = _response(campaign).model_dump(mode="json")
     changes = payload.model_dump(exclude_unset=True)
     if changes.get("name", "valid") is None or changes.get("status", "valid") is None:
-        raise APIError(422, "VALIDATION_ERROR", "name e status nao aceitam null")
+        raise APIError(422, "VALIDATION_ERROR", "name e status não aceitam null")
     _validate_refs(
         session,
         user.id,
@@ -148,7 +148,7 @@ def update_campaign(
     started_at = changes.get("started_at", campaign.started_at)
     ended_at = changes.get("ended_at", campaign.ended_at)
     if started_at and ended_at and ended_at < started_at:
-        raise APIError(422, "VALIDATION_ERROR", "ended_at nao pode ser anterior a started_at")
+        raise APIError(422, "VALIDATION_ERROR", "ended_at não pode ser anterior a started_at")
     for field, value in changes.items():
         setattr(campaign, field, value)
     session.flush()

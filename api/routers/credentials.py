@@ -38,7 +38,7 @@ def _validate_kind(kind: str) -> str:
         raise APIError(
             422,
             "VALIDATION_ERROR",
-            "Tipo de credencial invalido",
+            "Tipo de credencial inválido",
             {"kind": "use letras minusculas, numeros e underscore"},
         )
     return kind
@@ -56,7 +56,7 @@ def _get_credential(
         )
     )
     if credential is None:
-        raise APIError(404, "NOT_FOUND", "Credencial nao encontrada")
+        raise APIError(404, "NOT_FOUND", "Credencial não encontrada")
     return credential
 
 
@@ -181,7 +181,7 @@ def test_credential(
     target = _get_credential(session, account.id, kind)
     platform = session.get(Platform, account.platform_id)
     if platform is None:
-        raise APIError(500, "INTERNAL", "Plataforma da conta nao encontrada")
+        raise APIError(500, "INTERNAL", "Plataforma da conta não encontrada")
     try:
         platform_client = resolve(platform.slug)
     except PlatformNotIntegratedError as exc:
@@ -199,7 +199,7 @@ def test_credential(
     except Exception as exc:
         # Um valor malformado não pode virar 500; a mensagem não repete o segredo.
         logger.warning(f"Teste de credencial falhou: tipo={type(exc).__name__}")
-        result_message = f"Nao foi possivel testar a credencial ({type(exc).__name__}); cadastre-a de novo"
+        result_message = f"Não foi possível testar a credencial ({type(exc).__name__}); cadastre-a de novo"
         ok = False
         new_status = "unknown"
     else:

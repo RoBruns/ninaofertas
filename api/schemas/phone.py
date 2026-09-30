@@ -14,7 +14,7 @@ def normalize_e164(value: str) -> str:
     if digits.startswith("00"):
         digits = digits[2:]
     if not 8 <= len(digits) <= 15:
-        raise ValueError("number deve conter DDI e entre 8 e 15 digitos")
+        raise ValueError("number deve conter DDI e entre 8 e 15 dígitos")
     return digits
 
 

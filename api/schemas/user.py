@@ -16,7 +16,7 @@ def _normalize_email(value: str | None) -> str | None:
         return None
     value = value.strip().lower()
     if "@" not in value or value.startswith("@") or value.endswith("@"):
-        raise ValueError("email invalido")
+        raise ValueError("email inválido")
     return value
 
 
@@ -55,5 +55,5 @@ class UserUpdate(BaseModel):
     def reject_null_for_required_columns(self) -> "UserUpdate":
         for field in ("email", "role", "is_active"):
             if field in self.model_fields_set and getattr(self, field) is None:
-                raise ValueError(f"{field} nao pode ser nulo")
+                raise ValueError(f"{field} não pode ser nulo")
         return self

@@ -27,7 +27,7 @@ def _response(alert: Alert) -> AlertResponse:
 def _owned(session: Session, alert_id: UUID, owner_id: UUID) -> Alert:
     alert = session.scalar(select(Alert).where(Alert.id == alert_id, Alert.owner_id == owner_id))
     if alert is None:
-        raise APIError(404, "NOT_FOUND", "Alerta nao encontrado")
+        raise APIError(404, "NOT_FOUND", "Alerta não encontrado")
     return alert
 
 
@@ -77,7 +77,7 @@ def acknowledge_alert(
 ) -> AlertResponse:
     alert = _owned(session, alert_id, current_user.id)
     if alert.status == "resolved":
-        raise APIError(409, "CONFLICT", "Alerta ja resolvido")
+        raise APIError(409, "CONFLICT", "Alerta já resolvido")
     alert.status = "acknowledged"
     session.commit()
     return _response(alert)

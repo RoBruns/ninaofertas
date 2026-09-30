@@ -24,7 +24,7 @@ OperatorUser = Annotated[User, Depends(require_role("operator", "admin"))]
 def _owned(session: Session, phone_id: UUID, owner_id: UUID) -> Phone:
     phone = session.scalar(select(Phone).where(Phone.id == phone_id, Phone.owner_id == owner_id))
     if phone is None:
-        raise APIError(404, "NOT_FOUND", "Telefone nao encontrado")
+        raise APIError(404, "NOT_FOUND", "Telefone não encontrado")
     return phone
 
 
@@ -70,7 +70,7 @@ def create_phone(
     session: Annotated[Session, Depends(get_db)],
 ) -> PhoneResponse:
     if session.scalar(select(Phone.id).where(Phone.owner_id == admin.id, Phone.number == payload.number)):
-        raise APIError(409, "CONFLICT", "Telefone ja cadastrado")
+        raise APIError(409, "CONFLICT", "Telefone já cadastrado")
     phone = Phone(
         id=uuid4(), owner_id=admin.id, label=payload.label, number=payload.number,
         evolution_instance=payload.evolution_instance, status="unknown",
@@ -95,11 +95,11 @@ def update_phone(
     before = _response(phone, query_status=False).model_dump(mode="json")
     changes = payload.model_dump(exclude_unset=True)
     if changes.get("label", "ok") is None or changes.get("number", "ok") is None:
-        raise APIError(422, "VALIDATION_ERROR", "label e number nao aceitam null")
+        raise APIError(422, "VALIDATION_ERROR", "label e number não aceitam null")
     if "number" in changes and session.scalar(
         select(Phone.id).where(Phone.owner_id == admin.id, Phone.number == changes["number"], Phone.id != phone.id)
     ):
-        raise APIError(409, "CONFLICT", "Telefone ja cadastrado")
+        raise APIError(409, "CONFLICT", "Telefone já cadastrado")
     for field, value in changes.items():
         setattr(phone, field, value)
     session.flush()

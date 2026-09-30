@@ -42,6 +42,41 @@ it('mostra o aviso de grupo somente-admins', async () => {
   expect(await screen.findByText(/mensagens não serão entregues/)).toBeInTheDocument()
 })
 
+it('cadastra por convite e atualiza a lista', async () => {
+  const user = userEvent.setup()
+  let added = false
+  vi.stubGlobal('fetch', vi.fn(async (request: Request) => {
+    const path = new URL(request.url).pathname
+    if (path === '/api/groups/from-invite') {
+      expect(await request.json()).toEqual({ phone_id: phone.id, invite_link: 'https://chat.whatsapp.com/AbCdEfGhIjKlMnOpQrStUv' })
+      added = true
+      return json({ ...group, warning: null }, 201)
+    }
+    if (path === '/api/phones') return json({ items: [phone] })
+    if (path === '/api/groups') return json({ items: added ? [{ ...group, warning: null }] : [] })
+    return json({ items: [] })
+  }))
+  render(<Providers><MemoryRouter><PhonesGroups /></MemoryRouter></Providers>)
+  await user.type(await screen.findByLabelText('Link de convite do grupo'), 'https://chat.whatsapp.com/AbCdEfGhIjKlMnOpQrStUv')
+  await user.click(screen.getByRole('button', { name: 'Adicionar' }))
+  expect(await screen.findByText('Grupo cadastrado.')).toBeInTheDocument()
+  expect(await screen.findByText('Promoções')).toBeInTheDocument()
+})
+
+it('mostra a mensagem da API ao recusar convite', async () => {
+  const user = userEvent.setup()
+  vi.stubGlobal('fetch', vi.fn(async (request: Request) => {
+    const path = new URL(request.url).pathname
+    if (path === '/api/groups/from-invite') return json({ error: { code: 'VALIDATION_ERROR', message: 'Convite inválido ou expirado' } }, 422)
+    if (path === '/api/phones') return json({ items: [phone] })
+    return json({ items: [] })
+  }))
+  render(<Providers><MemoryRouter><PhonesGroups /></MemoryRouter></Providers>)
+  await user.type(await screen.findByLabelText('Link de convite do grupo'), 'inválido')
+  await user.click(screen.getByRole('button', { name: 'Adicionar' }))
+  expect(await screen.findByRole('alert')).toHaveTextContent('Convite inválido ou expirado')
+})
+
 function Destination() { return <span>{useLocation().pathname}</span> }
 
 it('navega para a cópia ao duplicar bot', async () => {

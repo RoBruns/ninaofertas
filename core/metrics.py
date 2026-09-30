@@ -169,7 +169,7 @@ def rounded(value: Decimal | int | None, metric: str) -> Decimal | int | None:
 
 
 def _warning_ignored(filter_name: str, source: str) -> str:
-    return f"Filtro {filter_name} nao se aplica a {source}; parcela calculada sem esse filtro"
+    return f"Filtro {filter_name} não se aplica a {source}; parcela calculada sem esse filtro"
 
 
 def _append_ignored(
@@ -422,7 +422,7 @@ def calculate_metrics(
     else:
         sends = None
         if include_data_warnings:
-            warnings.append("Tabela legada de envios indisponivel; sends sem dados")
+            warnings.append("Tabela legada de envios indisponível; sends sem dados")
 
     buyers_count = int(sale_row[4] or 0)
     values = _finish(
@@ -441,11 +441,11 @@ def calculate_metrics(
         )
     )
     if include_data_warnings and values.buyers is None:
-        warnings.append("Vendas sem buyer_hash no periodo; buyers e cost_per_buyer sem dados")
+        warnings.append("Vendas sem buyer_hash no período; buyers e cost_per_buyer sem dados")
     elif include_data_warnings and int(sale_row[5] or 0) > 0:
-        warnings.append("Algumas vendas nao possuem buyer_hash; buyers pode estar incompleto")
+        warnings.append("Algumas vendas não possuem buyer_hash; buyers pode estar incompleto")
     if include_data_warnings and values.clicks is None:
-        warnings.append("Sem dados de cliques no periodo; clicks e conversion sem dados")
+        warnings.append("Sem dados de cliques no período; clicks e conversion sem dados")
     return MetricsResult(values=values, warnings=_deduplicate(warnings))
 
 
@@ -606,16 +606,16 @@ def timeseries(
             ):
                 target(bucket_day).sends = int(count)
         else:
-            warnings.append("Tabela legada de envios indisponivel; sends sem dados")
+            warnings.append("Tabela legada de envios indisponível; sends sem dados")
 
     points: list[tuple[date, Decimal | int | None]] = []
     for day, values in sorted(buckets.items()):
         _finish(values)
         points.append((day, metric_value(values, metric)))
     if metric in {"buyers", "cost_per_buyer"} and not any(value is not None for _, value in points):
-        warnings.append("Vendas sem buyer_hash no periodo; buyers e cost_per_buyer sem dados")
+        warnings.append("Vendas sem buyer_hash no período; buyers e cost_per_buyer sem dados")
     if metric in {"clicks", "conversion"} and not any(value is not None for _, value in points):
-        warnings.append("Sem dados de cliques no periodo; clicks e conversion sem dados")
+        warnings.append("Sem dados de cliques no período; clicks e conversion sem dados")
     return points, _deduplicate(warnings)
 
 
@@ -918,7 +918,7 @@ def grouped_metrics(
     else:
         for item in values_by_id.values():
             item.sends = None
-        warnings.append("Tabela legada de envios indisponivel; sends sem dados")
+        warnings.append("Tabela legada de envios indisponível; sends sem dados")
 
     rows = [(entity_id, name, _finish(values_by_id[entity_id])) for entity_id, name in entities]
     return rows, _deduplicate(warnings)

@@ -24,7 +24,7 @@ class RowError:
 class ImportValidationError(ValueError):
     def __init__(self, errors: list[RowError]) -> None:
         self.errors = errors
-        super().__init__("CSV invalido")
+        super().__init__("CSV inválido")
 
 
 @dataclass(frozen=True)
@@ -69,14 +69,14 @@ class BaseCSVImporter:
             dialect = csv.excel
         reader = csv.DictReader(io.StringIO(text), dialect=dialect)
         if not reader.fieldnames:
-            raise ImportValidationError([RowError(1, "cabecalho ausente")])
+            raise ImportValidationError([RowError(1, "cabeçalho ausente")])
 
         headers = {_normalized(header): header for header in reader.fieldnames if header}
         columns = self._resolve_columns(headers)
         missing = [field for field in self.REQUIRED if field not in columns]
         if missing:
             names = ", ".join(missing)
-            raise ImportValidationError([RowError(1, f"colunas obrigatorias ausentes: {names}")])
+            raise ImportValidationError([RowError(1, f"colunas obrigatórias ausentes: {names}")])
 
         rows: list[SaleImportRow] = []
         errors: list[RowError] = []
@@ -84,7 +84,7 @@ class BaseCSVImporter:
         try:
             for line, raw in enumerate(reader, start=2):
                 if None in raw:
-                    errors.append(RowError(line, "quantidade de colunas maior que o cabecalho"))
+                    errors.append(RowError(line, "quantidade de colunas maior que o cabeçalho"))
                     continue
                 if not any(str(value or "").strip() for value in raw.values()):
                     continue
@@ -93,7 +93,7 @@ class BaseCSVImporter:
                     previous = seen.get(row.external_id)
                     if previous is not None:
                         raise ValueError(
-                            f"external_id duplicado no CSV (primeira ocorrencia: linha {previous})"
+                            f"external_id duplicado no CSV (primeira ocorrência: linha {previous})"
                         )
                     seen[row.external_id] = line
                     rows.append(row)
@@ -104,7 +104,7 @@ class BaseCSVImporter:
         if errors:
             raise ImportValidationError(errors)
         if not rows:
-            raise ImportValidationError([RowError(1, "CSV nao contem vendas")])
+            raise ImportValidationError([RowError(1, "CSV não contém vendas")])
         return rows
 
     def _resolve_columns(self, headers: dict[str, str]) -> dict[str, str]:
@@ -136,10 +136,10 @@ class BaseCSVImporter:
         except InvalidOperation:
             raise ValueError(f"{field} deve ser decimal") from None
         if not result.is_finite():
-            raise ValueError(f"{field} invalido")
+            raise ValueError(f"{field} inválido")
         scale = 4 if field == "commission_rate" else 2
         if result.as_tuple().exponent < -scale:
-            raise ValueError(f"{field} deve ter no maximo {scale} casas decimais")
+            raise ValueError(f"{field} deve ter no máximo {scale} casas decimais")
         return result
 
     @staticmethod

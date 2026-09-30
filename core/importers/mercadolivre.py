@@ -82,7 +82,7 @@ def extract_page_props(html: str) -> dict[str, Any]:
     try:
         root, _ = json.JSONDecoder().raw_decode(html[marker_at + len(SCRIPT_MARKER) :])
     except (json.JSONDecodeError, TypeError):
-        raise ExpiredDashboardSession("Painel autenticado do Mercado Livre invalido") from None
+        raise ExpiredDashboardSession("Painel autenticado do Mercado Livre inválido") from None
     page_props = (root.get("appProps") or {}).get("pageProps") or {}
     if not page_props.get("generalKpis"):
         raise ExpiredDashboardSession("Painel autenticado do Mercado Livre ausente")

@@ -87,7 +87,7 @@ def _missing_owner_event(session: Session, detector: str, entity_id: str | None 
             entity_id=entity_id,
             level="error",
             type="alert_owner_missing",
-            message="Alerta nao criado porque nao ha administrador ativo",
+            message="Alerta não criado porque não há administrador ativo",
             detail={"detector": detector},
         )
     )
@@ -118,7 +118,7 @@ def detect_bot_offline(session: Session, now: datetime) -> list[AlertCondition]:
                     f"Bot {bot.name} parou de rodar",
                     "bot",
                     str(bot.id),
-                    f"Ultima execucao: {latest.isoformat() if latest else 'nunca'}",
+                    f"Última execução: {latest.isoformat() if latest else 'nunca'}",
                 )
             )
 
@@ -145,7 +145,7 @@ def detect_bot_offline(session: Session, now: datetime) -> list[AlertCondition]:
                         "Bot legado parou de rodar",
                         "worker",
                         "legacy",
-                        f"Ultima execucao: {latest_legacy.isoformat()}",
+                        f"Última execução: {latest_legacy.isoformat()}",
                     )
                 )
     return conditions
@@ -321,7 +321,7 @@ def detect_recurring_error(session: Session, now: datetime) -> list[AlertConditi
             f"Erro recorrente: {event_type}",
             "event_type",
             event_type,
-            f"{count} ocorrencias na ultima hora",
+            f"{count} ocorrências na última hora",
         )
         for (owner_id, event_type), count in counts.items()
         if count >= RECURRING_ERROR_THRESHOLD
@@ -396,7 +396,7 @@ def detect_sales_sync_stale(session: Session, now: datetime) -> list[AlertCondit
                     f"Vendas de {account.label} desatualizadas",
                     "platform_account",
                     str(account.id),
-                    f"Ultima importacao: {latest.isoformat() if latest else 'nunca'}",
+                    f"Última importação: {latest.isoformat() if latest else 'nunca'}",
                 )
             )
     return conditions
@@ -484,7 +484,7 @@ def detect_ml_sales_truncated(session: Session, now: datetime) -> list[AlertCond
 
 def detect_ml_reconciliation_mismatch(session: Session, now: datetime) -> list[AlertCondition]:
     return _detect_recent_ml_event(
-        session, now, "ml_reconciliation_mismatch", "Vendas do ML nao batem com o painel"
+        session, now, "ml_reconciliation_mismatch", "Vendas do ML não batem com o painel"
     )
 
 

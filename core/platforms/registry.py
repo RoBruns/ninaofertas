@@ -75,7 +75,7 @@ class ShopeeClient:
         except (httpx.TimeoutException, httpx.NetworkError):
             return CredentialTestResult(
                 False,
-                "Nao foi possivel conectar a Shopee",
+                "Não foi possível conectar a Shopee",
                 network_error=True,
             )
         except httpx.HTTPStatusError as exc:
@@ -90,7 +90,7 @@ class ShopeeClient:
                 "Credencial recusada (GraphQL Shopee)" if invalid else "Consulta GraphQL recusada",
                 invalid=invalid,
             )
-        return CredentialTestResult(True, "Credencial Shopee valida")
+        return CredentialTestResult(True, "Credencial Shopee válida")
 
 
 class MercadoLivreClient:
@@ -126,7 +126,7 @@ class MercadoLivreClient:
         except (httpx.TimeoutException, httpx.NetworkError):
             return CredentialTestResult(
                 False,
-                "Nao foi possivel conectar ao Mercado Livre",
+                "Não foi possível conectar ao Mercado Livre",
                 network_error=True,
             )
         if response.status_code >= 400:
@@ -147,10 +147,10 @@ class MercadoLivreClient:
             ]
             if motivos:
                 return CredentialTestResult(
-                    False, f"Sessao aceita, mas o ML recusou o link de teste: {motivos[0]}"
+                    False, f"Sessão aceita, mas o ML recusou o link de teste: {motivos[0]}"
                 )
-            return CredentialTestResult(False, "createLink retornou uma resposta invalida")
-        return CredentialTestResult(True, "Credencial Mercado Livre valida")
+            return CredentialTestResult(False, "createLink retornou uma resposta inválida")
+        return CredentialTestResult(True, "Credencial Mercado Livre válida")
 
 
 _CLIENTS: dict[str, PlatformClient] = {
@@ -161,8 +161,8 @@ _CLIENTS: dict[str, PlatformClient] = {
 
 def resolve(slug: str) -> PlatformClient:
     if slug == "aliexpress":
-        raise PlatformNotIntegratedError("Teste de credencial do AliExpress ainda nao integrado")
+        raise PlatformNotIntegratedError("Teste de credencial do AliExpress ainda não integrado")
     client = _CLIENTS.get(slug)
     if client is None:
-        raise PlatformNotIntegratedError(f"Teste de credencial de {slug} nao integrado")
+        raise PlatformNotIntegratedError(f"Teste de credencial de {slug} não integrado")
     return client

@@ -48,15 +48,15 @@ def get_current_user(
     session: Annotated[Session, Depends(get_db)],
 ) -> User:
     if credentials is None or credentials.scheme.casefold() != "bearer":
-        raise APIError(401, "UNAUTHORIZED", "Autenticacao necessaria")
+        raise APIError(401, "UNAUTHORIZED", "Autenticação necessária")
     try:
         payload = decode_token(credentials.credentials, "access")
         user_id = UUID(str(payload["sub"]))
     except (TokenError, ValueError, KeyError):
-        raise APIError(401, "UNAUTHORIZED", "Token invalido ou expirado") from None
+        raise APIError(401, "UNAUTHORIZED", "Token inválido ou expirado") from None
     user = session.scalar(select(User).where(User.id == user_id))
     if user is None or not user.is_active or payload["sv"] != user.session_version:
-        raise APIError(401, "UNAUTHORIZED", "Token invalido ou expirado")
+        raise APIError(401, "UNAUTHORIZED", "Token inválido ou expirado")
     return user
 
 

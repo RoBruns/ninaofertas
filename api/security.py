@@ -111,9 +111,9 @@ def decode_token(token: str, expected_type: Literal["access", "refresh"]) -> dic
             options={"require": ["sub", "type", "sv", "iat", "exp", "jti"]},
         )
     except jwt.PyJWTError as exc:
-        raise TokenError("token invalido ou expirado") from exc
+        raise TokenError("token inválido ou expirado") from exc
     if payload.get("type") != expected_type:
-        raise TokenError("tipo de token invalido")
+        raise TokenError("tipo de token inválido")
     if type(payload.get("sv")) is not int or payload["sv"] < 0:
-        raise TokenError("versao de sessao invalida")
+        raise TokenError("versão de sessão inválida")
     return payload

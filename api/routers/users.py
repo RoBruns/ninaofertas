@@ -62,7 +62,7 @@ def create_user(
     session: Annotated[Session, Depends(get_db)],
 ) -> User:
     if session.scalar(select(User.id).where(User.email == payload.email)) is not None:
-        raise APIError(409, "CONFLICT", "Email ja cadastrado")
+        raise APIError(409, "CONFLICT", "Email já cadastrado")
     user = User(
         id=uuid4(),
         email=payload.email,
@@ -101,16 +101,16 @@ def update_user(
 ) -> User:
     user = session.get(User, user_id)
     if user is None:
-        raise APIError(404, "NOT_FOUND", "Usuario nao encontrado")
+        raise APIError(404, "NOT_FOUND", "Usuário não encontrado")
     changes = payload.model_dump(exclude_unset=True)
     if user.id == admin.id and (
         ("role" in changes and changes["role"] != admin.role) or changes.get("is_active") is False
     ):
-        raise APIError(409, "CONFLICT", "Nao e permitido remover seu proprio acesso admin")
+        raise APIError(409, "CONFLICT", "Não é permitido remover seu próprio acesso admin")
     if "email" in changes:
         existing_id = session.scalar(select(User.id).where(User.email == changes["email"]))
         if existing_id is not None and existing_id != user.id:
-            raise APIError(409, "CONFLICT", "Email ja cadastrado")
+            raise APIError(409, "CONFLICT", "Email já cadastrado")
 
     before = _public_dict(user)
     password = changes.pop("password", None)
@@ -151,9 +151,9 @@ def delete_user(
 ) -> None:
     user = session.get(User, user_id)
     if user is None:
-        raise APIError(404, "NOT_FOUND", "Usuario nao encontrado")
+        raise APIError(404, "NOT_FOUND", "Usuário não encontrado")
     if user.id == admin.id:
-        raise APIError(409, "CONFLICT", "Nao e permitido remover o proprio usuario")
+        raise APIError(409, "CONFLICT", "Não é permitido remover o próprio usuário")
     before = _public_dict(user)
     # Remocao logica preserva a autoria dos audit_logs, cuja FK nao permite
     # apagar fisicamente um usuario que ja executou acoes.

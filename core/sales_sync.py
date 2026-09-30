@@ -450,7 +450,7 @@ def sync_all_active_accounts() -> None:
                         session,
                         account_id,
                         "commission_import_failed",
-                        "Sincronizacao automatica de vendas falhou",
+                        "Sincronização automática de vendas falhou",
                     )
             except Exception:
                 continue

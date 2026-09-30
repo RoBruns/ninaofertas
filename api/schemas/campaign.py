@@ -24,7 +24,7 @@ class CampaignCreate(BaseModel):
     @model_validator(mode="after")
     def validate_dates(self) -> CampaignCreate:
         if self.started_at and self.ended_at and self.ended_at < self.started_at:
-            raise ValueError("ended_at nao pode ser anterior a started_at")
+            raise ValueError("ended_at não pode ser anterior a started_at")
         return self
 
 

@@ -68,7 +68,7 @@ def _filters(
         raise APIError(
             422,
             "VALIDATION_ERROR",
-            "Parametros invalidos",
+            "Parâmetros inválidos",
             {"from": "deve ser anterior ou igual a to"},
         )
     return MetricFilters(
@@ -161,13 +161,13 @@ def metric_timeseries(
 ) -> TimeseriesResponse:
     if metric not in METRIC_NAMES:
         raise APIError(
-            422, "VALIDATION_ERROR", "Parametros invalidos", {"metric": "metrica invalida"}
+            422, "VALIDATION_ERROR", "Parâmetros inválidos", {"metric": "métrica inválida"}
         )
     if granularity not in GRANULARITIES:
         raise APIError(
             422,
             "VALIDATION_ERROR",
-            "Parametros invalidos",
+            "Parâmetros inválidos",
             {"granularity": "use day, week ou month"},
         )
     points, warnings = timeseries(
@@ -199,7 +199,7 @@ def _breakdown(
     descending = sort.startswith("-")
     sort_field = sort.removeprefix("-")
     if sort_field not in SORT_FIELDS:
-        raise APIError(422, "VALIDATION_ERROR", "Parametros invalidos", {"sort": "campo invalido"})
+        raise APIError(422, "VALIDATION_ERROR", "Parâmetros inválidos", {"sort": "campo inválido"})
     rows, warnings = grouped_metrics(session, user.id, filters, dimension)
     items = [
         MetricBreakdownItem(id=entity_id, name=name, **values.public())

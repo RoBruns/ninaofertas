@@ -20,7 +20,7 @@ AdminUser = Annotated[User, Depends(require_role("admin"))]
 def _owned(session: Session, niche_id: int, owner_id: object) -> Niche:
     niche = session.scalar(select(Niche).where(Niche.id == niche_id, Niche.owner_id == owner_id))
     if niche is None:
-        raise APIError(404, "NOT_FOUND", "Nicho nao encontrado")
+        raise APIError(404, "NOT_FOUND", "Nicho não encontrado")
     return niche
 
 
@@ -49,7 +49,7 @@ def create_niche(
     session: Annotated[Session, Depends(get_db)],
 ) -> NicheResponse:
     if session.scalar(select(Niche.id).where(Niche.owner_id == admin.id, Niche.slug == payload.slug)):
-        raise APIError(409, "CONFLICT", "Ja existe um nicho com este slug")
+        raise APIError(409, "CONFLICT", "Já existe um nicho com este slug")
     niche = Niche(owner_id=admin.id, slug=payload.slug, name=payload.name)
     session.add(niche)
     session.flush()
@@ -71,11 +71,11 @@ def update_niche(
     before = _response(niche).model_dump()
     changes = payload.model_dump(exclude_unset=True)
     if any(value is None for value in changes.values()):
-        raise APIError(422, "VALIDATION_ERROR", "slug e name nao aceitam null")
+        raise APIError(422, "VALIDATION_ERROR", "slug e name não aceitam null")
     if "slug" in changes and session.scalar(
         select(Niche.id).where(Niche.owner_id == admin.id, Niche.slug == changes["slug"], Niche.id != niche.id)
     ):
-        raise APIError(409, "CONFLICT", "Ja existe um nicho com este slug")
+        raise APIError(409, "CONFLICT", "Já existe um nicho com este slug")
     for field, value in changes.items():
         setattr(niche, field, value)
     response = _response(niche)
