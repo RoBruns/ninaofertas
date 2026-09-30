@@ -16,6 +16,7 @@ from sqlalchemy.orm import Session
 
 from core import db
 from core.credentials import mark_account_credentials_invalid, read_account_credentials
+from core.http_headers import MELI_HTML_HEADERS
 from core.importers.base import SaleImportRow
 from core.importers.mercadolivre import ExpiredDashboardSession, parse_dashboard
 from core.importers.shopee import fetch_conversion_report, parse_attribution_sub_ids
@@ -135,7 +136,7 @@ def _resolve_shopee_attribution(
             session,
             account.id,
             "attribution_resolution_failed",
-            "SubIds da venda Shopee nao puderam ser resolvidos de forma univoca",
+            "SubIds da venda Shopee não puderam ser resolvidos de forma unívoca",
             {
                 "external_id": row.external_id,
                 "sub_id": row.sub_id,
@@ -150,7 +151,7 @@ def _upsert(account_id: UUID, rows: list[SaleImportRow], source: str) -> SyncRes
     with db.get_session() as session:
         account = session.get(PlatformAccount, account_id)
         if account is None:
-            raise ValueError("Conta de plataforma nao encontrada")
+            raise ValueError("Conta de plataforma não encontrada")
         now = datetime.now(timezone.utc)
         platform = session.get(Platform, account.platform_id)
         for row in rows:
@@ -170,7 +171,7 @@ def _upsert(account_id: UUID, rows: list[SaleImportRow], source: str) -> SyncRes
                 imported += 1
                 continue
             if sale.owner_id != account.owner_id:
-                raise ValueError("Venda ja pertence a outro usuario")
+                raise ValueError("Venda já pertence a outro usuário")
             changed = any(getattr(sale, field) != value for field, value in values.items())
             if not changed:
                 skipped += 1
@@ -186,10 +187,10 @@ def _load_account(account_id: UUID) -> tuple[str, dict, dict[str, str]]:
     with db.get_session() as session:
         account = session.get(PlatformAccount, account_id)
         if account is None or account.status != "active":
-            raise ValueError("Conta de plataforma ativa nao encontrada")
+            raise ValueError("Conta de plataforma ativa não encontrada")
         platform = session.get(Platform, account.platform_id)
         if platform is None:
-            raise ValueError("Plataforma da conta nao encontrada")
+            raise ValueError("Plataforma da conta não encontrada")
         credentials, _ = read_account_credentials(session, account.id)
         config = dict(account.config or {})
         if account.external_id:
@@ -260,7 +261,7 @@ def _upsert_ml_earnings(
     with db.get_session() as session:
         account = session.get(PlatformAccount, account_id)
         if account is None:
-            raise ValueError("Conta de plataforma nao encontrada")
+            raise ValueError("Conta de plataforma não encontrada")
         aggregated: dict[UUID | None, dict[str, object]] = {}
         for item in earnings:
             bot_id = _ml_bot_for_tag(session, account.owner_id, str(item["tag"]))
@@ -303,6 +304,33 @@ def _upsert_ml_earnings(
             snapshot.computed_at = now
 
 
+def _painel_ml_indisponivel(
+    account_id: UUID, day: date, response: httpx.Response, motivo: str
+) -> None:
+    """Registra a falha do painel sem invalidar o cookie.
+
+    O mesmo cookie gera os links de afiliado do bot. O painel às vezes devolve
+    outra página (verificação, login) com o cookie ainda aceito pelo createLink;
+    invalidar aqui tirava o Mercado Livre do envio toda manhã (2026-09-30). Quem
+    decide se o cookie vale é o createLink (core/platforms/affiliate.py).
+    """
+    with db.get_session() as session:
+        _event(
+            session,
+            account_id,
+            "ml_sales_sync_failed",
+            "Painel de vendas do Mercado Livre indisponível; vendas não importadas",
+            {
+                "date": day.isoformat(),
+                "motivo": motivo,
+                "http_status": response.status_code,
+                # Só o caminho: a query e os cabeçalhos podem carregar dados da sessão.
+                "path": response.url.path,
+                "tamanho": len(response.content or b""),
+            },
+        )
+
+
 def _sync_ml(account_id: UUID, credentials: dict[str, str]) -> SyncResult:
     cookie = credentials.get("cookie") or ""
     if not cookie:
@@ -312,7 +340,7 @@ def _sync_ml(account_id: UUID, credentials: dict[str, str]) -> SyncResult:
     with httpx.Client(
         timeout=30.0,
         follow_redirects=True,
-        headers={"Cookie": cookie, "User-Agent": "Mozilla/5.0"},
+        headers={**MELI_HTML_HEADERS, "Cookie": cookie},
     ) as client:
         for offset in range(14):
             day = yesterday - timedelta(days=offset)
@@ -324,7 +352,7 @@ def _sync_ml(account_id: UUID, credentials: dict[str, str]) -> SyncResult:
             except httpx.HTTPError:
                 raise RuntimeError("Falha ao consultar painel do Mercado Livre") from None
             if response.status_code in {401, 403}:
-                mark_account_credentials_invalid(account_id, "Mercado Livre recusou a credencial")
+                _painel_ml_indisponivel(account_id, day, response, "recusado")
                 return SyncResult(imported, skipped, auth_expired=True)
             try:
                 response.raise_for_status()
@@ -333,7 +361,7 @@ def _sync_ml(account_id: UUID, credentials: dict[str, str]) -> SyncResult:
             try:
                 rows, meta = parse_dashboard(response.text)
             except ExpiredDashboardSession:
-                mark_account_credentials_invalid(account_id, "Sessao do Mercado Livre expirada")
+                _painel_ml_indisponivel(account_id, day, response, "painel_ausente")
                 return SyncResult(imported, skipped, auth_expired=True)
             result = _upsert(account_id, rows, "scrape")
             _upsert_ml_earnings(account_id, day, meta["earnings"])
@@ -365,7 +393,7 @@ def _sync_ml(account_id: UUID, credentials: dict[str, str]) -> SyncResult:
                         session,
                         account_id,
                         "ml_reconciliation_mismatch",
-                        "Totais do painel do Mercado Livre nao conferem com as vendas",
+                        "Totais do painel do Mercado Livre não conferem com as vendas",
                         {
                             "date": day.isoformat(),
                             "commission_rows": str(row_commission),
@@ -386,7 +414,7 @@ def sync_account(account_id: UUID) -> SyncResult:
         return _sync_shopee(account_id, config, credentials)
     if platform_slug == "mercadolivre":
         return _sync_ml(account_id, credentials)
-    raise ValueError("Plataforma sem sincronizacao de vendas")
+    raise ValueError("Plataforma sem sincronização de vendas")
 
 
 def sync_all_active_accounts() -> None:

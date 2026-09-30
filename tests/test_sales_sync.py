@@ -265,11 +265,12 @@ def test_ml_reimporta_sem_duplicar_e_atualiza_status(
     assert MLDashboardClient.headers["Cookie"] == sentinel
 
 
-def test_ml_sessao_expirada_invalida_credencial_sem_vazar(
+def test_ml_painel_sem_sessao_nao_invalida_cookie_nem_vaza(
     monkeypatch: pytest.MonkeyPatch,
     session_factory: sessionmaker[Session],
     caplog: pytest.LogCaptureFixture,
 ) -> None:
+    """O cookie também gera os links do bot: falha do painel não pode tirá-lo do envio."""
     sentinel = "SENTINELA-cookie-expirado-nao-vazar"
     account = _account(session_factory, "mercadolivre", "cookie", sentinel)
     _patch_sessions(monkeypatch, session_factory)
@@ -281,14 +282,19 @@ def test_ml_sessao_expirada_invalida_credencial_sem_vazar(
     assert result.auth_expired is True
     with session_factory() as session:
         credential = session.scalar(select(PlatformCredential))
-        event = session.scalar(select(Event).where(Event.type == "auth_expired"))
-        assert credential.status == "invalid"
+        assert credential.status != "invalid"
+        assert session.scalar(select(Event).where(Event.type == "auth_expired")) is None
+        event = session.scalar(select(Event).where(Event.type == "ml_sales_sync_failed"))
         assert event is not None
+        assert event.detail["motivo"] == "painel_ausente"
+        assert event.detail["path"] == "/afiliados/dashboard"
         serialized = json.dumps(
             {"last_error": credential.last_error, "event": event.detail}, default=str
         )
     assert sentinel not in serialized
     assert sentinel not in caplog.text
+    # Cabeçalhos de navegador, como o createLink que funciona com o mesmo cookie.
+    assert MLDashboardClient.headers["User-Agent"].startswith("Mozilla/5.0 (Windows")
 
 
 def test_ml_truncado_emite_event(
