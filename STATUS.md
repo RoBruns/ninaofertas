@@ -1,3 +1,7 @@
+> **Histórico — V1 (2026-09-07).** Este arquivo descreve o bot antigo, antes do
+> dashboard, e não reflete o projeto atual. Estado atual: [`AGENTS.md`](AGENTS.md)
+> e [`docs/ROADMAP.md`](docs/ROADMAP.md).
+
 # Status do projeto — onde paramos
 
 Última atualização: 2026-09-07

@@ -213,7 +213,7 @@ docs/        arquitetura, banco, API, integração com o bot, decisões, deploy
 
 | | |
 |---|---|
-| [docs/AGENT_CONTEXT.md](docs/AGENT_CONTEXT.md) | comece aqui |
+| [AGENTS.md](AGENTS.md) | comece aqui (contexto completo para pessoas e agentes; `CLAUDE.md` importa ele) |
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | como era, como ficou e por quê |
 | [docs/BOT_INTEGRATION.md](docs/BOT_INTEGRATION.md) | como dashboard e bot se falam |
 | [docs/DATABASE.md](docs/DATABASE.md) | tabelas e fórmulas das métricas |
