@@ -168,10 +168,11 @@ nina-worker (APScheduler) ──────────────── nina-
 
 - Backup do `nina-db`: não existe; o plano Hobby não tem backup nativo (opção avaliada:
   dump agendado, criptografado, para Cloudflare R2).
-- Importação de vendas do ML: o painel não carrega com o cookie atual; o evento
-  `ml_sales_sync_failed` traz o diagnóstico. Shopee retorna 0 conversões (aceito pelo dono).
-- Fase 7b (atribuição de vendas do ML por etiqueta) e revisão final de segurança/E2E
-  (fase 14).
+- Vendas: a importação do ML funciona desde 2026-09-30 (16 vendas, todas pendentes);
+  se falhar, o evento `ml_sales_sync_failed` traz o diagnóstico. Shopee retorna 0
+  conversões (aceito pelo dono).
+- Fase 7b: as vendas do ML entram sem bot; falta atribuir pela etiqueta (`ml_tag`).
+- Revisão final de segurança e E2E (fase 14).
 
 ## Ao terminar uma tarefa
 
