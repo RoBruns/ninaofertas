@@ -24,9 +24,17 @@ conclusão. Nenhuma fase pode deixar o bot fora do ar.
 | 11 | Frontend: base, auth, layout | ✅ | 3 | Codex D ∥ 6–10 |
 | 3b | Logout que encerra a sessão no servidor | ✅ | 3 | Codex A |
 | 12 | Frontend: gestão (contas, bots, grupos) | ✅ | 5, 11 | Codex D |
-| 13 | Frontend: dashboard, métricas, despesas | ⬜ | 9, 11 | Codex D |
-| 14 | Deploy, hardening, testes E2E | ⬜ | todas | Claude + Codex |
-| 16 | Portar mudanças operacionais do Miura para o dashboard | 🔵 | 6, 12 | Codex |
+| 13 | Frontend: dashboard, métricas, despesas | 🔵 | 9, 11 | Codex D |
+| 14 | Deploy, hardening, testes E2E | 🟡 | todas | Claude + Codex |
+| 16 | Portar mudanças operacionais do Miura para o dashboard | ✅ | 6, 12 | Codex |
+| 17 | Bot com vários grupos: mesma oferta em todos (ADR-021) | ✅ | 6 | Codex |
+| 18 | Mudanças do Miura na V1 viram opções por bot (ADR-022) | ✅ | 16 | Codex |
+
+**2026-09-30:** a V2 (bot + dashboard) é o `master` e o bot em produção na Railway
+(`nina-api`, `nina-worker`, `nina-dashboard`, banco `nina-db`). A V1 ficou no branch
+`v1-legado`, com o serviço `ninaofertas` desligado. Fase 13: páginas no ar, falta
+conferir o critério com dados reais. Fase 14: deploy feito; faltam backup agendado e
+verificado, E2E e revisão de segurança final.
 
 **Paralelismo seguro.** A regra é um agente por diretório. `core/` + `api/` é o
 Codex A; o worker é o Codex B **sozinho** (é o código vivo — ninguém mais toca);
