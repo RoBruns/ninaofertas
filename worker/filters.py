@@ -424,6 +424,12 @@ def passa_nos_filtros(oferta: OfertaCapturada, filtros: dict) -> tuple[bool, str
             "ml_ignora_desconto_e_vendas", False
         )
         desconto_minimo = filtros.get("desconto_minimo")
+        if oferta.origem_mais_vendidos and not ignora_regras_ml:
+            if oferta.desconto is None:
+                return False, "mais vendido sem desconto conhecido"
+            min_vendas = int(filtros.get("min_vendas", 100))
+            if min_vendas > 0 and oferta.vendas is not None and oferta.vendas < min_vendas:
+                return False, f"vendas {oferta.vendas} abaixo do mínimo {min_vendas} para mais vendidos"
         if (
             not ignora_regras_ml
             and desconto_minimo
@@ -438,6 +444,7 @@ def passa_nos_filtros(oferta: OfertaCapturada, filtros: dict) -> tuple[bool, str
         # prática, quase toda a Shopee, a única fonte que informa vendas.
         if (
             not ignora_regras_ml
+            and not oferta.origem_mais_vendidos
             and max_vendas not in (None, 0, "0")
             and oferta.vendas is not None
             and oferta.vendas > int(max_vendas)

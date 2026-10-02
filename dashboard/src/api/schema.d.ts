@@ -1955,6 +1955,17 @@ export interface components {
              */
             max_vendas: number;
             /**
+             * Origem Produtos
+             * @default novidades
+             * @enum {string}
+             */
+            origem_produtos: "novidades" | "mais_vendidos" | "ambos";
+            /**
+             * Min Vendas
+             * @default 100
+             */
+            min_vendas: number;
+            /**
              * Max Idade Oferta Horas
              * @default 0
              */

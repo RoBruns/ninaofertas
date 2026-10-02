@@ -14217,6 +14217,22 @@
       "title": "Max Vendas",
       "default": 20
      },
+     "origem_produtos": {
+      "type": "string",
+      "enum": [
+       "novidades",
+       "mais_vendidos",
+       "ambos"
+      ],
+      "title": "Origem Produtos",
+      "default": "novidades"
+     },
+     "min_vendas": {
+      "type": "integer",
+      "minimum": 0.0,
+      "title": "Min Vendas",
+      "default": 100
+     },
      "max_idade_oferta_horas": {
       "type": "integer",
       "minimum": 0.0,

@@ -15,7 +15,7 @@ import { PhonesGroups } from './PhonesGroups'
 const admin: User = { id: 'user-1', email: 'admin@nina.test', name: 'Admin', role: 'admin', is_active: true, last_login_at: null, created_at: '2026-09-23T10:00:00Z' }
 const bot: Bot = { is_test: false, archived_at: null, test_source_bot_id: null,
   id: 'bot-1', name: 'Bot Casa', slug: 'bot-casa', niche_id: null, phone_id: 'phone-1', status: 'paused', group_ids: ['group-1'], account_ids: [], message_template: null,
-  settings: { schema_version: 1, filters: { preco_minimo: 20, preco_maximo: 5000, desconto_minimo: 15, max_vendas: 20, max_idade_oferta_horas: 0, uma_loja_por_ciclo: false, ml_ignora_desconto_e_vendas: false, ml_categoria_dispensa_nicho: false }, pacing: { max_ofertas_por_ciclo: 1, intervalo_minutos_entre_ofertas: 5, max_ofertas_por_rajada: 3, janela_rajada_minutos: 15, pausa_entre_rajadas_minutos: 35, max_ofertas_por_hora: 6, max_ofertas_por_dia: 80, max_ofertas_globais_por_hora: 8, max_ofertas_globais_por_dia: 90 }, content: { aceitar_cupons: true, aceitar_campanhas: false, max_cupons_por_dia: 2, baseline_ciclos: 5 }, schedule: { check_interval: 60, quiet_hours: { start: '23:00', end: '07:00' } } },
+  settings: { schema_version: 1, filters: { preco_minimo: 20, preco_maximo: 5000, desconto_minimo: 15, max_vendas: 20, origem_produtos: 'novidades', min_vendas: 100, max_idade_oferta_horas: 0, uma_loja_por_ciclo: false, ml_ignora_desconto_e_vendas: false, ml_categoria_dispensa_nicho: false }, pacing: { max_ofertas_por_ciclo: 1, intervalo_minutos_entre_ofertas: 5, max_ofertas_por_rajada: 3, janela_rajada_minutos: 15, pausa_entre_rajadas_minutos: 35, max_ofertas_por_hora: 6, max_ofertas_por_dia: 80, max_ofertas_globais_por_hora: 8, max_ofertas_globais_por_dia: 90 }, content: { aceitar_cupons: true, aceitar_campanhas: false, max_cupons_por_dia: 2, baseline_ciclos: 5 }, schedule: { check_interval: 60, quiet_hours: { start: '23:00', end: '07:00' } } },
   last_run_at: null, last_success_at: null, created_at: '2026-09-23T10:00:00Z', updated_at: '2026-09-23T10:00:00Z',
 }
 const phone: Phone = { id: 'phone-1', label: 'Principal', number: '5511999999999', evolution_instance: 'nina', status: 'connected', last_seen_at: null, created_at: '2026-09-23T10:00:00Z' }
@@ -78,6 +78,35 @@ it('mostra a mensagem da API ao recusar convite', async () => {
 })
 
 function Destination() { return <span>{useLocation().pathname}</span> }
+
+it('configura origem e vendas mínimas sem alterar o padrão dos bots existentes', async () => {
+  const user = userEvent.setup()
+  let saved: unknown
+  vi.stubGlobal('fetch', vi.fn(async (request: Request) => {
+    const path = new URL(request.url).pathname
+    if (request.method === 'PATCH') { saved = await request.json(); return json(bot) }
+    if (path === '/api/bots/bot-1') return json(bot)
+    if (path === '/api/niches') return json([])
+    if (path === '/api/phones') return json({ items: [phone] })
+    if (path === '/api/groups') return json({ items: [group] })
+    if (path === '/api/accounts' || path.endsWith('/runs') || path.endsWith('/config-backups')) return json({ items: [] })
+    return json({ status: 'ok', message: 'Funcionando', credential_issues: [], group_issues: [] })
+  }))
+  render(<Providers><MemoryRouter initialEntries={['/bots/bot-1']}><Routes><Route path="/bots/:id" element={<BotDetail />} /></Routes></MemoryRouter></Providers>)
+  const origin = await screen.findByRole('combobox', { name: /^Origem dos produtos/ })
+  expect(origin).toHaveValue('novidades')
+  expect(screen.queryByLabelText('Vendas mínimas (Shopee)')).not.toBeInTheDocument()
+  await user.selectOptions(origin, 'mais_vendidos')
+  const minimum = screen.getByLabelText('Vendas mínimas (Shopee)')
+  expect(minimum).toHaveValue(100)
+  expect(screen.getByText('Não se aplica aos mais vendidos.')).toBeInTheDocument()
+  await user.clear(minimum)
+  await user.type(minimum, '250')
+  await user.selectOptions(origin, 'ambos')
+  await user.click(screen.getByRole('button', { name: 'Salvar alterações' }))
+  expect(await screen.findByText('Bot salvo.')).toBeInTheDocument()
+  expect(saved).toMatchObject({ settings: { filters: { origem_produtos: 'ambos', min_vendas: 250 } } })
+})
 
 it('navega para a cópia ao duplicar bot', async () => {
   const copy = { ...bot, id: 'bot-copy', name: 'Bot Casa (cópia)', status: 'paused' as const }

@@ -381,3 +381,27 @@ teste (os mesmos de `core/safety.py`) e pelos tetos por grupo, que continuam
 valendo quando um teste aponta para um grupo de produção. A importação copia
 `settings` e `message_template`, nunca `settings.attribution`, e guarda a
 configuração anterior do destino em `bot_config_backups` para desfazer.
+
+---
+
+## ADR-024 — Mais vendidos como origem opcional de produtos
+**Data:** 2026-10-02 · **Status:** aceita · **Decisor:** usuário
+
+O bot procurava novidades e descartava produto com mais de 20 vendas
+(`max_vendas`). O dono quer recomendar produtos que comprovadamente vendem.
+Decisão: cada bot escolhe `filters.origem_produtos` (`novidades`, padrão e
+comportamento anterior; `mais_vendidos`; `ambos`). Mais vendido só entra com
+desconto conhecido e acima do mínimo do bot, e na Shopee com `min_vendas`; o
+`max_vendas` não se aplica a ele. Fora de `novidades`, os produtos de cada loja
+são enviados por pontuação (demanda 45%, desconto 35%, nota 10%, comissão 10%).
+
+Fontes, medidas em 2026-10-02: a API oficial do Mercado Livre (`/highlights`,
+`/trends`) responde 403 PolicyAgent mesmo com token de aplicativo, então o ML usa
+a página pública `/mais-vendidos` (top 20 por categoria), guardada por 30 minutos
+para não multiplicar acessos com o cookie da conta. A Shopee usa a API de
+afiliados com `sortType: 2`; o `sortType: 1` usado até aqui é relevância, não
+"mais recentes".
+
+**Consequência:** a mudança só vale para quem trocar a opção, de preferência
+primeiro num bot de teste (ADR-023). A deduplicação por grupo impede repetir o
+mesmo mais vendido, salvo queda de preço.

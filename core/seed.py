@@ -67,6 +67,8 @@ FILTER_KEYS = (
     "bloquear_termos",
     "excecoes_bloqueio",
     "max_vendas",
+    "origem_produtos",
+    "min_vendas",
     "max_idade_oferta_horas",
 )
 PACING_KEYS = (

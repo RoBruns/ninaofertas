@@ -5,6 +5,24 @@ frontend fale com componente interno do bot.
 
 ## Fronteiras
 
+### Origem dos produtos por bot
+
+`filters.origem_produtos` aceita `novidades` (padrão, buscas e ordem anteriores),
+`mais_vendidos` ou `ambos`. Shopee usa relevância (`sortType: 1`) no caminho atual
+e vendas (`sortType: 2`) no ranking, com nota e comissão. ML lê `/mais-vendidos`,
+seleciona as categorias do bot (ou `CATEGORIAS_CASA`) e tenta uma página por categoria
+ausente na raiz, usando o cookie da conta. Bloqueios não interrompem o ciclo.
+
+Mais vendidos dispensam `max_vendas`, exigem desconto conhecido e o desconto mínimo,
+e aplicam `min_vendas` (padrão 100; 0 desliga) quando a fonte informa vendas. A exceção
+`ml_ignora_desconto_e_vendas` continua valendo. Os demais filtros permanecem iguais.
+
+Fora de `novidades`, os produtos de cada loja são ordenados de forma estável por demanda
+(45%), desconto (35%), nota (10%) e comissão (10%) antes da intercalação. Cupons e campanhas
+conservam suas fontes e posições. O ciclo registra contagem e top 3 por loja. Freio,
+deduplicação por grupo e reenvio por queda de preço seguem iguais. A opção pode ser
+comparada num bot de teste e importada pelo fluxo existente; nenhum bot muda automaticamente.
+
 ```
 Dashboard ──HTTP/JSON──► API ──SQL──► Postgres ◄──SQL── Worker ──► plataformas
 ```

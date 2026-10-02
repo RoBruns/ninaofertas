@@ -26,6 +26,8 @@ FILTER_KEYS = {
     "bloquear_termos",
     "excecoes_bloqueio",
     "max_vendas",
+    "origem_produtos",
+    "min_vendas",
     "max_idade_oferta_horas",
     "uma_loja_por_ciclo",
     "ml_ignora_desconto_e_vendas",
@@ -67,6 +69,8 @@ class Filters(BaseModel):
     bloquear_termos: list[str] = Field(default_factory=list)
     excecoes_bloqueio: list[str] = Field(default_factory=list)
     max_vendas: int = Field(default=20, ge=0)
+    origem_produtos: Literal["novidades", "mais_vendidos", "ambos"] = "novidades"
+    min_vendas: int = Field(default=100, ge=0)
     max_idade_oferta_horas: int = Field(default=0, ge=0)
     uma_loja_por_ciclo: bool = False
     ml_ignora_desconto_e_vendas: bool = False

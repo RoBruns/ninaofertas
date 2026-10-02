@@ -41,6 +41,10 @@ class OfertaCapturada:
     product_url: Optional[str] = None
     # Mantem a origem separada de `categoria`, usada por cupons e campanhas.
     origem_categoria_meli: bool = False
+    origem_mais_vendidos: bool = False
+    posicao_ranking: int | None = None
+    nota: float | None = None
+    comissao_pct: float | None = None
 
     def __post_init__(self):
         if self.desconto is None and self.preco_anterior and self.preco_anterior > 0:

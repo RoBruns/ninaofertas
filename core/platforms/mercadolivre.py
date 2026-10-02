@@ -6,13 +6,14 @@ página pública de ofertas por categoria:
 
     https://www.mercadolivre.com.br/ofertas?category=MLB1574
 
-O cookie/tag do .env continua sendo usado depois, no `affiliate.py`, pra
-transformar o permalink em link afiliado.
+Mais vendidos vêm das páginas públicas de ranking, sem usar a API oficial.
+O cookie da conta vinculada ao bot autentica o HTML e a geração do link afiliado.
 """
 from __future__ import annotations
 
 import json
 import re
+import time
 from urllib.parse import quote_plus
 
 import httpx
@@ -25,6 +26,11 @@ from core.http_headers import MELI_HTML_HEADERS
 HEADERS = MELI_HTML_HEADERS
 
 OFERTAS_URL = "https://www.mercadolivre.com.br/ofertas"
+MAIS_VENDIDOS_URL = "https://www.mercadolivre.com.br/mais-vendidos"
+# O ranking muda devagar. Buscar a página a cada ciclo só aumentaria o risco de
+# captcha no cookie da conta, então cada página bem-sucedida vale por 30 minutos.
+MAIS_VENDIDOS_TTL_SEGUNDOS = 30 * 60
+_cache_mais_vendidos: dict[str, tuple[float, dict[str, list[dict]]]] = {}
 # Casa/móveis, eletro, beleza, moda, joias.
 CATEGORIAS_CASA = (
     "MLB1574",
@@ -47,6 +53,29 @@ def _extrair_items_json(html: str) -> list[dict]:
     except json.JSONDecodeError:
         return []
     return arr if isinstance(arr, list) else []
+
+
+def _extrair_mais_vendidos_json(html: str) -> dict[str, list[dict]]:
+    blocos: dict[str, list[dict]] = {}
+    marcadores = list(
+        re.finditer(
+            r'"best_sellers_configuration"\s*:\s*\{\s*"category"\s*:\s*"([^"]+)"', html
+        )
+    )
+    decoder = json.JSONDecoder()
+    for i, marcador in enumerate(marcadores):
+        fim = marcadores[i + 1].start() if i + 1 < len(marcadores) else len(html)
+        trecho = html[marcador.end():fim]
+        array = re.search(r'"polycards"\s*:\s*', trecho)
+        if array is None:
+            continue
+        try:
+            cards, _ = decoder.raw_decode(trecho[array.end():].lstrip())
+        except json.JSONDecodeError:
+            continue
+        if isinstance(cards, list):
+            blocos[marcador.group(1)] = cards
+    return blocos
 
 
 def _comp_titulo(card: dict) -> str:
@@ -158,8 +187,12 @@ class MercadoLivreScraper(Scraper):
             headers["cookie"] = auth.cookie
         self._bloqueio_avisado = False
         with httpx.Client(timeout=self.timeout, headers=headers, follow_redirects=True) as client:
-            ofertas.extend(self._buscar_ofertas_categoria(client, vistas))
-            ofertas.extend(self._buscar_lista_termos(client, vistas))
+            origem = load_filtros().get("origem_produtos", "novidades")
+            if origem != "novidades":
+                ofertas.extend(self._buscar_mais_vendidos(client, vistas))
+            if origem != "mais_vendidos":
+                ofertas.extend(self._buscar_ofertas_categoria(client, vistas))
+                ofertas.extend(self._buscar_lista_termos(client, vistas))
         logger.info(f"[Mercado Livre] {len(ofertas)} ofertas capturadas.")
         return ofertas
 
@@ -169,6 +202,48 @@ class MercadoLivreScraper(Scraper):
             return
         self._bloqueio_avisado = True
         logger.warning(f"[Mercado Livre] página de ofertas bloqueada ({detalhe}).")
+
+    def _buscar_mais_vendidos(self, client: httpx.Client, vistas: set[str]) -> list[OfertaCapturada]:
+        def buscar_pagina(url: str) -> dict[str, list[dict]]:
+            em_cache = _cache_mais_vendidos.get(url)
+            if em_cache is not None and time.monotonic() - em_cache[0] < MAIS_VENDIDOS_TTL_SEGUNDOS:
+                return em_cache[1]
+            try:
+                resp = client.get(url)
+            except httpx.HTTPError as exc:
+                logger.warning(f"[Mercado Livre] mais vendidos: {exc}")
+                return {}
+            blocos = _extrair_mais_vendidos_json(resp.text)
+            if (
+                resp.status_code != 200
+                or any(x in str(resp.url).lower() for x in ("captcha", "account-verification"))
+                or (not blocos and any(x in resp.text.lower() for x in ("captcha", "account-verification")))
+            ):
+                self._registrar_bloqueio(f"HTTP {resp.status_code} mais vendidos")
+                return {}
+            if blocos:
+                _cache_mais_vendidos[url] = (time.monotonic(), blocos)
+            return blocos
+
+        raiz = buscar_pagina(MAIS_VENDIDOS_URL)
+        out: list[OfertaCapturada] = []
+        for categoria in self._categorias_meli():
+            cards = raiz.get(categoria)
+            if cards is None:
+                cards = buscar_pagina(f"{MAIS_VENDIDOS_URL}/{categoria}").get(categoria, [])
+            for posicao, card in enumerate(cards, 1):
+                oferta = _parse_card(card)
+                if oferta is None:
+                    continue
+                chave = oferta.sku or oferta.url
+                if chave in vistas:
+                    continue
+                vistas.add(chave)
+                oferta.origem_mais_vendidos = True
+                oferta.origem_categoria_meli = True
+                oferta.posicao_ranking = posicao
+                out.append(oferta)
+        return out
 
     def _buscar_ofertas_categoria(self, client: httpx.Client, vistas: set[str]) -> list[OfertaCapturada]:
         out: list[OfertaCapturada] = []

@@ -1,0 +1,25 @@
+
+                {
+                  productOfferV2(
+                    keyword: "organizador",
+                    listType: 0,
+                    sortType: 1,
+                    page: 1,
+                    limit: 20
+                  ) {
+                    nodes {
+                      itemId
+                      productName
+                      productLink
+                      offerLink
+                      imageUrl
+                      priceMin
+                      priceMax
+                      priceDiscountRate
+                      shopName
+                      sales
+                      periodStartTime
+                    }
+                  }
+                }
+                

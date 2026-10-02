@@ -3,8 +3,8 @@
 Requer app_id e app_secret da conta vinculada ao bot no dashboard. Sem uma
 credencial utilizável, a fonte é pulada com aviso (ADR-020).
 
-Busca ordenada por mais recentes (sortType=1), não por mais vendidos — assim
-priorizamos oferta quente em vez de catálogo antigo com estoque parado.
+Busca por relevância (sortType=1) por padrão. O bot pode selecionar mais
+vendidos (sortType=2) ou combinar as duas buscas pelo dashboard.
 """
 from __future__ import annotations
 
@@ -20,8 +20,9 @@ from core.platforms.base import OfertaCapturada, Scraper
 from core.log_safe import safe_log_text
 from core.platforms.shopee_api import escape_graphql_string, graphql_request
 
-# 1 = mais recentes | 2 = mais vendidos (catálogo antigo)
-_SORT_MAIS_RECENTES = 1
+# Ordenações medidas na API de afiliados.
+_SORT_RELEVANCIA = 1
+_SORT_MAIS_VENDIDOS = 2
 
 
 def _preco_float(valor) -> float | None:
@@ -131,17 +132,25 @@ class ShopeeScraper(Scraper):
             return []
 
         ofertas: list[OfertaCapturada] = []
+        origem = load_filtros().get("origem_produtos", "novidades")
+        if origem == "novidades":
+            ordenacoes = [_SORT_RELEVANCIA]
+        elif origem == "mais_vendidos":
+            ordenacoes = [_SORT_MAIS_VENDIDOS]
+        else:
+            ordenacoes = [_SORT_RELEVANCIA, _SORT_MAIS_VENDIDOS]
         with httpx.Client(timeout=self.timeout) as client:
             if load_filtros().get("aceitar_campanhas", False):
                 ofertas.extend(self._buscar_campanhas(client))
             for termo in self._termos_busca():
-                keyword = escape_graphql_string(termo)
-                query = f"""
+                for ordenacao in ordenacoes:
+                    keyword = escape_graphql_string(termo)
+                    query = f"""
                 {{
                   productOfferV2(
                     keyword: "{keyword}",
                     listType: 0,
-                    sortType: {_SORT_MAIS_RECENTES},
+                    sortType: {ordenacao},
                     page: 1,
                     limit: 20
                   ) {{
@@ -161,19 +170,37 @@ class ShopeeScraper(Scraper):
                   }}
                 }}
                 """
-                try:
-                    data = self._graphql(client, query)
-                except Exception as e:
-                    logger.warning(
-                        f"[Shopee] falha na busca '{termo}': {safe_log_text(e)}"
-                    )
-                    continue
+                    if ordenacao == _SORT_MAIS_VENDIDOS:
+                        query = query.replace(
+                            "                      sales",
+                            "                      ratingStar\n"
+                            "                      commissionRate\n"
+                            "                      sales",
+                        )
+                    try:
+                        data = self._graphql(client, query)
+                    except Exception as e:
+                        logger.warning(
+                            f"[Shopee] falha na busca '{termo}': {safe_log_text(e)}"
+                        )
+                        continue
 
-                nodes = (data.get("productOfferV2") or {}).get("nodes") or []
-                for item in nodes:
-                    oferta = self._parse_item(item)
-                    if oferta:
-                        ofertas.append(oferta)
+                    nodes = (data.get("productOfferV2") or {}).get("nodes") or []
+                    for item in nodes:
+                        oferta = self._parse_item(item)
+                        if oferta:
+                            if ordenacao == _SORT_MAIS_VENDIDOS:
+                                oferta.origem_mais_vendidos = True
+                                oferta.nota = _preco_float(item.get("ratingStar"))
+                                oferta.comissao_pct = _preco_float(item.get("commissionRate"))
+                            ofertas.append(oferta)
+        if origem != "novidades":
+            unicas: dict[str, OfertaCapturada] = {}
+            for oferta in ofertas:
+                chave = oferta.sku or oferta.url
+                if chave not in unicas or oferta.origem_mais_vendidos:
+                    unicas[chave] = oferta
+            ofertas = list(unicas.values())
         logger.info(f"[Shopee] {len(ofertas)} ofertas capturadas.")
         return ofertas
 

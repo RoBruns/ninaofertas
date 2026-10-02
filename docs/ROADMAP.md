@@ -1,5 +1,19 @@
 # Roadmap de implementação
 
+## Produtos em alta — 2026-10-02
+
+Implementado em `feat/produtos-em-alta`: origem de produtos por bot (`novidades`,
+`mais_vendidos`, `ambos`), Shopee por vendas e ranking público do ML por categoria,
+mínimo de vendas e exigência de desconto para mais vendidos, score por loja e controles
+no dashboard. Padrão anterior preservado; freio, deduplicação e reenvio sem mudanças.
+OpenAPI/tipos regenerados, parser coberto por amostra real e consultas testadas sem rede.
+Sem ADR (a cargo do Claude), commit, push ou deploy; comparação real no bot de teste pendente.
+
+Validação final no Postgres local `ninaofertas_test`: `214 passed, 130 warnings in 56.65s`;
+Ruff `All checks passed!`; dashboard lint com exit code 0, `Test Files 17 passed (17)`,
+`Tests 59 passed (59)` e build `✓ built in 384ms`. Warnings de depreciação das dependências;
+pytest com basetemp/cache no workspace por restrição de acesso ao TEMP padrão.
+
 14 fases. Cada uma é uma tarefa fechada para o Codex, com critério objetivo de
 conclusão. Nenhuma fase pode deixar o bot fora do ar.
 

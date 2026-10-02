@@ -29,6 +29,7 @@ from worker.channels import (
 )
 from worker.filters import passa_nos_filtros
 from worker.logger import logger
+from worker.ranking import pontuar
 from worker.sources import FONTES
 
 _baseline_ciclos_feitos: dict[str, int] = {}
@@ -63,10 +64,29 @@ def _intercalar_lojas(ofertas: list[OfertaCapturada], prioridade: str) -> list[O
 
 
 def _ordenar_envio(
-    ofertas: list[OfertaCapturada], n: int, prioridade: str
+    ofertas: list[OfertaCapturada], n: int, prioridade: str, origem_produtos: str = "novidades"
 ) -> list[OfertaCapturada]:
     cupons = [o for o in ofertas if (o.categoria or "").lower() == "cupom"]
     produtos = [o for o in ofertas if (o.categoria or "").lower() != "cupom"]
+    if origem_produtos != "novidades":
+        # Ordena só os produtos, preservando as posições das campanhas na fila de cada loja.
+        categorias_conteudo = {"campanha", "promocao", "promoção"}
+        filas = {
+            loja: iter(
+                sorted(
+                    [
+                        o for o in produtos
+                        if o.loja == loja and (o.categoria or "").lower() not in categorias_conteudo
+                    ],
+                    key=pontuar, reverse=True,
+                )
+            )
+            for loja in {o.loja for o in produtos}
+        }
+        produtos = [
+            o if (o.categoria or "").lower() in categorias_conteudo else next(filas[o.loja])
+            for o in produtos
+        ]
     produtos = _intercalar_lojas(produtos, prioridade)
     if n % 4 == 0 and cupons:
         return cupons[:1] + produtos + cupons[1:]
@@ -381,7 +401,17 @@ def _executar_ciclo() -> tuple[int, int, bool]:
         todas_ofertas = [oferta for oferta in todas_ofertas if oferta.loja == loja_do_ciclo]
         prioridade = loja_do_ciclo
         logger.info(f"[{nome_canal()}] Uma loja por ciclo: {loja_do_ciclo}.")
-    todas_ofertas = _ordenar_envio(todas_ofertas, n, prioridade)
+    origem_produtos = filtros.get("origem_produtos", "novidades")
+    if origem_produtos != "novidades":
+        for loja in sorted({o.loja for o in todas_ofertas}):
+            candidatos = [o for o in todas_ofertas if o.loja == loja and o.origem_mais_vendidos]
+            melhores = sorted(candidatos, key=pontuar, reverse=True)[:3]
+            resumo = "; ".join(f"{o.nome[:40]} ({pontuar(o):.3f})" for o in melhores)
+            logger.info(
+                f"[{nome_canal()}] Mais vendidos {loja}: "
+                f"{len(candidatos)} candidatos; top 3: {resumo}"
+            )
+    todas_ofertas = _ordenar_envio(todas_ofertas, n, prioridade, origem_produtos)
 
     logger.info(f"[{nome_canal()}] {len(todas_ofertas)} ofertas encontradas na varredura.")
 
