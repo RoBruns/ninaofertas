@@ -33,7 +33,7 @@ def bot_esta_ativo(bot_id: UUID) -> bool:
     """Falha aberta para nao derrubar um ciclo quando o banco oscilar."""
     try:
         with db.get_session() as session:
-            status = session.scalar(select(Bot.status).where(Bot.id == bot_id))
+            status = session.scalar(select(Bot.status).where(Bot.id == bot_id, Bot.archived_at.is_(None)))
         return status == "active"
     except Exception as exc:
         logger.debug(f"Nao foi possivel confirmar status do bot {bot_id}: {exc}")
@@ -110,6 +110,8 @@ def _executar(session, command: Command) -> str:
         bot = session.get(Bot, command.bot_id)
         if bot is None:
             raise ValueError("Bot nao encontrado")
+        if bot.archived_at is not None:
+            raise ValueError("Bot arquivado não pode mudar de status")
         bot.status = "paused" if command.type == "pause" else "active"
         invalidar_cache()
         return bot.status

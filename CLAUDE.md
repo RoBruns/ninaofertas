@@ -47,9 +47,11 @@ codex exec -m gpt-6.1-sol --sandbox workspace-write -c sandbox_workspace_write.n
   revalida o cookie (mesmo botão "Testar" do dashboard).
 - **Mudança em configuração de bot, dados ou infraestrutura de produção:** confirme
   com o dono antes, a não ser que ele tenha pedido exatamente aquilo.
-- **Push para o GitHub:** é o dono quem faz. Deixe o commit pronto e passe o comando
-  exato. O branch local é o `master`, que acompanha `producao/master`, então o comando
-  é `git push producao master`.
+- **Push para o GitHub:** liberado desde 2026-10-02 (regras `git push producao` no
+  `.claude/settings.local.json` de `nina/`). Branches de funcionalidade (`feat/*`) podem
+  ser enviadas livremente: nenhum serviço da Railway as publica. **Push no `master`
+  publica em produção** (`nina-api`, `nina-worker`, `nina-dashboard`): confirme com o
+  dono antes de cada um.
 
 ## Com o dono
 

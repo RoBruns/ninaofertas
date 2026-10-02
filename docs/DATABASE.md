@@ -171,7 +171,10 @@ bots (
   niche_id      INT  REFERENCES niches(id),
   phone_id      UUID REFERENCES phones(id), -- MESMO telefone pode servir vários bots
   status        TEXT NOT NULL DEFAULT 'paused',  -- active | paused | disabled
-  settings      JSONB NOT NULL DEFAULT '{}',     -- o antigo config.json inteiro
+  is_test       BOOLEAN NOT NULL DEFAULT false,
+  archived_at   TIMESTAMPTZ,
+  test_source_bot_id UUID REFERENCES bots(id) ON DELETE SET NULL,
+  settings      JSONB NOT NULL DEFAULT '{}',     -- contrato BotSettings
   message_template TEXT,
   last_run_at      TIMESTAMPTZ,
   last_success_at  TIMESTAMPTZ,
@@ -223,6 +226,28 @@ bot_platform_accounts (
 isso é só um `logger.error` na partida.
 
 ---
+
+### Histórico de configuração (migration 0006)
+
+```sql
+bot_config_backups (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  owner_id UUID NOT NULL REFERENCES users(id),
+  bot_id UUID NOT NULL REFERENCES bots(id) ON DELETE CASCADE,
+  settings JSONB NOT NULL,
+  message_template TEXT,
+  reason TEXT NOT NULL, -- import_from_test | restore
+  source_bot_id UUID REFERENCES bots(id) ON DELETE SET NULL,
+  created_by UUID REFERENCES users(id),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+)
+-- índice ix_bot_config_backups_bot_created (bot_id, created_at DESC)
+```
+
+Arquivamento preserva `bots.id` e referências de envios, clicks e sales;
+marca `status='disabled'` e `archived_at`. Backups guardam a configuração inteira
+anterior, inclusive attribution; sua aplicação preserva attribution atual do destino.
+A migration 0006 sucede 0005 e reverte tabela e três colunas no downgrade.
 
 ## Campanhas, gastos e receita
 

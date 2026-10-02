@@ -437,3 +437,25 @@ Se for preciso parar antes do fim, o ponto de corte com mais valor entregue é
 **a fase 6**: a partir dela a operação já é administrável sem SSH, que é o
 critério principal do projeto. Fases 7–13 agregam medição; 1–5 sozinhas não
 mudam o dia a dia.
+
+
+## Bots de teste — 2026-10-02
+
+Implementado na branch `feat/bot-de-teste`: migration 0006, criação com origem opcional,
+importação transacional com backup e arquivamento, restauração com backup, auditoria,
+filtros de listagem e dashboard com diferenças/confirmação e aviso de grupos reais.
+Worker separa intervalo, rajada e tetos globais de produção/teste, mantendo freio por
+grupo e deduplicação. Testes cumprem seus ciclos de baseline mesmo em grupos com
+envios prévios da produção. Configuração recarregada pelo TTL de 30 segundos sem reinício.
+Métricas de envios/cliques/vendas excluem testes por padrão, incluindo-os quando
+`bot_id` é explícito. Despesas, campanhas e entradas em grupos mantêm os cálculos atuais.
+ADR-023 será escrito pelo dono; nenhum commit, push ou deploy nesta tarefa.
+
+Validação final (Postgres local `ninaofertas_test`): backend `189 passed, 127 warnings in
+62.93s (0:01:02)`; Ruff `All checks passed!`; dashboard lint com exit code 0,
+`Test Files 17 passed (17)` e `Tests 58 passed (58)`, build `✓ built in 389ms`.
+OpenAPI e tipos TypeScript regenerados; testes cobrem migration upgrade/downgrade,
+baseline em grupos existentes, freio e diferenças de configuração no componente.
+O pytest usou basetemp/cache dentro do workspace por falta de acesso ao TEMP padrão
+da sandbox. Warnings restantes são de depreciação de dependências. Sem publicação
+real em WhatsApp nem deploy.

@@ -1,13 +1,14 @@
 """Queries sobre ofertas e envios."""
+
 from __future__ import annotations
 
 from datetime import datetime, timedelta
 from uuid import UUID
 
-from sqlalchemy import func
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
-from core.models import Envio, Oferta
+from core.models import Bot, Envio, Oferta
 from core import relogio
 
 
@@ -18,10 +19,7 @@ def upsert_oferta(session: Session, dados: dict) -> Oferta:
     loja = dados.get("loja")
     if sku:
         oferta = (
-            session.query(Oferta)
-            .filter_by(sku=sku, loja=loja)
-            .order_by(Oferta.id.desc())
-            .first()
+            session.query(Oferta).filter_by(sku=sku, loja=loja).order_by(Oferta.id.desc()).first()
         )
     if oferta is None:
         oferta = session.query(Oferta).filter_by(url=dados["url"]).one_or_none()
@@ -124,7 +122,27 @@ def grupo_ja_enviou(session: Session, grupo: str | None = None) -> bool:
     return q.first() is not None
 
 
-def contar_envios_desde(session: Session, desde: datetime, grupo: str | None = None) -> int:
+def _escopo_envios(q, escopo_bot_id: UUID | None, excluir_bots_teste: bool):
+    if escopo_bot_id is not None:
+        q = q.filter(Envio.bot_id == escopo_bot_id)
+    if excluir_bots_teste:
+        q = q.filter(
+            or_(
+                Envio.bot_id.is_(None),
+                Envio.bot_id.not_in(select(Bot.id).where(Bot.is_test.is_(True))),
+            )
+        )
+    return q
+
+
+def contar_envios_desde(
+    session: Session,
+    desde: datetime,
+    grupo: str | None = None,
+    *,
+    escopo_bot_id: UUID | None = None,
+    excluir_bots_teste: bool = False,
+) -> int:
     # Na conta, uma oferta disparada para varios grupos consome um unico slot
     # do freio anti-ban. Por grupo continua sendo uma linha por oferta.
     count_column = Envio.id if grupo else Envio.oferta_id.distinct()
@@ -133,7 +151,7 @@ def contar_envios_desde(session: Session, desde: datetime, grupo: str | None = N
     )
     if grupo:
         q = q.filter(Envio.grupo == grupo)
-    return q.scalar() or 0
+    return _escopo_envios(q, escopo_bot_id, excluir_bots_teste).scalar() or 0
 
 
 def ordenar_grupos_por_ultimo_envio(session: Session, grupos: tuple[str, ...]) -> tuple[str, ...]:
@@ -150,7 +168,11 @@ def ordenar_grupos_por_ultimo_envio(session: Session, grupos: tuple[str, ...]) -
         .group_by(Envio.grupo)
         .all()
     )
-    return tuple(sorted(grupos, key=lambda grupo: (ultimos.get(grupo) is not None, ultimos.get(grupo), grupo)))
+    return tuple(
+        sorted(
+            grupos, key=lambda grupo: (ultimos.get(grupo) is not None, ultimos.get(grupo), grupo)
+        )
+    )
 
 
 def contar_envios_ultima_hora(session: Session, grupo: str | None = None) -> int:
@@ -170,12 +192,22 @@ def _minutos_desde(quando: datetime | None) -> float | None:
     return (agora - quando).total_seconds() / 60.0
 
 
-def minutos_desde_ultimo_envio(session: Session, grupo: str | None = None) -> float | None:
+def minutos_desde_ultimo_envio(
+    session: Session,
+    grupo: str | None = None,
+    *,
+    escopo_bot_id: UUID | None = None,
+    excluir_bots_teste: bool = False,
+) -> float | None:
     """Minutos desde o último envio com sucesso. None se nunca enviou."""
     q = session.query(Envio.enviado_em).filter(Envio.status == "sucesso")
     if grupo:
         q = q.filter(Envio.grupo == grupo)
-    ultimo = q.order_by(Envio.enviado_em.desc()).first()
+    ultimo = (
+        _escopo_envios(q, escopo_bot_id, excluir_bots_teste)
+        .order_by(Envio.enviado_em.desc())
+        .first()
+    )
     if not ultimo or not ultimo[0]:
         return None
     return _minutos_desde(ultimo[0])
@@ -197,9 +229,7 @@ def contar_cupons_hoje(session: Session, grupo: str | None = None) -> int:
     return q.scalar() or 0
 
 
-def minutos_desde_ultimo_sku(
-    session: Session, sku: str, grupo: str | None = None
-) -> float | None:
+def minutos_desde_ultimo_sku(session: Session, sku: str, grupo: str | None = None) -> float | None:
     q = (
         session.query(Envio.enviado_em)
         .join(Oferta, Oferta.id == Envio.oferta_id)

@@ -4946,6 +4946,32 @@
     ],
     "parameters": [
      {
+      "name": "include_archived",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "type": "boolean",
+       "default": false,
+       "title": "Include Archived"
+      }
+     },
+     {
+      "name": "is_test",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "boolean"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Is Test"
+      }
+     },
+     {
       "name": "status",
       "in": "query",
       "required": false,
@@ -5134,6 +5160,587 @@
     },
     "responses": {
      "201": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/BotResponse"
+        }
+       }
+      }
+     },
+     "401": {
+      "description": "Não autenticado",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "403": {
+      "description": "Sem permissão",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "404": {
+      "description": "Não encontrado",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "409": {
+      "description": "Conflito (ex.: entidade em uso)",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Dados inválidos",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "429": {
+      "description": "Limite de requisições",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "500": {
+      "description": "Erro interno",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/bots/test": {
+   "post": {
+    "tags": [
+     "bots"
+    ],
+    "summary": "Create Test Bot",
+    "operationId": "create_test_bot_api_bots_test_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/BotTestCreate"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "201": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/BotResponse"
+        }
+       }
+      }
+     },
+     "401": {
+      "description": "Não autenticado",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "403": {
+      "description": "Sem permissão",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "404": {
+      "description": "Não encontrado",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "409": {
+      "description": "Conflito (ex.: entidade em uso)",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Dados inválidos",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "429": {
+      "description": "Limite de requisições",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "500": {
+      "description": "Erro interno",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     }
+    },
+    "security": [
+     {
+      "HTTPBearer": []
+     }
+    ]
+   }
+  },
+  "/api/bots/{test_bot_id}/import-config": {
+   "post": {
+    "tags": [
+     "bots"
+    ],
+    "summary": "Import Config",
+    "operationId": "import_config_api_bots__test_bot_id__import_config_post",
+    "security": [
+     {
+      "HTTPBearer": []
+     }
+    ],
+    "parameters": [
+     {
+      "name": "test_bot_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "format": "uuid",
+       "title": "Test Bot Id"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/BotConfigImport"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/BotResponse"
+        }
+       }
+      }
+     },
+     "401": {
+      "description": "Não autenticado",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "403": {
+      "description": "Sem permissão",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "404": {
+      "description": "Não encontrado",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "409": {
+      "description": "Conflito (ex.: entidade em uso)",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Dados inválidos",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "429": {
+      "description": "Limite de requisições",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "500": {
+      "description": "Erro interno",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/bots/{bot_id}/archive": {
+   "post": {
+    "tags": [
+     "bots"
+    ],
+    "summary": "Archive Test",
+    "operationId": "archive_test_api_bots__bot_id__archive_post",
+    "security": [
+     {
+      "HTTPBearer": []
+     }
+    ],
+    "parameters": [
+     {
+      "name": "bot_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "format": "uuid",
+       "title": "Bot Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/BotResponse"
+        }
+       }
+      }
+     },
+     "401": {
+      "description": "Não autenticado",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "403": {
+      "description": "Sem permissão",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "404": {
+      "description": "Não encontrado",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "409": {
+      "description": "Conflito (ex.: entidade em uso)",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Dados inválidos",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "429": {
+      "description": "Limite de requisições",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "500": {
+      "description": "Erro interno",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/bots/{bot_id}/config-backups": {
+   "get": {
+    "tags": [
+     "bots"
+    ],
+    "summary": "Config Backups",
+    "operationId": "config_backups_api_bots__bot_id__config_backups_get",
+    "security": [
+     {
+      "HTTPBearer": []
+     }
+    ],
+    "parameters": [
+     {
+      "name": "bot_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "format": "uuid",
+       "title": "Bot Id"
+      }
+     },
+     {
+      "name": "page",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "type": "integer",
+       "minimum": 1,
+       "default": 1,
+       "title": "Page"
+      }
+     },
+     {
+      "name": "page_size",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "type": "integer",
+       "maximum": 200,
+       "minimum": 1,
+       "default": 50,
+       "title": "Page Size"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/PaginatedResponse_BotConfigBackupResponse_"
+        }
+       }
+      }
+     },
+     "401": {
+      "description": "Não autenticado",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "403": {
+      "description": "Sem permissão",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "404": {
+      "description": "Não encontrado",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "409": {
+      "description": "Conflito (ex.: entidade em uso)",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Dados inválidos",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "429": {
+      "description": "Limite de requisições",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "500": {
+      "description": "Erro interno",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/bots/{bot_id}/config-backups/{backup_id}/restore": {
+   "post": {
+    "tags": [
+     "bots"
+    ],
+    "summary": "Restore Config",
+    "operationId": "restore_config_api_bots__bot_id__config_backups__backup_id__restore_post",
+    "security": [
+     {
+      "HTTPBearer": []
+     }
+    ],
+    "parameters": [
+     {
+      "name": "bot_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "format": "uuid",
+       "title": "Bot Id"
+      }
+     },
+     {
+      "name": "backup_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "format": "uuid",
+       "title": "Backup Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
       "description": "Successful Response",
       "content": {
        "application/json": {
@@ -11700,6 +12307,87 @@
     ],
     "title": "BotAccountsUpdate"
    },
+   "BotConfigBackupResponse": {
+    "properties": {
+     "id": {
+      "type": "string",
+      "format": "uuid",
+      "title": "Id"
+     },
+     "reason": {
+      "type": "string",
+      "enum": [
+       "import_from_test",
+       "restore"
+      ],
+      "title": "Reason"
+     },
+     "source_bot_id": {
+      "anyOf": [
+       {
+        "type": "string",
+        "format": "uuid"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Source Bot Id"
+     },
+     "source_bot_name": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Source Bot Name"
+     },
+     "created_at": {
+      "type": "string",
+      "format": "date-time",
+      "title": "Created At"
+     },
+     "created_by": {
+      "anyOf": [
+       {
+        "type": "string",
+        "format": "uuid"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Created By"
+     }
+    },
+    "type": "object",
+    "required": [
+     "id",
+     "reason",
+     "source_bot_id",
+     "source_bot_name",
+     "created_at",
+     "created_by"
+    ],
+    "title": "BotConfigBackupResponse"
+   },
+   "BotConfigImport": {
+    "properties": {
+     "target_bot_id": {
+      "type": "string",
+      "format": "uuid",
+      "title": "Target Bot Id"
+     }
+    },
+    "type": "object",
+    "required": [
+     "target_bot_id"
+    ],
+    "title": "BotConfigImport"
+   },
    "BotCreate": {
     "properties": {
      "name": {
@@ -11861,6 +12549,34 @@
    },
    "BotResponse": {
     "properties": {
+     "is_test": {
+      "type": "boolean",
+      "title": "Is Test"
+     },
+     "archived_at": {
+      "anyOf": [
+       {
+        "type": "string",
+        "format": "date-time"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Archived At"
+     },
+     "test_source_bot_id": {
+      "anyOf": [
+       {
+        "type": "string",
+        "format": "uuid"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Test Source Bot Id"
+     },
      "id": {
       "type": "string",
       "format": "uuid",
@@ -11973,6 +12689,9 @@
     },
     "type": "object",
     "required": [
+     "is_test",
+     "archived_at",
+     "test_source_bot_id",
      "id",
      "name",
      "slug",
@@ -12080,6 +12799,92 @@
      "last_failure_at"
     ],
     "title": "BotSystemStatus"
+   },
+   "BotTestCreate": {
+    "properties": {
+     "name": {
+      "type": "string",
+      "maxLength": 200,
+      "minLength": 1,
+      "title": "Name"
+     },
+     "slug": {
+      "anyOf": [
+       {
+        "type": "string",
+        "maxLength": 100,
+        "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Slug"
+     },
+     "source_bot_id": {
+      "anyOf": [
+       {
+        "type": "string",
+        "format": "uuid"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Source Bot Id"
+     },
+     "phone_id": {
+      "anyOf": [
+       {
+        "type": "string",
+        "format": "uuid"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Phone Id"
+     },
+     "group_ids": {
+      "items": {
+       "type": "string",
+       "format": "uuid"
+      },
+      "type": "array",
+      "title": "Group Ids"
+     },
+     "account_ids": {
+      "anyOf": [
+       {
+        "items": {
+         "type": "string",
+         "format": "uuid"
+        },
+        "type": "array"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Account Ids"
+     },
+     "niche_id": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Niche Id"
+     }
+    },
+    "type": "object",
+    "required": [
+     "name"
+    ],
+    "title": "BotTestCreate"
    },
    "BotUpdate": {
     "properties": {
@@ -14670,6 +15475,37 @@
      "page_size"
     ],
     "title": "PaginatedResponse[AutomationRunResponse]"
+   },
+   "PaginatedResponse_BotConfigBackupResponse_": {
+    "properties": {
+     "items": {
+      "items": {
+       "$ref": "#/components/schemas/BotConfigBackupResponse"
+      },
+      "type": "array",
+      "title": "Items"
+     },
+     "total": {
+      "type": "integer",
+      "title": "Total"
+     },
+     "page": {
+      "type": "integer",
+      "title": "Page"
+     },
+     "page_size": {
+      "type": "integer",
+      "title": "Page Size"
+     }
+    },
+    "type": "object",
+    "required": [
+     "items",
+     "total",
+     "page",
+     "page_size"
+    ],
+    "title": "PaginatedResponse[BotConfigBackupResponse]"
    },
    "PaginatedResponse_BotResponse_": {
     "properties": {

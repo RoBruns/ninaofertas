@@ -31,6 +31,7 @@ class BotRuntime:
     group_ids: tuple[str, ...]
     settings: BotSettings
     account_ids: tuple[UUID, ...]
+    is_test: bool = False
 
 
 _cache: list[BotRuntime] | None = None
@@ -113,9 +114,7 @@ def _registrar_config_invalida(bot: Bot, exc: ValidationError) -> None:
                     level="error",
                     type="config_invalid",
                     message=f"Configuração inválida no bot {bot.slug}",
-                    detail={
-                        "errors": json.loads(exc.json(include_url=False, include_input=False))
-                    },
+                    detail={"errors": json.loads(exc.json(include_url=False, include_input=False))},
                 )
             )
     except Exception as event_exc:
@@ -151,7 +150,7 @@ def _carregar() -> list[BotRuntime]:
             select(Bot, Niche.slug, Phone.number, Phone.evolution_instance)
             .outerjoin(Niche, Niche.id == Bot.niche_id)
             .outerjoin(Phone, Phone.id == Bot.phone_id)
-            .where(Bot.status == "active")
+            .where(Bot.status == "active", Bot.archived_at.is_(None))
             .order_by(Bot.slug)
         ).all()
         for bot, niche_slug, phone_number, evolution_instance in rows:
@@ -196,6 +195,7 @@ def _carregar() -> list[BotRuntime]:
             runtimes.append(
                 BotRuntime(
                     id=bot.id,
+                    is_test=bot.is_test,
                     slug=bot.slug,
                     nome=bot.name,
                     niche_slug=niche_slug,

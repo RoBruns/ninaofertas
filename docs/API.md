@@ -142,7 +142,7 @@ de não membro: 422; Evolution indisponível: 503. O cadastro é auditado como o
 ## Bots
 
 ```
-GET    /api/bots?status=&niche_id=&phone_id=  → [Bot]
+GET    /api/bots?status=&niche_id=&phone_id=&include_archived=false&is_test=  → [Bot]
 POST   /api/bots                              → Bot
 GET    /api/bots/{id}                         → Bot
 PATCH  /api/bots/{id}
@@ -195,6 +195,30 @@ oferece uma operação para criá-la nem para validar sua existência.
 disso responde `422` com aviso explícito de risco de ban. Esses freios são o que
 protege o número do WhatsApp — o dashboard não pode ser o caminho fácil para
 desarmá-los por engano.
+
+### Bots de teste e configuração
+
+`BotResponse` inclui `is_test`, `archived_at` e `test_source_bot_id`. A listagem
+omite arquivados; `include_archived=true` os inclui e `is_test` filtra o tipo.
+
+- `POST /api/bots/test` (admin): `{name, slug?, source_bot_id?, phone_id?, group_ids: [], account_ids?, niche_id?}`.
+  Cria pausado; herda configuração/template e, se omitidos, nicho/contas da origem.
+  `attribution` é sempre padrão. Slug omitido é derivado do nome e único.
+- `POST /api/bots/{test_bot_id}/import-config` (admin): `{target_bot_id}`. Retorna o destino.
+  Guarda backup, substitui settings/template e arquiva o teste na mesma transação.
+  Preserva attribution, identidade, status e vínculos do destino. Só aceita origem de teste,
+  destino de produção e bots não arquivados; conflitos retornam 409 `CONFLICT`.
+- `POST /api/bots/{id}/archive` (admin): descarta teste sem excluir seu histórico.
+- `GET /api/bots/{id}/config-backups?page=1&page_size=50`: resposta paginada, mais recentes primeiro;
+  itens com `id, reason, source_bot_id, source_bot_name, created_at, created_by`.
+- `POST /api/bots/{id}/config-backups/{backup_id}/restore` (admin): retorna o bot;
+  guarda a configuração substituída com motivo `restore`, restaura settings/template
+  preservando attribution atual. Auditoria `restore_config`.
+
+Escritas seguem `limit_authenticated_write`. Auditorias: `create_test`, `import_config`,
+`archive` e `restore_config`. Arquivados não podem ser ativados (inclusive PATCH),
+duplicados, usados como origem/destino nem executar `run-now`. DELETE de teste é recusado:
+use archive. Duplicação mantém `is_test`. O worker relê o banco após TTL de 30 segundos.
 
 ## Métricas
 

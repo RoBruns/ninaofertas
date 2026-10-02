@@ -164,12 +164,37 @@ class Bot(Base):
     niche_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("niches.id"))
     phone_id: Mapped[PythonUUID | None] = mapped_column(UUID_TYPE, ForeignKey("phones.id"))
     status: Mapped[str] = mapped_column(Text, server_default=text("'paused'"))
+    is_test: Mapped[bool] = mapped_column(Boolean, server_default=text("false"), default=False)
+    archived_at: Mapped[datetime | None] = mapped_column(TIMESTAMPTZ)
+    test_source_bot_id: Mapped[PythonUUID | None] = mapped_column(
+        UUID_TYPE, ForeignKey("bots.id", ondelete="SET NULL")
+    )
     settings: Mapped[dict[str, Any]] = mapped_column(JSON_TYPE, server_default=text("'{}'::jsonb"))
     message_template: Mapped[str | None] = mapped_column(Text)
     last_run_at: Mapped[datetime | None] = mapped_column(TIMESTAMPTZ)
     last_success_at: Mapped[datetime | None] = mapped_column(TIMESTAMPTZ)
     created_at: Mapped[datetime] = mapped_column(TIMESTAMPTZ, server_default=text("now()"))
     updated_at: Mapped[datetime] = mapped_column(TIMESTAMPTZ, server_default=text("now()"))
+
+
+class BotConfigBackup(Base):
+    __tablename__ = "bot_config_backups"
+    __table_args__ = (
+        Index("ix_bot_config_backups_bot_created", "bot_id", text("created_at DESC")),
+    )
+    id: Mapped[PythonUUID] = mapped_column(
+        UUID_TYPE, primary_key=True, server_default=text("gen_random_uuid()")
+    )
+    owner_id: Mapped[PythonUUID] = mapped_column(UUID_TYPE, ForeignKey("users.id"))
+    bot_id: Mapped[PythonUUID] = mapped_column(UUID_TYPE, ForeignKey("bots.id", ondelete="CASCADE"))
+    settings: Mapped[dict[str, Any]] = mapped_column(JSON_TYPE)
+    message_template: Mapped[str | None] = mapped_column(Text)
+    reason: Mapped[str] = mapped_column(Text)
+    source_bot_id: Mapped[PythonUUID | None] = mapped_column(
+        UUID_TYPE, ForeignKey("bots.id", ondelete="SET NULL")
+    )
+    created_by: Mapped[PythonUUID | None] = mapped_column(UUID_TYPE, ForeignKey("users.id"))
+    created_at: Mapped[datetime] = mapped_column(TIMESTAMPTZ, server_default=text("now()"))
 
 
 class Group(Base):

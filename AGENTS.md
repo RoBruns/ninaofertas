@@ -70,7 +70,7 @@ nina-worker (APScheduler) ──────────────── nina-
 | `worker/dedup.py`, `worker/commands.py`, `worker/telemetry.py`, `worker/whatsapp.py` | dedup por grupo, comandos do dashboard, runs/eventos, Evolution |
 | `core/platforms/` | scrapers Shopee/ML, `affiliate.py` (links de afiliado, `link_rastreado`) |
 | `core/sales_sync.py`, `core/importers/` | importação de vendas (Shopee: API `conversionReport`; ML: JSON do painel `/afiliados/dashboard`) |
-| `core/models.py`, `core/repositories.py`, `migrations/` | modelo de dados e consultas (Alembic 0001–0005) |
+| `core/models.py`, `core/repositories.py`, `migrations/` | modelo de dados e consultas (Alembic 0001–0006) |
 | `core/credentials.py`, `core/crypto.py` | segredos cifrados (`CREDENTIALS_KEY`), status de credencial |
 | `core/relogio.py` | hora de Brasília independente do fuso do container; silêncio noturno |
 | `core/alerts.py`, `core/metrics.py` | detectores de alerta, métricas (ROI, ROAS, lucro) |
@@ -128,6 +128,12 @@ nina-worker (APScheduler) ──────────────── nina-
 - **Freio anti-ban** conta **1 por oferta**, mesmo que ela vá para vários grupos
   (ADR-021): intervalo entre ofertas, rajada, teto por hora/dia, tetos globais.
   `max_ofertas_por_dia = 0` desliga só o teto diário (ADR-018).
+- **Bots de teste**: `is_test=true`; configuração copiável é settings + template,
+  sempre preservando attribution própria. Importação guarda backup e arquiva o teste
+  (`disabled`, `archived_at`), sem apagar histórico. Os controles globais do freio
+  contam produção (incluindo bot_id NULL) ou só o próprio teste; os controles por
+  grupo e a deduplicação continuam compartilhados. Métricas de envios/cliques/vendas
+  omitem testes salvo filtro explícito por bot_id. ADR-023 a cargo do dono.
 - **Nunca envia oferta sem link de afiliado** (`affiliate.link_rastreado`). ML: link
   `meli.la` via createLink com cookie da conta + etiqueta do bot (`attribution.ml_tag`).
   Shopee: shortLink com subIds de bot e grupo.

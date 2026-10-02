@@ -13,7 +13,7 @@ import { Bots } from './Bots'
 import { PhonesGroups } from './PhonesGroups'
 
 const admin: User = { id: 'user-1', email: 'admin@nina.test', name: 'Admin', role: 'admin', is_active: true, last_login_at: null, created_at: '2026-09-23T10:00:00Z' }
-const bot: Bot = {
+const bot: Bot = { is_test: false, archived_at: null, test_source_bot_id: null,
   id: 'bot-1', name: 'Bot Casa', slug: 'bot-casa', niche_id: null, phone_id: 'phone-1', status: 'paused', group_ids: ['group-1'], account_ids: [], message_template: null,
   settings: { schema_version: 1, filters: { preco_minimo: 20, preco_maximo: 5000, desconto_minimo: 15, max_vendas: 20, max_idade_oferta_horas: 0, uma_loja_por_ciclo: false, ml_ignora_desconto_e_vendas: false, ml_categoria_dispensa_nicho: false }, pacing: { max_ofertas_por_ciclo: 1, intervalo_minutos_entre_ofertas: 5, max_ofertas_por_rajada: 3, janela_rajada_minutos: 15, pausa_entre_rajadas_minutos: 35, max_ofertas_por_hora: 6, max_ofertas_por_dia: 80, max_ofertas_globais_por_hora: 8, max_ofertas_globais_por_dia: 90 }, content: { aceitar_cupons: true, aceitar_campanhas: false, max_cupons_por_dia: 2, baseline_ciclos: 5 }, schedule: { check_interval: 60, quiet_hours: { start: '23:00', end: '07:00' } } },
   last_run_at: null, last_success_at: null, created_at: '2026-09-23T10:00:00Z', updated_at: '2026-09-23T10:00:00Z',
@@ -105,6 +105,7 @@ it('mantém o erro 422 de risco de ban junto ao campo de ritmo', async () => {
     if (path === '/api/phones') return json({ items: [phone], total: 1, page: 1, page_size: 100 })
     if (path === '/api/groups') return json({ items: [group], total: 1, page: 1, page_size: 200 })
     if (path === '/api/accounts') return json({ items: [], total: 0, page: 1, page_size: 200 })
+    if (path.endsWith('/config-backups')) return json({ items: [], total: 0, page: 1, page_size: 200 })
     if (path.endsWith('/runs')) return json({ items: [], total: 0, page: 1, page_size: 25 })
     return json({ status: 'ok', message: 'Funcionando', last_run_status: null, last_run_at: null, credential_issues: [], group_issues: [] })
   }))

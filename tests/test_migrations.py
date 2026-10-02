@@ -212,3 +212,23 @@ def test_revisions_legado_seed_e_preservacao(
     assert [column["name"] for column in inspect(engine).get_columns("ofertas")] == ORIGINAL_OFERTAS
     assert [column["name"] for column in inspect(engine).get_columns("envios")] == ORIGINAL_ENVIOS
     command.downgrade(config, "base")
+
+
+def test_0006_test_bots_upgrade_downgrade(postgres_schema) -> None:
+    _, engine = postgres_schema
+    config = _config()
+    command.upgrade(config, "0005")
+    before = {column["name"] for column in inspect(engine).get_columns("bots")}
+    command.upgrade(config, "0006")
+    assert {column["name"] for column in inspect(engine).get_columns("bots")} == before | {
+        "is_test", "archived_at", "test_source_bot_id"
+    }
+    assert "bot_config_backups" in inspect(engine).get_table_names()
+    with engine.connect() as connection:
+        connection.execute(text("INSERT INTO users (email, password_hash, name) VALUES ('migration@test.com', 'x', 'Teste')"))
+        connection.execute(text("INSERT INTO bots (owner_id, name, slug) SELECT id, 'Bot', 'bot' FROM users"))
+        assert connection.execute(text("SELECT is_test, archived_at FROM bots")).one() == (False, None)
+        connection.commit()
+    command.downgrade(config, "0005")
+    assert {column["name"] for column in inspect(engine).get_columns("bots")} == before
+    assert "bot_config_backups" not in inspect(engine).get_table_names()

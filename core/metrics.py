@@ -201,6 +201,13 @@ def _sales_conditions(owner_id: UUID, filters: MetricFilters) -> tuple[list[Any]
         Sale.ordered_at >= filters.start_utc,
         Sale.ordered_at < filters.end_utc,
     ]
+    if filters.bot_id is None:
+        conditions.append(
+            or_(
+                Sale.bot_id.is_(None),
+                Sale.bot_id.not_in(select(Bot.id).where(Bot.is_test.is_(True))),
+            )
+        )
     warnings: list[str] = []
     supported = {"bot_id", "platform_id", "account_id", "group_id", "niche_id", "phone_id"}
     _append_ignored(filters, "vendas", supported, warnings)
@@ -275,6 +282,12 @@ def _event_conditions(
         start, end = filters.start_utc, filters.end_utc
     conditions: list[Any] = [timestamp >= start, timestamp < end]
     bot_column = model.bot_id
+    if filters.bot_id is None and model in (Click, Envio):
+        conditions.append(
+            or_(
+                bot_column.is_(None), bot_column.not_in(select(Bot.id).where(Bot.is_test.is_(True)))
+            )
+        )
     group_column = model.group_id
     campaign_column = GroupJoin.campaign_id if model is GroupJoin else None
     ownership = [bot_column.in_(select(Bot.id).where(Bot.owner_id == owner_id))]

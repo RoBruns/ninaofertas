@@ -360,3 +360,24 @@ IDs fixos de grupo. Validação de cupom, link afiliado, cookie da conta e
 bloqueios são comportamentos gerais. Alternância de loja e exceções de filtro do
 Mercado Livre são opções em `settings.filters`, editáveis no dashboard e
 aplicadas ao bot inteiro, inclusive quando ele publica em mais de um grupo.
+
+---
+
+## ADR-023 — Bot de teste fora do freio anti-ban da conta
+**Data:** 2026-10-02 · **Status:** aceita · **Decisor:** usuário
+
+O dashboard passa a ter bots de teste, para validar uma configuração antes de
+importá-la para um bot de produção. Os grupos de teste normalmente não têm
+pessoas, e o dono decidiu que os envios de teste não devem tirar cota da
+produção. Decisão: no freio anti-ban, os controles da conta (intervalo entre
+ofertas, rajada, `max_ofertas_globais_por_hora` e `max_ofertas_globais_por_dia`)
+ignoram envios de bots de teste quando avaliam um bot de produção, e um bot de
+teste é avaliado só contra os próprios envios. Os controles por grupo continuam
+contando todos os envios do grupo.
+
+**Consequência:** um bot de teste no mesmo número soma mensagens ao volume real
+do chip, fora do teto global. O risco fica limitado pelos tetos do próprio bot de
+teste (os mesmos de `core/safety.py`) e pelos tetos por grupo, que continuam
+valendo quando um teste aponta para um grupo de produção. A importação copia
+`settings` e `message_template`, nunca `settings.attribution`, e guarda a
+configuração anterior do destino em `bot_config_backups` para desfazer.

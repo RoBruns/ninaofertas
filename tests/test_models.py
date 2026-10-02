@@ -17,6 +17,7 @@ EXPECTED_TABLES = {
     "phones",
     "niches",
     "bots",
+    "bot_config_backups",
     "groups",
     "bot_groups",
     "bot_platform_accounts",

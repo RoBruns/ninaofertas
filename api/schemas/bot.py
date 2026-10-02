@@ -34,7 +34,33 @@ class BotUpdate(BaseModel):
     status: BotState | None = None
 
 
+class BotTestCreate(BaseModel):
+    name: str = Field(min_length=1, max_length=200)
+    slug: str | None = Field(default=None, pattern=r"^[a-z0-9]+(?:-[a-z0-9]+)*$", max_length=100)
+    source_bot_id: UUID | None = None
+    phone_id: UUID | None = None
+    group_ids: list[UUID] = Field(default_factory=list)
+    account_ids: list[UUID] | None = None
+    niche_id: int | None = None
+
+
+class BotConfigImport(BaseModel):
+    target_bot_id: UUID
+
+
+class BotConfigBackupResponse(BaseModel):
+    id: UUID
+    reason: Literal["import_from_test", "restore"]
+    source_bot_id: UUID | None
+    source_bot_name: str | None
+    created_at: datetime
+    created_by: UUID | None
+
+
 class BotResponse(BaseModel):
+    is_test: bool
+    archived_at: datetime | None
+    test_source_bot_id: UUID | None
     id: UUID
     name: str
     slug: str
