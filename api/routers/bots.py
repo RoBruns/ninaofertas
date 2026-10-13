@@ -867,10 +867,13 @@ def get_health(
         .order_by(AutomationRun.started_at.desc(), AutomationRun.id.desc())
         .limit(1)
     )
+    # Um worker reiniciado no meio do ciclo deixa a execução em "running" para
+    # sempre. Se um ciclo mais novo já terminou, essa execução morreu: não conta.
+    running_conditions = [AutomationRun.bot_id == bot.id, AutomationRun.status == "running"]
+    if latest is not None:
+        running_conditions.append(AutomationRun.started_at > latest.started_at)
     oldest_running = session.scalar(
-        select(func.min(AutomationRun.started_at)).where(
-            AutomationRun.bot_id == bot.id, AutomationRun.status == "running"
-        )
+        select(func.min(AutomationRun.started_at)).where(*running_conditions)
     )
     credential_issues: list[str] = []
     account_ids = _account_ids(session, bot.id)

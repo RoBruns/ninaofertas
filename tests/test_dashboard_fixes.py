@@ -62,6 +62,8 @@ def test_saude_usa_concluida_e_avisa_running_travado(client, session_factory):
     assert response.json()["last_run_status"] == "success"
     assert response.json()["message"] == "Última execução concluída sem alertas"
     with session_factory.begin() as session:
+        concluida = session.scalar(select(AutomationRun).where(AutomationRun.status == "success"))
+        concluida.started_at = now - timedelta(seconds=1000)
         run = session.scalar(select(AutomationRun).where(AutomationRun.status == "running"))
         run.started_at = now - timedelta(seconds=901)
     assert client.get(url, headers=headers).json()["status"] == "warning"
@@ -71,6 +73,22 @@ def test_saude_usa_concluida_e_avisa_running_travado(client, session_factory):
         settings["schedule"]["check_interval"] = 600
         bot.settings = settings
     assert client.get(url, headers=headers).json()["status"] == "ok"
+
+
+def test_saude_ignora_running_orfao_de_worker_reiniciado(client, session_factory):
+    user, headers = authenticate(client, session_factory)
+    bot_id = uuid4()
+    now = datetime.now(timezone.utc)
+    with session_factory.begin() as session:
+        session.add(Bot(id=bot_id, owner_id=user.id, name="Órfão", slug="orfao", status="active", settings=safe_settings()))
+        session.flush()
+        session.add_all([
+            # Worker reiniciado no deploy de semanas atrás: ficou "running" para sempre.
+            AutomationRun(bot_id=bot_id, kind="cycle", status="running", started_at=now - timedelta(days=19)),
+            AutomationRun(bot_id=bot_id, kind="cycle", status="success", started_at=now - timedelta(seconds=60), finished_at=now),
+        ])
+    response = client.get(f"/api/bots/{bot_id}/health", headers=headers)
+    assert response.json()["status"] == "ok", response.json()
 
 
 def test_sync_sem_vendas_registra_historico_e_resolve_alerta(client, session_factory, monkeypatch):
