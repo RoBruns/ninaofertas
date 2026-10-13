@@ -448,3 +448,12 @@ Os dois brutos permanecem no diagnóstico quando a comissão diverge.
 O evento é emitido uma vez por conta/data e a chave do alerta inclui essa data,
 com o índice parcial da ADR-016 garantindo um único alerta ativo. Uma causa
 resolvida dessa mesma data não reabre a cada reimportação.
+
+**Atualização 2026-10-13 — escolha do classificador.** Com os 99 produtos que o
+Nina enviou, marcados em `scripts/dados/produtos_nina_enviados.csv` (29 fora do
+público, 70 dentro; marcação feita pelo Claude a pedido do dono), o Jev no corte
+0,6 acertou 91/99: barrou 27 dos 29 fora do público e 6 do público, quase todos
+chuveiros e torneira, casos de fronteira. O Haiku 5.5 acertou no máximo 86/99
+(corte 0,4) e barra eletrodomésticos e móveis em qualquer corte. Decisão: Jev,
+corte 0,6. `TYPESAFE_API_KEY` está no `nina-worker`; o filtro está ligado no bot
+de teste e o Nina segue sem ele até a importação.
