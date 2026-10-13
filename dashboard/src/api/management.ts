@@ -19,6 +19,7 @@ export const defaultSettings: BotSettings = {
     lojas: [], categorias_meli: [], termos_busca: [], palavras_chave: [],
     bloquear_produtos: [], bloquear_termos: [], excecoes_bloqueio: [],
     origem_produtos: 'novidades', min_vendas: 100,
+    publico_alvo: '', classificador_publico: 'jev', relevancia_minima: 0.6,
     max_vendas: 20, max_idade_oferta_horas: 0,
     uma_loja_por_ciclo: false, ml_ignora_desconto_e_vendas: false,
     ml_categoria_dispensa_nicho: false,

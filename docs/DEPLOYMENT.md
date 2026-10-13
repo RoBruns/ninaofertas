@@ -7,20 +7,21 @@ ambiente `production` · região US East.
 
 | Serviço | Tipo | Público | Papel |
 |---|---|---|---|
-| `ninaofertas` | worker Python | não | O bot |
-| `nina-api` | FastAPI | **sim** | API do dashboard (a criar) |
-| `nina-dashboard` | estático | **sim** | Frontend (a criar) |
+| `nina-worker` | worker Python | não | Bot V2, um único worker |
+| `ninaofertas` | worker Python | não | V1 descontinuada, desligado |
+| `nina-api` | FastAPI | não | API V2 na rede interna |
+| `nina-dashboard` | Caddy + SPA | **sim** | Frontend e proxy `/api` |
 | `evolution-api` | imagem | sim | WhatsApp · volume 4.9 GB |
-| `Postgres` | banco | **não** | Dados. Sem URL pública — manter assim |
+| `nina-db` | Postgres | **não** | Dados. Sem URL pública — manter assim |
 | `Redis` | banco | não | Cache da `evolution-api` (`CACHE_REDIS_URI`, db 6). Adicionado em 2026-09-23; o bot não usa |
 | `rogstools` | — | sim | **Outro projeto. Não tocar.** |
 
 Comandos úteis:
 ```bash
 railway status
-railway logs --service ninaofertas
-railway variables --service ninaofertas
-railway up --service ninaofertas
+railway logs --service nina-worker
+railway variables --service nina-worker
+railway up --service nina-worker
 ```
 
 > O Postgres não tem `DATABASE_PUBLIC_URL` nem TCP proxy — é acessível apenas de
@@ -38,49 +39,42 @@ ssh-keygen -t ed25519 -f ~/.ssh/id_ed25519 -N ""
 railway ssh keys add --key 'C:\Users\<voce>\.ssh\id_ed25519.pub' --name minha-chave
 
 # abre o túnel (não imprime nada; segura o terminal até Ctrl+C):
-railway connect Postgres --tunnel-only --port 55432
+railway connect nina-db --tunnel-only --port 55432
 
 # em outro terminal:
-export PGPASS=$(railway variables --service Postgres --kv | grep '^POSTGRES_PASSWORD=' | cut -d= -f2-)
+export PGPASS=$(railway variables --service nina-db --kv | grep '^POSTGRES_PASSWORD=' | cut -d= -f2-)
 export DATABASE_URL="postgresql://postgres:${PGPASS}@127.0.0.1:55432/railway"
 ```
 
 Dois detalhes que custam tempo: o CLI espera **caminho no formato Windows** em
 `--key`, e `railway connect` passa o nome do serviço como **argumento posicional**
-(`railway connect Postgres`, não `--service Postgres`).
+(`railway connect nina-db`, não `--service nina-db`).
 
 Revogar a chave depois: `railway ssh keys remove`.
 
 ## Variáveis de ambiente
 
-### `ninaofertas` (worker)
+### `nina-worker`
 
-Hoje: `CHECK_INTERVAL` · `DATABASE_URL` · `EVOLUTION_API_URL` ·
-`EVOLUTION_API_KEY` · `EVOLUTION_INSTANCE` · `WHATSAPP_GROUP_ID` ·
-`WHATSAPP_GROUP_ID_AUTO` · `REENVIO_QUEDA_MINIMA` · `MERCADOLIVRE_APP_ID` ·
-`MERCADOLIVRE_APP_SECRET` · `MERCADOLIVRE_AFFILIATE_TAG` ·
-`MERCADOLIVRE_AFFILIATE_COOKIE` · `SHOPEE_APP_ID` · `SHOPEE_APP_SECRET` ·
-`LOG_LEVEL`
+Infraestrutura: `DATABASE_URL`, `CREDENTIALS_KEY`, `EVOLUTION_API_URL`,
+`EVOLUTION_API_KEY`, `LOG_LEVEL`, `CHECK_INTERVAL`, `REENVIO_QUEDA_MINIMA` e
+`TZ=<-03>3`. Heartbeat: `API_URL`, `WORKER_TOKEN`, `WORKER_ID`.
+Bots, grupos, instâncias e credenciais de Shopee/ML vêm do dashboard (ADR-020).
 
-Classificação para a migração:
+`TYPESAFE_API_KEY` e `ANTHROPIC_API_KEY` são opcionais e pertencem somente ao
+**nina-worker**: respectivamente Jev (`jev-1.13.0`, chave Bearer da TypeSafe) e
+Claude Haiku (`claude-haiku-5-5`, SDK oficial Anthropic). Não colocar na API, no dashboard ou
+em variáveis `VITE_*`. Configure o público e a relevância mínima por bot na seção
+Filtros, incluindo o classificador (`jev` por padrão). Sem a chave do provedor
+selecionado, o filtro fica desligado e avisa uma vez por processo por provedor;
+indisponibilidade da API mantém o envio com os filtros e o freio habituais.
+Para a comparação local, ambas as variáveis podem ficar no `.env`, sem commit.
+Detalhes do fluxo em [BOT_INTEGRATION.md](BOT_INTEGRATION.md#público-do-grupo-e-palavras-chave).
 
-| Variável | Destino |
-|---|---|
-| `DATABASE_URL`, `LOG_LEVEL` | **fica** — infraestrutura |
-| `EVOLUTION_API_URL`, `EVOLUTION_API_KEY` | **fica** — infra + segredo de serviço |
-| `CHECK_INTERVAL`, `REENVIO_QUEDA_MINIMA` | → `bots.settings` |
-| `WHATSAPP_GROUP_ID`, `..._AUTO` | → `groups` + `bot_groups` |
-| `EVOLUTION_INSTANCE` | → `phones.evolution_instance` |
-| `*_APP_ID`, `*_APP_SECRET`, `*_COOKIE`, `*_TAG` | → `platform_credentials` (cifrado) e `platform_accounts.config` |
-
-O worker novo **não lê** as variáveis migradas (ADR-020): o dashboard é a única
-origem. Elas continuam no serviço só enquanto o rollback para o código antigo for
-possível, e são removidas no último passo do deploy.
-
-### `nina-api` (novo)
+### `nina-api`
 
 ```
-DATABASE_URL          ${{Postgres.DATABASE_URL}}
+DATABASE_URL          ${{nina-db.DATABASE_URL}}
 CREDENTIALS_KEY       # 32 bytes base64 — cifra platform_credentials
 JWT_SECRET            # 64 bytes aleatórios
 WORKER_TOKEN          # autentica /api/internal/*
@@ -103,20 +97,21 @@ uma a uma.
 ### `nina-dashboard`
 
 ```
-VITE_API_URL          https://<api>.up.railway.app/api
+RAILWAY_DOCKERFILE_PATH  deploy/dashboard.Dockerfile
+API_UPSTREAM            nina-api.railway.internal:8000
 ```
 
-Só isso. **Nenhum segredo entra no bundle do frontend** — tudo em `VITE_*` é
-público para quem abrir o DevTools.
+O Caddy serve a SPA e encaminha `/api` para `nina-api` na rede interna.
+**Nenhum segredo entra no bundle do frontend** — tudo em `VITE_*` é público
+para quem abrir o DevTools.
 
 
 ### Fuso horário (worker e API)
 
-`TZ=<-03>3` em **nina-worker** e **nina-api**. O container roda em UTC e o código
-legado usa `datetime.now()` sem fuso: o horário da mensagem ("⏰ Oferta encontrada
-às …") e o "início do dia" dos limites diários sairiam em UTC. O formato POSIX é
-obrigatório: `TZ=America/Sao_Paulo` é ignorado pelo Python da imagem Railpack
-(verificado no container). O Brasil não tem horário de verão desde 2019.
+`TZ=<-03>3` em **nina-worker** e **nina-api**. A imagem Railpack ignora
+`TZ=America/Sao_Paulo` (verificado no container). O código usa `core/relogio.py`
+para agenda e exibição em Brasília, independentemente do fuso do container;
+o banco guarda datas UTC. O Brasil não tem horário de verão desde 2019.
 
 ## Migrations
 

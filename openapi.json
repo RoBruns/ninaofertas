@@ -14227,6 +14227,28 @@
       "title": "Origem Produtos",
       "default": "novidades"
      },
+     "publico_alvo": {
+      "type": "string",
+      "maxLength": 500,
+      "title": "Publico Alvo",
+      "default": ""
+     },
+     "classificador_publico": {
+      "type": "string",
+      "enum": [
+       "jev",
+       "haiku"
+      ],
+      "title": "Classificador Publico",
+      "default": "jev"
+     },
+     "relevancia_minima": {
+      "type": "number",
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "Relevancia Minima",
+      "default": 0.6
+     },
      "min_vendas": {
       "type": "integer",
       "minimum": 0.0,

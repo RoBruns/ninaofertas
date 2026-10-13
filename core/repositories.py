@@ -73,18 +73,36 @@ def registrar_visto(
     *,
     bot_id: UUID | None = None,
     group_id: UUID | None = None,
+    motivo: str = "",
 ) -> Envio:
-    """Marca a oferta como já existente na partida do bot (sem WhatsApp)."""
+    """Marca a oferta vista, com motivo opcional para rejeições (sem WhatsApp)."""
     return registrar_envio(
         session,
         oferta_id=oferta_id,
         grupo=grupo,
-        mensagem="",
+        mensagem=motivo,
         preco=preco,
         status="visto",
         bot_id=bot_id,
         group_id=group_id,
     )
+
+
+def rejeitada_pelo_publico(
+    session: Session, oferta_id: int, grupo: str, motivo: str, bot_id: UUID | None
+) -> bool:
+    """Só rejeições deste bot e configuração bloqueiam; baseline continua ignorada."""
+    return session.scalar(
+        select(Envio.id)
+        .where(
+            Envio.oferta_id == oferta_id,
+            Envio.grupo == grupo,
+            Envio.status == "visto",
+            Envio.mensagem == motivo,
+            Envio.bot_id == bot_id,
+        )
+        .limit(1)
+    ) is not None
 
 
 def registrar_envio(

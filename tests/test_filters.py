@@ -7,7 +7,27 @@ from core.platforms.base import OfertaCapturada
 from core.config_provider import usar_bot_runtime
 from tests.runtime_helpers import runtime_do_config
 from worker.channels import load_filtros
-from worker.filters import passa_nos_filtros
+from worker.filters import _contem_alguma, passa_nos_filtros
+
+
+@pytest.mark.parametrize(("termo", "texto", "esperado"), [
+    ("unha", "Kit Unhas Gel", True),
+    ("pote", "Potes Herméticos", True),
+    ("natal", "Natalina", True),
+    ("automot", "Automotivo", True),
+    ("air fryer", "Fritadeira Air Fryer 4L", True),
+    ("anel", "Canela em pó", False),
+    ("colar", "Material Escolar", False),
+    ("mesa", "Mesa de Cabeceira", True),
+    ("p/ carro", "Suporte p/ carro", True),
+    ("pisca-pisca", "Luz pisca-pisca natalina", True),
+    ("[gel]", "Unhas [gel]", True),
+    ("carro+", "Kit carro+", True),
+    ("decoracao", "Kit DECORAÇÃO", True),
+    ("mesa", "123mesa", False),
+])
+def test_termos_comecam_em_fronteira_de_palavra(termo, texto, esperado):
+    assert bool(_contem_alguma(texto, [termo])) is esperado
 
 
 def _oferta(**alteracoes) -> OfertaCapturada:
