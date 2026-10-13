@@ -53,5 +53,7 @@ it('mostra o e-mail e nome do autor e identifica ações do sistema', async () =
 
   expect(await screen.findByText('Nina Silva (autora@nina.test)')).toBeInTheDocument()
   expect(screen.getByText('Sistema')).toBeInTheDocument()
+  expect(screen.getByText('24/09/2026 09:00')).toBeInTheDocument()
+  expect(screen.getByText('24/09/2026 10:00')).toBeInTheDocument()
   expect(screen.queryByText(/11111111-1111-1111-1111-111111111111/)).not.toBeInTheDocument()
 })

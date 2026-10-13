@@ -8,7 +8,7 @@ from typing import Annotated, Any
 from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Depends, Query, Request
-from sqlalchemy import delete, select
+from sqlalchemy import func, delete, select
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 
@@ -863,9 +863,14 @@ def get_health(
     bot = _owned(session, bot_id, user.id)
     latest = session.scalar(
         select(AutomationRun)
-        .where(AutomationRun.bot_id == bot.id)
-        .order_by(AutomationRun.started_at.desc())
+        .where(AutomationRun.bot_id == bot.id, AutomationRun.status != "running")
+        .order_by(AutomationRun.started_at.desc(), AutomationRun.id.desc())
         .limit(1)
+    )
+    oldest_running = session.scalar(
+        select(func.min(AutomationRun.started_at)).where(
+            AutomationRun.bot_id == bot.id, AutomationRun.status == "running"
+        )
     )
     credential_issues: list[str] = []
     account_ids = _account_ids(session, bot.id)
@@ -902,14 +907,19 @@ def get_health(
     is_recent = latest is not None and latest.started_at >= now - timedelta(
         seconds=max(900, check_interval * 3)
     )
+    stuck = oldest_running is not None and oldest_running < now - timedelta(
+        seconds=max(900, check_interval * 3)
+    )
     if credential_issues or (latest is not None and latest.status == "failed"):
-        status, message = "error", "Bot requer atencao antes da proxima execucao"
+        status, message = "error", "Bot requer atenção antes da próxima execução"
+    elif stuck:
+        status, message = "warning", "Execução em andamento excedeu o tempo esperado"
     elif not is_recent:
-        status, message = "unknown", "Sem execucao recente para confirmar a saude do bot"
-    elif group_issues or latest.status in {"partial", "running"}:
+        status, message = "unknown", "Sem execução recente para confirmar a saúde do bot"
+    elif group_issues or latest.status == "partial":
         status, message = "warning", "Bot executa com alertas"
     else:
-        status, message = "ok", "Ultima execucao concluida sem alertas"
+        status, message = "ok", "Última execução concluída sem alertas"
     return BotHealth(
         status=status,
         message=message,

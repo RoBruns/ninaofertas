@@ -2151,8 +2151,13 @@ export interface components {
         };
         /** MetricBreakdownItem */
         MetricBreakdownItem: {
+            /**
+             * Is Test
+             * @default false
+             */
+            is_test: boolean;
             /** Id */
-            id: number | string;
+            id: number | string | null;
             /** Name */
             name: string;
             /** Revenue */
@@ -2162,7 +2167,7 @@ export interface components {
             /** Commission Pending */
             commission_pending: string | null;
             /** Orders */
-            orders: number;
+            orders: number | null;
             /** Buyers */
             buyers: number | null;
             /** Spend */
@@ -2182,7 +2187,7 @@ export interface components {
             /** Cost Per Join */
             cost_per_join: string | null;
             /** Group Joins */
-            group_joins: number;
+            group_joins: number | null;
             /** Sends */
             sends: number | null;
             /** Clicks */
@@ -2622,6 +2627,16 @@ export interface components {
         };
         /** SalesImportHistory */
         SalesImportHistory: {
+            /**
+             * Source
+             * @default csv
+             * @enum {string}
+             */
+            source: "csv" | "sync_automatic" | "sync_manual";
+            /** Account Id */
+            account_id?: string | null;
+            /** Account Label */
+            account_label?: string | null;
             /** Id */
             id: number;
             /** Platform Id */

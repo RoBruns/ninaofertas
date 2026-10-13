@@ -405,3 +405,25 @@ afiliados com `sortType: 2`; o `sortType: 1` usado até aqui é relevância, nã
 **Consequência:** a mudança só vale para quem trocar a opção, de preferência
 primeiro num bot de teste (ADR-023). A deduplicação por grupo impede repetir o
 mesmo mais vendido, salvo queda de preço.
+
+---
+
+## ADR-025 — Sincronização financeira e conciliação por conta e data
+**Data:** 2026-10-13 · **Status:** aceita na branch `feat/dashboard-fixes`
+
+Uma sincronização sem vendas novas é bem-sucedida, mas a última venda importada
+não muda. A saúde de sincronização e o histórico passam a usar um registro de
+sucesso em `audit_logs` (`sale_import`, `sync_success`), independente das vendas
+e de `platform_credentials.last_success_at` (também atualizado ao gerar links).
+Persistimos origem automática/manual, dono, conta e contagens, sem credenciais.
+Usar a auditoria existente evita uma migration e preserva o histórico além da
+retenção dos eventos técnicos. Falhas continuam nos eventos existentes e não
+avançam a data de sucesso. Não fabricamos histórico de sincronizações passadas.
+
+A conciliação do ML compara **comissão** das linhas com comissão do painel. O
+bruto do painel e o bruto das linhas podem ter bases distintas de itens e
+quantidades; com comissão igual, diferença de bruto não é falha financeira.
+Os dois brutos permanecem no diagnóstico quando a comissão diverge.
+O evento é emitido uma vez por conta/data e a chave do alerta inclui essa data,
+com o índice parcial da ADR-016 garantindo um único alerta ativo. Uma causa
+resolvida dessa mesma data não reabre a cada reimportação.

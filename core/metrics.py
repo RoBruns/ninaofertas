@@ -7,7 +7,7 @@ Python.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, fields
+from dataclasses import dataclass, fields, replace
 from datetime import date, datetime, time, timedelta, timezone
 from decimal import Decimal
 from typing import Any, Literal
@@ -19,6 +19,7 @@ from sqlalchemy.orm import Session
 
 from core.models import (
     Bot,
+    BotGroup,
     Campaign,
     Click,
     Envio,
@@ -84,6 +85,8 @@ class MetricFilters:
     campaign_id: UUID | None = None
     niche_id: int | None = None
     phone_id: UUID | None = None
+    end_at: datetime | None = None
+    include_tests: bool = False
 
     @property
     def start_utc(self) -> datetime:
@@ -93,7 +96,8 @@ class MetricFilters:
     @property
     def end_utc(self) -> datetime:
         local = datetime.combine(self.to_date + timedelta(days=1), time.min, SAO_PAULO)
-        return local.astimezone(timezone.utc)
+        end = local.astimezone(timezone.utc)
+        return min(end, self.end_at) if self.end_at else end
 
     @property
     def previous(self) -> MetricFilters:
@@ -102,10 +106,11 @@ class MetricFilters:
         return MetricFilters(
             from_date=previous_to - timedelta(days=days - 1),
             to_date=previous_to,
+            end_at=self.end_utc - timedelta(days=days),
             **{
                 field.name: getattr(self, field.name)
                 for field in fields(self)
-                if field.name not in {"from_date", "to_date"}
+                if field.name not in {"from_date", "to_date", "end_at"}
             },
         )
 
@@ -130,6 +135,7 @@ class MetricValues:
     clicks: int | None = None
     conversion: Decimal | None = None
     campaign_spend: Decimal = Decimal("0")
+    is_test: bool = False
 
     def public(self) -> dict[str, Decimal | int | None]:
         return {
@@ -169,6 +175,9 @@ def rounded(value: Decimal | int | None, metric: str) -> Decimal | int | None:
 
 
 def _warning_ignored(filter_name: str, source: str) -> str:
+    filter_name = {"bot_id": "bot", "platform_id": "plataforma", "account_id": "conta",
+                   "group_id": "grupo", "campaign_id": "campanha", "niche_id": "nicho",
+                   "phone_id": "telefone"}.get(filter_name, filter_name)
     return f"Filtro {filter_name} não se aplica a {source}; parcela calculada sem esse filtro"
 
 
@@ -201,7 +210,7 @@ def _sales_conditions(owner_id: UUID, filters: MetricFilters) -> tuple[list[Any]
         Sale.ordered_at >= filters.start_utc,
         Sale.ordered_at < filters.end_utc,
     ]
-    if filters.bot_id is None:
+    if filters.bot_id is None and not filters.include_tests:
         conditions.append(
             or_(
                 Sale.bot_id.is_(None),
@@ -277,12 +286,12 @@ def _event_conditions(
     )
     if is_send:
         start = datetime.combine(filters.from_date, time.min)
-        end = datetime.combine(filters.to_date + timedelta(days=1), time.min)
+        end = filters.end_utc.astimezone(SAO_PAULO).replace(tzinfo=None)
     else:
         start, end = filters.start_utc, filters.end_utc
     conditions: list[Any] = [timestamp >= start, timestamp < end]
     bot_column = model.bot_id
-    if filters.bot_id is None and model in (Click, Envio):
+    if filters.bot_id is None and not filters.include_tests and model in (Click, Envio):
         conditions.append(
             or_(
                 bot_column.is_(None), bot_column.not_in(select(Bot.id).where(Bot.is_test.is_(True)))
@@ -515,7 +524,19 @@ def timeseries(
         "clicks": {"clicks"},
         "conversion": {"sales", "clicks"},
     }
+    # date_trunc usa segunda-feira e o primeiro dia do mês em Brasília.
+    day = filters.from_date
+    if granularity == "week":
+        day -= timedelta(days=day.weekday())
+    elif granularity == "month":
+        day = day.replace(day=1)
     buckets: dict[date, MetricValues] = {}
+    while day <= filters.to_date:
+        buckets[day] = MetricValues(clicks=0, buyers=0)
+        if granularity == "month":
+            day = (day.replace(day=28) + timedelta(days=4)).replace(day=1)
+        else:
+            day += timedelta(days=7 if granularity == "week" else 1)
     warnings: list[str] = []
 
     def target(day: date) -> MetricValues:
@@ -621,6 +642,9 @@ def timeseries(
         else:
             warnings.append("Tabela legada de envios indisponível; sends sem dados")
 
+    if metric == "sends" and not _has_legacy_sends(session):
+        for values in buckets.values():
+            values.sends = None
     points: list[tuple[date, Decimal | int | None]] = []
     for day, values in sorted(buckets.items()):
         _finish(values)
@@ -676,7 +700,7 @@ def grouped_metrics(
     owner_id: UUID,
     filters: MetricFilters,
     dimension: Dimension,
-) -> tuple[list[tuple[int | UUID, str, MetricValues]], list[str]]:
+) -> tuple[list[tuple[int | UUID | None, str, MetricValues]], list[str]]:
     """Calcula breakdown com uma consulta ``GROUP BY`` por fonte de eventos."""
     entities = dimension_entities(session, owner_id, dimension, filters)
     values_by_id = {entity_id: MetricValues() for entity_id, _name in entities}
@@ -751,45 +775,11 @@ def grouped_metrics(
         ).select_from(Sale)
     else:
         warnings.append(_warning_ignored(f"{dimension}_id", "vendas"))
-        row = session.execute(
-            select(
-                func.coalesce(
-                    func.sum(
-                        case((Sale.status.in_(CONFIRMED_STATUSES), Sale.gross_amount), else_=0)
-                    ),
-                    0,
-                ),
-                func.coalesce(
-                    func.sum(case((Sale.status.in_(CONFIRMED_STATUSES), Sale.commission), else_=0)),
-                    0,
-                ),
-                func.coalesce(
-                    func.sum(case((Sale.status == "pending", Sale.commission), else_=0)), 0
-                ),
-                func.count(case((Sale.status.in_(CONFIRMED_STATUSES), 1))),
-                func.count(
-                    func.distinct(
-                        case(
-                            (
-                                and_(
-                                    Sale.status.in_(CONFIRMED_STATUSES),
-                                    Sale.buyer_hash.is_not(None),
-                                ),
-                                Sale.buyer_hash,
-                            )
-                        )
-                    )
-                ),
-            ).where(*sale_conditions)
-        ).one()
-        for item in values_by_id.values():
-            item.revenue = Decimal(row[0])
-            item.commission = Decimal(row[1])
-            item.commission_pending = Decimal(row[2])
-            item.orders = int(row[3])
-            item.buyers = int(row[4]) or None
     if sale_statement is not None and sale_group is not None:
         for row in session.execute(select_from_sales.where(*sale_conditions).group_by(sale_group)):
+            if row[0] is None and None not in values_by_id:
+                entities.append((None, "Sem atribuição"))
+                values_by_id[None] = MetricValues()
             if row[0] not in values_by_id:
                 continue
             item = values_by_id[row[0]]
@@ -809,24 +799,6 @@ def grouped_metrics(
     warnings.extend(current_warnings)
     if expense_group is None:
         warnings.append(_warning_ignored(f"{dimension}_id", "despesas"))
-        spend, traffic, campaign_spend = session.execute(
-            select(
-                func.coalesce(func.sum(Expense.amount), 0),
-                func.coalesce(
-                    func.sum(case((ExpenseCategory.slug == "trafego", Expense.amount), else_=0)), 0
-                ),
-                func.coalesce(
-                    func.sum(case((Expense.campaign_id.is_not(None), Expense.amount), else_=0)), 0
-                ),
-            )
-            .select_from(Expense)
-            .outerjoin(ExpenseCategory, ExpenseCategory.id == Expense.category_id)
-            .where(*expense_conditions)
-        ).one()
-        for item in values_by_id.values():
-            item.spend = Decimal(spend)
-            item.traffic_spend = Decimal(traffic)
-            item.campaign_spend = Decimal(campaign_spend)
     else:
         statement = (
             select(
@@ -845,6 +817,9 @@ def grouped_metrics(
             .group_by(expense_group)
         )
         for entity_id, spend, traffic, campaign_spend in session.execute(statement):
+            if entity_id is None and None not in values_by_id:
+                entities.append((None, "Sem atribuição"))
+                values_by_id[None] = MetricValues()
             if entity_id not in values_by_id:
                 continue
             item = values_by_id[entity_id]
@@ -880,14 +855,6 @@ def grouped_metrics(
             statement = select(group_column, func.count()).select_from(model)
         else:
             warnings.append(_warning_ignored(f"{dimension}_id", label))
-            count = int(
-                session.scalar(select(func.count()).select_from(model).where(*conditions)) or 0
-            )
-            for item in values_by_id.values():
-                if model is GroupJoin:
-                    item.group_joins = count
-                else:
-                    item.clicks = count or None
         if statement is None or group_column is None:
             continue
         for entity_id, count in session.execute(
@@ -917,11 +884,6 @@ def grouped_metrics(
             statement = select(send_group, func.count()).select_from(Envio)
         else:
             warnings.append(_warning_ignored(f"{dimension}_id", "envios"))
-            count = int(
-                session.scalar(select(func.count()).select_from(Envio).where(*send_conditions)) or 0
-            )
-            for item in values_by_id.values():
-                item.sends = count
         if statement is not None and send_group is not None:
             for entity_id, count in session.execute(
                 statement.where(*send_conditions).group_by(send_group)
@@ -934,4 +896,52 @@ def grouped_metrics(
         warnings.append("Tabela legada de envios indisponível; sends sem dados")
 
     rows = [(entity_id, name, _finish(values_by_id[entity_id])) for entity_id, name in entities]
-    return rows, _deduplicate(warnings)
+    # A própria linha de teste é uma seleção explícita. Totais gerais continuam
+    # excluindo testes; grupos compartilhados continuam mostrando só produção.
+    test_bots = set(session.scalars(select(Bot.id).where(
+        Bot.owner_id == owner_id, Bot.is_test.is_(True)
+    )))
+    test_groups: dict[UUID, UUID] = {}
+    if dimension == "group" and test_bots:
+        links: dict[UUID, set[UUID]] = {}
+        for group_id, bot_id in session.execute(select(BotGroup.group_id, BotGroup.bot_id).join(
+            Bot, Bot.id == BotGroup.bot_id
+        ).where(Bot.owner_id == owner_id, BotGroup.is_active.is_(True))):
+            links.setdefault(group_id, set()).add(bot_id)
+        test_groups = {group_id: next(iter(bot_ids)) for group_id, bot_ids in links.items()
+                       if bot_ids and bot_ids <= test_bots}
+    output = []
+    for entity_id, name, values in rows:
+        test_id = (
+            entity_id if dimension == "bot" and entity_id in test_bots
+            else filters.bot_id if dimension == "group" and filters.bot_id in test_bots
+            else test_groups.get(entity_id)
+        )
+        if test_id is not None and filters.bot_id is None:
+            row_filters = replace(filters, include_tests=True,
+                                  bot_id=test_id if dimension == "bot" else None,
+                                  group_id=entity_id if dimension == "group" else filters.group_id)
+            values = calculate_metrics(session, owner_id, row_filters, include_data_warnings=False).values
+        if test_id is not None:
+            values.is_test = True
+        # Medidas sem uma chave dessa dimensão não podem repetir o total geral.
+        missing = set()
+        if sale_group is None:
+            missing.update({"revenue", "commission", "commission_pending", "orders", "buyers"})
+        if expense_group is None:
+            missing.update({"spend", "traffic_spend"})
+        if dimension not in {"bot", "group", "niche"}:
+            missing.update({"sends", "clicks"})
+        if dimension not in {"bot", "group", "niche", "campaign"}:
+            missing.add("group_joins")
+        dependencies = {
+            "profit": {"commission", "spend"}, "roi": {"commission", "spend"},
+            "roas": {"revenue", "traffic_spend"}, "cost_per_sale": {"spend", "orders"},
+            "cost_per_buyer": {"spend", "buyers"}, "cost_per_join": {"spend", "group_joins"},
+            "conversion": {"orders", "clicks"},
+        }
+        missing.update(key for key, inputs in dependencies.items() if inputs & missing)
+        for key in missing:
+            setattr(values, key, None)
+        output.append((entity_id, name, values))
+    return output, _deduplicate(warnings)

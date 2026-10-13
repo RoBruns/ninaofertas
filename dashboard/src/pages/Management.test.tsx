@@ -31,6 +31,29 @@ function Providers({ children }: { children: ReactNode }) {
 
 afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals() })
 
+it('pagina o histórico de execuções do bot', async () => {
+  const urls: URL[] = []
+  vi.stubGlobal('fetch', vi.fn(async (request: Request) => {
+    const url = new URL(request.url); urls.push(url)
+    if (url.pathname === '/api/bots/bot-1') return json(bot)
+    if (url.pathname === '/api/niches') return json([])
+    if (url.pathname.endsWith('/runs')) {
+      const page = Number(url.searchParams.get('page'))
+      return json({ items: [{ id: page, started_at: '2026-10-13T12:00:00Z', kind: `Execução ${page}`, status: 'success', offers_found: 1, offers_sent: 1 }], total: 26, page, page_size: 25 })
+    }
+    if (url.pathname.endsWith('/health')) return json({ status: 'ok', message: 'Funcionando' })
+    return json({ items: [] })
+  }))
+  render(<Providers><MemoryRouter initialEntries={['/bots/bot-1']}><Routes><Route path="/bots/:id" element={<BotDetail />} /></Routes></MemoryRouter></Providers>)
+  expect(await screen.findByText('Execução 1')).toBeInTheDocument()
+  await userEvent.setup().click(screen.getByRole('button', { name: 'Próxima' }))
+  expect(await screen.findByText('Execução 2')).toBeInTheDocument()
+  expect(screen.getByRole('button', { name: 'Próxima' })).toBeDisabled()
+  expect(urls.filter(url => url.pathname.endsWith('/runs')).at(-1)?.searchParams.get('page')).toBe('2')
+  await userEvent.setup().click(screen.getByRole('button', { name: 'Anterior' }))
+  expect(await screen.findByText('Execução 1')).toBeInTheDocument()
+})
+
 it('mostra o aviso de grupo somente-admins', async () => {
   vi.stubGlobal('fetch', vi.fn(async (request: Request) => {
     const path = new URL(request.url).pathname

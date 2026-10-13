@@ -536,7 +536,7 @@ def test_filtros_isolados_combinados_warnings_breakdown_e_viewer(
         assert body["kpis"]["revenue"]["value"] == revenue
         assert body["kpis"]["spend"]["value"] == spend
     ignored = _overview(client, headers, group_id=ids["group1"])
-    assert any("group_id" in warning and "despesas" in warning for warning in ignored["warnings"])
+    assert any("grupo" in warning and "despesas" in warning for warning in ignored["warnings"])
     combined = _overview(client, headers, bot_id=ids["bot1"], platform_id=ids["platform2"])
     assert combined["kpis"]["revenue"]["value"] == "0.00"
     assert combined["kpis"]["spend"]["value"] == "0.00"

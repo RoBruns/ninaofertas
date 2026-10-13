@@ -56,6 +56,9 @@ class SalesSyncResponse(BaseModel):
 
 
 class SalesImportHistory(BaseModel):
+    source: Literal["csv", "sync_automatic", "sync_manual"] = "csv"
+    account_id: UUID | None = None
+    account_label: str | None = None
     id: int
     platform_id: int
     file_name: str

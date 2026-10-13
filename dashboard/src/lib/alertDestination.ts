@@ -1,4 +1,5 @@
 export function alertDestination(type: string) {
+  if (type === 'sales_sync_stale' || type === 'ml_reconciliation_mismatch') return '/vendas'
   if (type === 'auth_expired' || type === 'credential_expired') return '/contas'
   if (type.includes('group')) return '/telefones'
   if (type.includes('campaign') || type.includes('cost')) return '/campanhas'

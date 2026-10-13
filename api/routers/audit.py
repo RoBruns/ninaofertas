@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime
 from typing import Annotated
 from uuid import UUID
 
@@ -10,6 +10,7 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from api.date_filters import date_boundary
 from api.deps import get_db, require_role
 from api.errors import APIError
 from api.schemas.audit import AuditLogResponse
@@ -26,8 +27,8 @@ def list_audit_logs(
     entity_type: str | None = None,
     entity_id: str | None = None,
     user_id: UUID | None = None,
-    from_: Annotated[datetime | None, Query(alias="from")] = None,
-    to: datetime | None = None,
+    from_: Annotated[date | datetime | None, Query(alias="from")] = None,
+    to: date | datetime | None = None,
     page: Annotated[int, Query(ge=1)] = 1,
     page_size: Annotated[int, Query(ge=1, le=200)] = 50,
     sort: str = "-created_at",
@@ -43,9 +44,12 @@ def list_audit_logs(
     if user_id is not None:
         statement = statement.where(AuditLog.user_id == user_id)
     if from_ is not None:
-        statement = statement.where(AuditLog.created_at >= from_)
+        statement = statement.where(AuditLog.created_at >= date_boundary(from_))
     if to is not None:
-        statement = statement.where(AuditLog.created_at <= to)
+        statement = statement.where(
+            (AuditLog.created_at <= to) if isinstance(to, datetime)
+            else (AuditLog.created_at < date_boundary(to, end=True))
+        )
 
     pagination = PaginationParams(page=page, page_size=page_size, sort=sort)
     sort_columns = {"created_at": AuditLog.created_at, "id": AuditLog.id}

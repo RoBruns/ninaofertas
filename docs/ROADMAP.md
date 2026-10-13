@@ -473,3 +473,30 @@ baseline em grupos existentes, freio e diferenças de configuração no componen
 O pytest usou basetemp/cache dentro do workspace por falta de acesso ao TEMP padrão
 da sandbox. Warnings restantes são de depreciação de dependências. Sem publicação
 real em WhatsApp nem deploy.
+
+## Correções do dashboard — 2026-10-13
+
+Branch `feat/dashboard-fixes`, sem commit/push/deploy. Corrigidos os 13 itens da
+auditoria: datas inclusivas e horas em Brasília, saúde pela execução concluída
+com detecção de ciclo travado, sucesso de sync separado da última venda,
+histórico CSV/automático/manual, links de alertas para vendas, séries completas,
+quebras sem totais duplicados com “Sem atribuição”, comissão pendente e pedidos
+confirmados, polaridade e arredondamento dos KPIs, números reais com selo Teste,
+conciliação de comissão uma vez por conta/data, filtros independentes com reset
+de página, paginação de execuções e comparação do mesmo trecho decorrido.
+
+Regressões de API/core cobrem itens 1, 3, 4, 5, 7, 8, 11, 12 e comparação parcial;
+componentes cobrem 2, 6, 10, estados e paginação do 13. OpenAPI e tipos gerados
+atualizados. Arquivos do worker/filtros/relevância/bot_settings e a seção Filtros
+do BotDetail preservados. Fora de escopo: trusted_proxies/IP real, Bot.last_run_at
+e /system/status. ADR-025 registra a persistência de sync e a conciliação.
+
+Validação final no banco `ninaofertas_test2`: `227 passed, 140 warnings in 71.93s
+(0:01:11)`; Ruff `All checks passed!`; dashboard lint com exit code 0,
+`Test Files 18 passed (18)` e `Tests 66 passed (66)`, build `✓ built in 403ms`.
+O comando obrigatório sem ajuste de TEMP foi executado; a sandbox bloqueou duas
+fixtures no TEMP do Windows. A suíte inteira passou com
+`--basetemp=logs/pytest-dashboard-fixes`, fora de `data/` e `assets/` para manter
+o teste da allowlist de mídia. Warnings restantes são da configuração do Alembic.
+Sem envio real, produção ou deploy. O histórico de sincronização começa nos
+novos sucessos; despesas, que só têm data, continuam comparadas por dia.

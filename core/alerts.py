@@ -20,6 +20,7 @@ from core.bot_settings import BotSettings
 from core.models import (
     Alert,
     AutomationRun,
+    AuditLog,
     Bot,
     BotGroup,
     Envio,
@@ -31,7 +32,6 @@ from core.models import (
     Platform,
     PlatformAccount,
     PlatformCredential,
-    Sale,
     User,
 )
 from core.settings import settings
@@ -384,7 +384,10 @@ def detect_sales_sync_stale(session: Session, now: datetime) -> list[AlertCondit
         if not (capabilities.get("commission_api") or capabilities.get("commission_scrape")):
             continue
         latest = session.scalar(
-            select(func.max(Sale.imported_at)).where(Sale.account_id == account.id)
+            select(func.max(AuditLog.created_at)).where(
+                AuditLog.entity_type == "sale_import", AuditLog.action == "sync_success",
+                AuditLog.entity_id == str(account.id),
+            )
         )
         if latest is None or latest <= now - timedelta(hours=SALES_STALE_HOURS):
             conditions.append(
@@ -396,7 +399,7 @@ def detect_sales_sync_stale(session: Session, now: datetime) -> list[AlertCondit
                     f"Vendas de {account.label} desatualizadas",
                     "platform_account",
                     str(account.id),
-                    f"Última importação: {latest.isoformat() if latest else 'nunca'}",
+                    f"Última sincronização: {latest.isoformat() if latest else 'nunca'}",
                 )
             )
     return conditions
@@ -460,6 +463,15 @@ def _detect_recent_ml_event(
         except ValueError:
             display_date = event.created_at.strftime("%d/%m")
         entity_key = event.entity_id or "global"
+        if event_type == "ml_reconciliation_mismatch":
+            entity_key = f"{entity_key}:{date_value}"
+            # Uma conciliação já resolvida não reabre para a mesma data.
+            if session.scalar(select(Alert.id).where(
+                Alert.owner_id == owner_id,
+                Alert.dedup_key == f"{event_type}:{entity_key}",
+                Alert.status == "resolved",
+            ).limit(1)) is not None:
+                continue
         conditions.setdefault(
             (owner_id, entity_key),
             AlertCondition(

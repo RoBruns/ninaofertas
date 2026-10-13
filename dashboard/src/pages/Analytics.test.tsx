@@ -15,11 +15,11 @@ const count = { value: 2, previous: 1, change_pct: 100 }
 const ratio = { value: 1, previous: .5, change_pct: 100 }
 const overview = { period: { from: '2026-09-01', to: '2026-09-30' }, kpis: { revenue: money, commission: money, commission_pending: money, spend: money, traffic_spend: money, profit: money, cost_per_sale: money, cost_per_buyer: money, cost_per_join: money, orders: count, buyers: count, group_joins: count, sends: count, clicks: count, roi: ratio, roas: ratio, conversion: ratio }, warnings: [] }
 
-function mockAnalytics() {
+function mockAnalytics(overviewData = overview) {
   const urls: string[] = []
   vi.stubGlobal('fetch', vi.fn(async (request: Request) => {
     const url = new URL(request.url); urls.push(url.toString())
-    if (url.pathname === '/api/metrics/overview') return json(overview)
+    if (url.pathname === '/api/metrics/overview') return json(overviewData)
     if (url.pathname === '/api/metrics/timeseries') return json({ period: overview.period, metric: url.searchParams.get('metric'), granularity: 'day', points: [], warnings: [] })
     if (url.pathname === '/api/metrics/funnel') return json({ period: overview.period, sends: 10, clicks: null, orders: 2, buyers: null, conversion: null, warnings: ['Sem cliques'] })
     if (url.pathname === '/api/metrics/by-bot') return json({ period: overview.period, warnings: [], items: [{ id: 'good', name: 'Bom', revenue: '20.00', commission: '20.00', commission_pending: '0.00', orders: 1, buyers: 1, spend: '5.00', traffic_spend: '5.00', profit: '15.00', roi: 3, roas: 4, cost_per_sale: '5.00', cost_per_buyer: '5.00', cost_per_join: null, group_joins: 0, sends: 1, clicks: 1, conversion: 1 }, { id: 'bad', name: 'Ruim', revenue: '1.00', commission: '1.00', commission_pending: '0.00', orders: 1, buyers: 1, spend: '5.00', traffic_spend: '5.00', profit: '-4.00', roi: -.8, roas: .2, cost_per_sale: '5.00', cost_per_buyer: '5.00', cost_per_join: null, group_joins: 0, sends: 1, clicks: 1, conversion: 1 }] })
@@ -55,4 +55,16 @@ it('envia filtros ativos à overview, ordena perdas, aplica linha e preserva nul
   expect(screen.getByRole('link', { name: /Renove a credencial/ })).toHaveAttribute('href', '/contas')
   await userEvent.setup().click(rows[1])
   expect(screen.getByTestId('location')).toHaveTextContent('bot_id=bad')
+})
+
+it('aplica polaridade aos custos do Overview e arredonda a variação do lucro', async () => {
+  mockAnalytics({ ...overview, kpis: { ...overview.kpis, profit: { ...money, change_pct: 87.506 } } })
+  render(<Providers><Overview /></Providers>)
+  expect(await screen.findByText('+87,5% vs. período anterior')).toBeInTheDocument()
+  for (const label of ['Investimento', 'Custo por venda', 'Custo por comprador']) {
+    const card = screen.getAllByText(label).find(element => element.classList.contains('kpi-label'))?.closest('article')
+    expect(card?.querySelector('.kpi-change')).toHaveClass('negative')
+  }
+  expect(screen.getAllByText('Comissão pendente').length).toBeGreaterThanOrEqual(2)
+  await waitFor(() => expect(screen.getAllByText('Pedidos confirmados').length).toBeGreaterThanOrEqual(2))
 })

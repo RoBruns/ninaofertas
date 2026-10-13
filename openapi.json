@@ -1129,6 +1129,10 @@
        "anyOf": [
         {
          "type": "string",
+         "format": "date"
+        },
+        {
+         "type": "string",
          "format": "date-time"
         },
         {
@@ -1144,6 +1148,10 @@
       "required": false,
       "schema": {
        "anyOf": [
+        {
+         "type": "string",
+         "format": "date"
+        },
         {
          "type": "string",
          "format": "date-time"
@@ -2633,6 +2641,10 @@
        "anyOf": [
         {
          "type": "string",
+         "format": "date"
+        },
+        {
+         "type": "string",
          "format": "date-time"
         },
         {
@@ -2648,6 +2660,10 @@
       "required": false,
       "schema": {
        "anyOf": [
+        {
+         "type": "string",
+         "format": "date"
+        },
         {
          "type": "string",
          "format": "date-time"
@@ -14824,6 +14840,11 @@
    },
    "MetricBreakdownItem": {
     "properties": {
+     "is_test": {
+      "type": "boolean",
+      "title": "Is Test",
+      "default": false
+     },
      "id": {
       "anyOf": [
        {
@@ -14832,6 +14853,9 @@
        {
         "type": "string",
         "format": "uuid"
+       },
+       {
+        "type": "null"
        }
       ],
       "title": "Id"
@@ -14874,7 +14898,14 @@
       "title": "Commission Pending"
      },
      "orders": {
-      "type": "integer",
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
       "title": "Orders"
      },
      "buyers": {
@@ -14977,7 +15008,14 @@
       "title": "Cost Per Join"
      },
      "group_joins": {
-      "type": "integer",
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
       "title": "Group Joins"
      },
      "sends": {
@@ -16255,6 +16293,39 @@
    },
    "SalesImportHistory": {
     "properties": {
+     "source": {
+      "type": "string",
+      "enum": [
+       "csv",
+       "sync_automatic",
+       "sync_manual"
+      ],
+      "title": "Source",
+      "default": "csv"
+     },
+     "account_id": {
+      "anyOf": [
+       {
+        "type": "string",
+        "format": "uuid"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Account Id"
+     },
+     "account_label": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Account Label"
+     },
      "id": {
       "type": "integer",
       "title": "Id"

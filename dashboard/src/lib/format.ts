@@ -51,3 +51,10 @@ export function formatDate(value: string | Date | null | undefined): string {
 export function isNegativeMoney(value: string | null | undefined): boolean {
   return value?.trim().startsWith('-') ?? false
 }
+
+export function formatDateTime(value: string | Date | null | undefined): string {
+  if (value === null || value === undefined) return NO_DATA
+  const date = value instanceof Date ? value : new Date(value)
+  if (Number.isNaN(date.getTime())) return NO_DATA
+  return new Intl.DateTimeFormat('pt-BR', { timeZone: 'America/Sao_Paulo', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(date).replace(', ', ' ')
+}

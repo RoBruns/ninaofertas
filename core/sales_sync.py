@@ -7,6 +7,7 @@ import time
 from dataclasses import dataclass
 from datetime import date, datetime, time as datetime_time, timedelta, timezone
 from decimal import Decimal
+from typing import Literal
 from uuid import UUID, uuid4
 from zoneinfo import ZoneInfo
 
@@ -21,6 +22,7 @@ from core.importers.base import SaleImportRow
 from core.importers.mercadolivre import ExpiredDashboardSession, parse_dashboard
 from core.importers.shopee import fetch_conversion_report, parse_attribution_sub_ids
 from core.models import (
+    AuditLog,
     Bot,
     Event,
     Group,
@@ -386,8 +388,14 @@ def _sync_ml(account_id: UUID, credentials: dict[str, str]) -> SyncResult:
                     )
                 if (
                     expected_commission is not None
-                    and expected_sales is not None
-                    and (row_commission != expected_commission or row_sales != expected_sales)
+                    # O KPI bruto do painel tem outra base (itens/quantidades).
+                    # A conciliação financeira compara a comissão, como nas linhas.
+                    and row_commission != expected_commission
+                    and session.scalar(select(Event.id).where(
+                        Event.type == "ml_reconciliation_mismatch",
+                        Event.entity_id == str(account_id),
+                        Event.detail["date"].as_string() == day.isoformat(),
+                    ).limit(1)) is None
                 ):
                     _event(
                         session,
@@ -408,13 +416,28 @@ def _sync_ml(account_id: UUID, credentials: dict[str, str]) -> SyncResult:
     return SyncResult(imported=imported, skipped=skipped)
 
 
-def sync_account(account_id: UUID) -> SyncResult:
+def sync_account(
+    account_id: UUID, *, origin: Literal["sync_manual", "sync_automatic"] = "sync_manual"
+) -> SyncResult:
     platform_slug, config, credentials = _load_account(account_id)
     if platform_slug == "shopee":
-        return _sync_shopee(account_id, config, credentials)
-    if platform_slug == "mercadolivre":
-        return _sync_ml(account_id, credentials)
-    raise ValueError("Plataforma sem sincronização de vendas")
+        result = _sync_shopee(account_id, config, credentials)
+    elif platform_slug == "mercadolivre":
+        result = _sync_ml(account_id, credentials)
+    else:
+        raise ValueError("Plataforma sem sincronização de vendas")
+    if not result.auth_expired:
+        with db.get_session() as session:
+            account = session.get(PlatformAccount, account_id)
+            session.add(AuditLog(
+                user_id=account.owner_id if origin == "sync_manual" else None,
+                entity_type="sale_import",
+                entity_id=str(account.id), action="sync_success",
+                after={"source": origin, "owner_id": str(account.owner_id), "account_id": str(account.id),
+                       "account_label": account.label, "platform_id": account.platform_id,
+                       "imported": result.imported, "skipped": result.skipped},
+            ))
+    return result
 
 
 def sync_all_active_accounts() -> None:
@@ -442,7 +465,7 @@ def sync_all_active_accounts() -> None:
         return
     for account_id in account_ids:
         try:
-            sync_account(account_id)
+            sync_account(account_id, origin="sync_automatic")
         except Exception:
             try:
                 with db.get_session() as session:

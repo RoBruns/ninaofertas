@@ -261,6 +261,19 @@ Valores monetários são **string decimal**, não float — float em JSON perde
 centavo. `null` em `previous`/`change_pct` significa "sem base de comparação".
 `warnings` é como a API diz "este número está incompleto" sem esconder o número.
 
+Dias e buckets das métricas usam `America/Sao_Paulo`. Timeseries inclui todos os
+períodos solicitados, com zero para medidas aditivas sem linhas; razões sem
+denominador continuam `null`. Ao incluir o dia atual, a comparação anterior termina
+no mesmo trecho decorrido (por exemplo, Hoje às 12h compara com ontem até 12h).
+Despesas têm somente data, portanto seus limites continuam sendo dias inteiros.
+
+Nas quebras, medidas sem vínculo com a dimensão são `null` (ex.: despesa por grupo,
+envios por plataforma), assim como razões que dependam delas. `id: null` e
+`name: "Sem atribuição"` preservam valores sem vínculo. `is_test: true` identifica
+linhas de bots de teste e grupos exclusivos deles, com números reais; o Overview
+continua excluindo testes salvo seleção explícita de `bot_id`. Ao somar a quebra,
+linhas de teste são diagnósticas e ficam fora do total de produção.
+
 ## Despesas
 
 ```
@@ -296,6 +309,16 @@ Livre, lê o JSON server-side do painel de afiliados um dia por requisição nos
 últimos 14 dias, sempre limitado a D-1. O worker executa todas as contas ativas
 diariamente às 06:00 em `America/Sao_Paulo`.
 
+`/sales/imports` retorna os 100 registros mais recentes de CSV e sincronizações
+concluídas, inclusive aquelas sem vendas novas. `source` é `csv`, `sync_automatic`
+ou `sync_manual`; `account_id` e `account_label` são opcionais para CSV. Cada
+registro traz `imported`, `skipped`, `created_at` e `file_name` (vazio em sync).
+Sucessos são persistidos em `audit_logs` (`sale_import`, `sync_success`); as ações
+automáticas têm autor Sistema e metadado de dono para manter o histórico privado.
+`sales_sync_stale` usa a data desse sucesso, não a data da última venda nem a
+validação do cookie pelo gerador de links. Histórico anterior à correção não é
+reconstruído; a próxima sincronização bem-sucedida atualiza o indicador.
+
 ## Observabilidade
 
 ```
@@ -307,6 +330,10 @@ GET    /api/system/status                      → visão consolidada por bot/co
 GET    /api/audit-logs?entity_type=&entity_id=&user_id=&from=&to=
                                                → {items,total,page,page_size}
 ```
+
+`from`/`to` de eventos e auditoria aceitam data ou datetime. Datas incluem o dia
+"Até" inteiro em Brasília (`[from 00:00, to+1 00:00)`); datetimes mantêm os
+instantes e o limite superior inclusivo do contrato anterior.
 
 Cada item traz `user_email` e `user_name` do autor (ambos `null` em ação do sistema; usuário desativado continua identificado). `/api/audit-logs` exige papel `admin` e também aceita `page`, `page_size` e
 `sort`. O health desta fase deliberadamente não consulta serviços externos; o

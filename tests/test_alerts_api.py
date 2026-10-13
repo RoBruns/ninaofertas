@@ -30,6 +30,7 @@ from core.alerts import (
     detect_traffic_spend_stale,
 )
 from core.models import (
+    AuditLog,
     Alert,
     AuditLog,
     AutomationRun,
@@ -475,6 +476,9 @@ def test_cada_detector_dispara_e_ignora_caso_saudavel(
                 imported_at=now,
             )
         )
+        session.add(AuditLog(user_id=owner.id, entity_type="sale_import",
+                             entity_id=str(fresh_account_id), action="sync_success",
+                             created_at=now, after={"source": "sync_automatic"}))
         old_category = ExpenseCategory(owner_id=owner.id, slug="trafego", name="Trafego")
         recent_category = ExpenseCategory(owner_id=healthy_owner.id, slug="trafego", name="Trafego")
         session.add_all([old_category, recent_category])

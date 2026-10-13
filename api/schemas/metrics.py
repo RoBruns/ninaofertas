@@ -97,22 +97,23 @@ class TimeseriesResponse(BaseModel):
 
 
 class MetricBreakdownItem(BaseModel):
-    id: int | UUID
+    is_test: bool = False
+    id: int | UUID | None
     name: str
-    revenue: Decimal
-    commission: Decimal
-    commission_pending: Decimal
-    orders: int
+    revenue: Decimal | None
+    commission: Decimal | None
+    commission_pending: Decimal | None
+    orders: int | None
     buyers: int | None
-    spend: Decimal
-    traffic_spend: Decimal
-    profit: Decimal
+    spend: Decimal | None
+    traffic_spend: Decimal | None
+    profit: Decimal | None
     roi: Decimal | None
     roas: Decimal | None
     cost_per_sale: Decimal | None
     cost_per_buyer: Decimal | None
     cost_per_join: Decimal | None
-    group_joins: int
+    group_joins: int | None
     sends: int | None
     clicks: int | None
     conversion: Decimal | None

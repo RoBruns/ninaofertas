@@ -81,6 +81,7 @@ def _filters(
         campaign_id=campaign_id,
         niche_id=niche_id,
         phone_id=phone_id,
+        end_at=datetime.now(SAO_PAULO),
     )
 
 

@@ -1,6 +1,6 @@
 """Consulta paginada do log tecnico, sempre com segredos redigidos."""
 
-from datetime import datetime
+from datetime import date, datetime
 from typing import Annotated
 from uuid import UUID
 
@@ -9,6 +9,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from api.audit import redact_sensitive
+from api.date_filters import date_boundary
 from api.deps import get_current_user, get_db
 from api.schemas.common import PaginatedResponse
 from api.schemas.event import EventLevel, EventResponse
@@ -24,8 +25,8 @@ def list_events(
     level: EventLevel | None = None,
     bot_id: UUID | None = None,
     event_type: Annotated[str | None, Query(alias="type")] = None,
-    from_at: Annotated[datetime | None, Query(alias="from")] = None,
-    to_at: Annotated[datetime | None, Query(alias="to")] = None,
+    from_at: Annotated[date | datetime | None, Query(alias="from")] = None,
+    to_at: Annotated[date | datetime | None, Query(alias="to")] = None,
     page: Annotated[int, Query(ge=1)] = 1,
     page_size: Annotated[int, Query(ge=1, le=200)] = 50,
 ) -> PaginatedResponse[EventResponse]:
@@ -40,9 +41,12 @@ def list_events(
     if event_type is not None:
         statement = statement.where(Event.type == event_type)
     if from_at is not None:
-        statement = statement.where(Event.created_at >= from_at)
+        statement = statement.where(Event.created_at >= date_boundary(from_at))
     if to_at is not None:
-        statement = statement.where(Event.created_at <= to_at)
+        statement = statement.where(
+            (Event.created_at <= to_at) if isinstance(to_at, datetime)
+            else (Event.created_at < date_boundary(to_at, end=True))
+        )
     total = int(session.scalar(select(func.count()).select_from(statement.subquery())) or 0)
     events = list(
         session.scalars(
