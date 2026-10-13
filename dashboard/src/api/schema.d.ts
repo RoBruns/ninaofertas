@@ -1961,6 +1961,22 @@ export interface components {
              */
             origem_produtos: "novidades" | "mais_vendidos" | "ambos";
             /**
+             * Publico Alvo
+             * @default
+             */
+            publico_alvo: string;
+            /**
+             * Classificador Publico
+             * @default jev
+             * @enum {string}
+             */
+            classificador_publico: "jev" | "haiku";
+            /**
+             * Relevancia Minima
+             * @default 0.6
+             */
+            relevancia_minima: number;
+            /**
              * Min Vendas
              * @default 100
              */

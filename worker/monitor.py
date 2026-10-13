@@ -7,13 +7,18 @@ Depois: só ofertas novas/quentes — com freio anti-ban no WhatsApp.
 from __future__ import annotations
 
 import copy
+import hashlib
+import json
 import time
 from contextlib import nullcontext
 from typing import Any, Callable
 
-from core import db, relogio, repositories
+from sqlalchemy.orm import Session
+
+from core import db, relevancia, relogio, repositories
 from core.config_provider import bot_runtime_atual
 from core.credentials import platforms_with_usable_credentials
+from core.models import Oferta
 from core.platforms import affiliate
 from core.platforms.base import OfertaCapturada
 from core.settings import settings
@@ -35,6 +40,66 @@ from worker.sources import FONTES
 _baseline_ciclos_feitos: dict[str, int] = {}
 _ciclo_n: dict[str, int] = {}
 _silencio_avisado: set[str] = set()
+_avisos_publico: dict[str, float] = {}
+
+
+def _motivo_publico(oferta: OfertaCapturada, filtros: dict) -> str:
+    publico = filtros.get("publico_alvo", "")
+    if not publico.strip() or (oferta.categoria or "").lower() in {
+        "cupom", "campanha", "promocao", "promoção"
+    }:
+        return ""
+    classificador = filtros.get("classificador_publico", "jev")
+    if not relevancia.chave_disponivel(classificador):
+        return ""
+    dados = [
+        classificador,
+        publico,
+        filtros.get("relevancia_minima", 0.6),
+        relevancia.normalizar_nome(oferta.nome),
+    ]
+    return "publico:" + hashlib.sha256(json.dumps(dados).encode()).hexdigest()
+
+
+def _avaliar_publico(
+    session: Session,
+    oferta_db: Oferta,
+    oferta: OfertaCapturada,
+    filtros: dict,
+    grupos: tuple[str, ...],
+) -> tuple[bool, float | None]:
+    """Uma classificação por oferta/bot, antes do freio e de qualquer envio."""
+    motivo = _motivo_publico(oferta, filtros)
+    if not motivo:
+        return True, None
+    probabilidade = relevancia.avaliar_publico(
+        oferta.nome, oferta.loja, oferta.preco, filtros["publico_alvo"],
+        filtros.get("classificador_publico", "jev"),
+    )
+    runtime = bot_atual()
+    if probabilidade is None:
+        bot = str(runtime.id) if runtime else canal_atual()
+        agora = time.monotonic()
+        ultimo_aviso = _avisos_publico.get(bot)
+        if ultimo_aviso is None or agora - ultimo_aviso >= 600:
+            _avisos_publico[bot] = agora
+            logger.warning(
+                f"[{nome_canal()}] Público sem avaliação; seguindo com os filtros habituais."
+            )
+        return True, None
+    if probabilidade < filtros.get("relevancia_minima", 0.6):
+        logger.info(
+            f"Fora do público (p={probabilidade:.2f} "
+            f"{filtros.get('classificador_publico', 'jev')}): {oferta.nome[:60]}"
+        )
+        for grupo in grupos:
+            with _contexto_do_grupo(runtime, grupo):
+                repositories.registrar_visto(
+                    session, oferta_db.id, oferta.preco, grupo=grupo,
+                    bot_id=runtime.id if runtime else None, group_id=grupo_db_id(), motivo=motivo,
+                )
+        return False, probabilidade
+    return True, probabilidade
 
 
 def _telemetria_best_effort(
@@ -290,12 +355,26 @@ def _processar_oferta(session, oferta: OfertaCapturada, filtros: dict) -> str:
         logger.debug(f"Pulando '{oferta.nome[:60]}': {motivo_dedup}")
         return "pulou"
 
+    motivo_publico = _motivo_publico(oferta, filtros)
+    runtime = bot_atual()
+    if motivo_publico and repositories.rejeitada_pelo_publico(
+        session, oferta_db.id, grupo, motivo_publico, runtime.id if runtime else None
+    ):
+        return "pulou"
+    publico_ok, probabilidade = _avaliar_publico(session, oferta_db, oferta, filtros, (grupo,))
+    if not publico_ok:
+        return "pulou"
+
     ok_ritmo, motivo_freio = _freio_anti_ban(session, filtros, grupo, oferta)
     if not ok_ritmo:
         logger.warning(f"[{nome_canal()}] {motivo_freio}")
         return "freio"
 
-    logger.info(f"[{nome_canal()}] Oferta NOVA: {oferta.nome}")
+    publico_log = (
+        f" (p={probabilidade:.2f} {filtros.get('classificador_publico', 'jev')})"
+        if probabilidade is not None else ""
+    )
+    logger.info(f"[{nome_canal()}] Oferta NOVA{publico_log}: {oferta.nome}")
     logger.info(f"Motivo: {motivo_dedup}")
     return _enviar_oferta_no_grupo(session, oferta, oferta_db)
 
@@ -477,11 +556,33 @@ def _executar_ciclo() -> tuple[int, int, bool]:
                 if not candidatos:
                     puladas += 1
                     continue
+                motivo_publico = _motivo_publico(oferta, filtros)
+                if motivo_publico:
+                    candidatos = tuple(
+                        grupo for grupo in candidatos
+                        if not repositories.rejeitada_pelo_publico(
+                            session, oferta_db.id, grupo, motivo_publico,
+                            runtime.id if runtime else None,
+                        )
+                    )
+                if not candidatos:
+                    puladas += 1
+                    continue
+                publico_ok, probabilidade = _avaliar_publico(
+                    session, oferta_db, oferta, filtros, candidatos
+                )
+                if not publico_ok:
+                    puladas += 1
+                    continue
                 ok_ritmo, motivo_freio = _freio_anti_ban(session, filtros, candidatos[0], oferta)
                 if not ok_ritmo:
                     logger.warning(f"[{nome_canal()}] {motivo_freio}")
                     break
-                logger.info(f"[{nome_canal()}] Oferta NOVA: {oferta.nome}")
+                publico_log = (
+                    f" (p={probabilidade:.2f} {filtros.get('classificador_publico', 'jev')})"
+                    if probabilidade is not None else ""
+                )
+                logger.info(f"[{nome_canal()}] Oferta NOVA{publico_log}: {oferta.nome}")
                 mensagens_enviadas = 0
                 for indice, grupo in enumerate(candidatos):
                     if indice:

@@ -5,6 +5,63 @@ frontend fale com componente interno do bot.
 
 ## Fronteiras
 
+### Público do grupo e palavras-chave
+
+As palavras-chave, bloqueios e exceções usam prefixo de palavra no texto minúsculo
+e sem acento: `unha` aceita `unhas`, mas `anel` não aceita `canela` e `colar` não
+aceita `escolar`. Termos compostos e pontuação são literais, com fronteira à esquerda.
+
+`filters.publico_alvo` (até 500 caracteres; padrão vazio) habilita a classificação
+por bot. `filters.classificador_publico` aceita `jev` (padrão) ou `haiku`, selecionado
+no dashboard junto do público. `filters.relevancia_minima` vai de 0 a 1, com padrão 0,6. Fluxo:
+filtros locais → deduplicação por grupo → classificador uma vez por oferta/bot → freio anti-ban
+→ links de afiliado e envio aos grupos candidatos. Baseline, cupons e campanhas não
+consultam o classificador. A dispensa de palavras-chave por categoria do ML não dispensa o público.
+
+O worker usa `TYPESAFE_API_KEY` e o modelo fixo `jev-1.13.0`, conforme o
+[contrato REST da TypeSafe](https://docs.typesafe.ai/api). Haiku usa `ANTHROPIC_API_KEY`,
+o SDK oficial `anthropic==1.13.0` e o modelo fixo `claude-haiku-5-5`, com thinking
+desligado, esforço baixo e schema JSON de probabilidade inteira (0–100 convertida
+para 0–1 com clamp). Recusa ou falha do SDK/parse retorna `None`; cliente criado sob
+demanda, timeout de 5 s e uma repetição pelo SDK.
+O cache em memória usa classificador + público + nome normalizado, TTL de 7 dias
+e LRU de até 5000 entradas; falhas não são cacheadas. Jev mantém timeout de 5 s;
+HTTP 429 permite uma nova tentativa após `retry-after`,
+com espera limitada a 2 s.
+
+Probabilidade abaixo do limiar conta como pulada e grava `visto` em cada grupo
+candidato, usando `registrar_visto`. O campo `mensagem` guarda apenas a identificação
+da rejeição (hash de classificador, público, limiar e nome normalizado), sem WhatsApp. A consulta
+considera o bot e o grupo: esses vistos impedem nova avaliação nos próximos ciclos
+e após reinício, sem bloquear os vistos de baseline nem outro bot. Alterar classificador,
+público, limiar ou nome permite reavaliação. Probabilidade e classificador aparecem no log de envio.
+
+Sem chave, o filtro fica desligado, inclusive para rejeições anteriores, com um aviso
+por processo por provedor. Não há troca automática de provedor. Timeout, erro HTTP
+ou resposta malformada retornam `None`: o envio segue
+com os filtros e freio habituais, com aviso no máximo a cada 10 minutos por bot.
+
+Para comparar antes de escolher, preencha `esperado` (`sim`/`nao`, ou vazio) no CSV
+com 99 produtos reais em `scripts/dados/produtos_nina_enviados.csv`. As duas variáveis,
+`TYPESAFE_API_KEY` e `ANTHROPIC_API_KEY`, podem ficar no `.env` local (nunca no Git).
+O script carrega esse arquivo sem sobrescrever variáveis já definidas:
+
+```bash
+python scripts/comparar_classificadores.py scripts/dados/produtos_nina_enviados.csv --publico "mulheres adultas que buscam achadinhos para casa, beleza e moda feminina" --limiar 0.6 --saida resultado.csv
+```
+
+Entrada UTF-8 com `nome,loja,preco,esperado`; preço vazio vale 0. Sem `--saida`, gera
+`<entrada>_resultado.csv`. Provedores sem chave são avisados e pulados; cada provedor
+usa seu próprio cache. A saída preserva as colunas e acrescenta `p_jev`, `p_haiku`,
+`ms_jev`, `ms_haiku`; campos de probabilidade ficam vazios para `None` e os de ambos
+probabilidade/latência ficam vazios se o provedor foi pulado.
+O resumo mostra avaliados (respostas válidas), `None`, latência média e p95 (posto
+mais próximo, incluindo tentativas que retornaram `None`), acertos e precisão/revocação
+de `nao` no limiar informado. `p < limiar` significa `nao`; empate aceita o produto.
+Linhas sem rótulo ou com `None` não entram nas métricas de qualidade; denominador
+zero aparece como `n/d`. Lista discordâncias com o esperado e entre os provedores.
+Não acessa banco nem WhatsApp.
+
 ### Origem dos produtos por bot
 
 `filters.origem_produtos` aceita `novidades` (padrão, buscas e ordem anteriores),

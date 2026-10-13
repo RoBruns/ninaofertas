@@ -68,6 +68,9 @@ FILTER_KEYS = (
     "excecoes_bloqueio",
     "max_vendas",
     "origem_produtos",
+    "publico_alvo",
+    "classificador_publico",
+    "relevancia_minima",
     "min_vendas",
     "max_idade_oferta_horas",
 )

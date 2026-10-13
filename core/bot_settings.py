@@ -27,6 +27,9 @@ FILTER_KEYS = {
     "excecoes_bloqueio",
     "max_vendas",
     "origem_produtos",
+    "publico_alvo",
+    "classificador_publico",
+    "relevancia_minima",
     "min_vendas",
     "max_idade_oferta_horas",
     "uma_loja_por_ciclo",
@@ -70,6 +73,9 @@ class Filters(BaseModel):
     excecoes_bloqueio: list[str] = Field(default_factory=list)
     max_vendas: int = Field(default=20, ge=0)
     origem_produtos: Literal["novidades", "mais_vendidos", "ambos"] = "novidades"
+    publico_alvo: str = Field(default="", max_length=500)
+    classificador_publico: Literal["jev", "haiku"] = "jev"
+    relevancia_minima: float = Field(default=0.6, ge=0, le=1)
     min_vendas: int = Field(default=100, ge=0)
     max_idade_oferta_horas: int = Field(default=0, ge=0)
     uma_loja_por_ciclo: bool = False

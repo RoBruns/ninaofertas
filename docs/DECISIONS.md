@@ -408,8 +408,29 @@ mesmo mais vendido, salvo queda de preço.
 
 ---
 
-## ADR-025 — Sincronização financeira e conciliação por conta e data
-**Data:** 2026-10-13 · **Status:** aceita na branch `feat/dashboard-fixes`
+## ADR-025 — Classificador de público selecionável por bot, com falha aberta
+**Data:** 2026-10-13 · **Status:** aceita · **Decisor:** usuário
+
+O dono vai comparar Jev e Claude Haiku antes de escolher o classificador. Cada bot
+seleciona `filters.classificador_publico` (`jev`, padrão; `haiku`), quando tem
+`publico_alvo` preenchido. Haiku usa o SDK oficial da Anthropic, com modelo e
+parâmetros fixos conforme a especificação da etapa 2; ambas as chaves são opcionais
+e ficam somente no worker ou no `.env` local para a comparação.
+
+Cache e avisos de chave ausente são separados por provedor. A rejeição persistida
+inclui o classificador, permitindo reavaliar após uma troca. Sem a chave selecionada
+ou em falha/recusa, a classificação não bloqueia o envio e não troca de provedor;
+os filtros locais, deduplicação e freio anti-ban continuam valendo.
+
+O script de comparação não envia mensagens nem acessa o banco. Avalia a capacidade
+de barrar produtos fora do público pela precisão e revocação de `nao` no limiar
+informado, excluindo respostas `None` das métricas de qualidade e contando-as à parte.
+Nenhuma escolha de provedor em produção foi feita nesta etapa.
+
+---
+
+## ADR-026 — Sincronização financeira e conciliação por conta e data
+**Data:** 2026-10-13 · **Status:** aceita
 
 Uma sincronização sem vendas novas é bem-sucedida, mas a última venda importada
 não muda. A saúde de sincronização e o histórico passam a usar um registro de

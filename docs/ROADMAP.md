@@ -1,5 +1,38 @@
 # Roadmap de implementação
 
+## Filtro de público — 2026-10-13
+
+Implementado em `feat/filtro-publico`: termos casam no início de palavra; público e
+limiar opcionais por bot, Jev `jev-1.13.0` antes do freio, cache TTL/LRU e falha aberta.
+Rejeições gravam `visto` identificado por bot/configuração, sem alterar a baseline.
+Dashboard, OpenAPI/tipos e documentação atualizados. Nenhum teste antigo ajustado,
+ADR, commit, push ou deploy; API externa e WhatsApp simulados nos testes.
+
+Validação no Postgres local `ninaofertas_test`: backend `267 passed, 147 warnings in
+61.20s (0:01:01)`; Ruff `All checks passed!`; dashboard lint com exit code 0,
+`Test Files 17 passed (17)`, `Tests 60 passed (60)` e build `✓ built in 540ms`.
+Warnings de depreciação das dependências. Pytest usa basetemp/cache no workspace
+por restrição de acesso ao TEMP padrão da sandbox.
+
+Etapa 2: `classificador_publico` por bot (`jev`/`haiku`, padrão Jev), select no
+dashboard, contrato e tipos gerados. Haiku `claude-haiku-5-5` via SDK oficial
+`anthropic==1.13.0`, chave opcional, falha aberta, cache/aviso separados por provedor.
+Rejeições incluem o classificador para permitir reavaliação após a troca. Script
+`scripts/comparar_classificadores.py` compara probabilidades, latências, precisão e
+revocação de `nao`, preserva CSV e pula provedores sem chave. Base de 99 produtos
+copiada para `scripts/dados/`, com esperado vazio. Sem commit, push ou deploy.
+Decisão registrada no ADR-025; a escolha do classificador cabe ao dono após os testes.
+
+Validação da etapa 2 no Postgres local `ninaofertas_test`: backend `296 passed,
+149 warnings in 74.96s (0:01:14)`; Ruff `All checks passed!`; dashboard lint com
+exit code 0, `Test Files 17 passed (17)`, `Tests 60 passed (60)` e build
+`✓ built in 633ms`. `npm run gen:api` executado via `npm.cmd` (PowerShell bloqueia
+o wrapper `.ps1`). Pytest com basetemp/cache no workspace, como na etapa 1;
+warnings de depreciação do Alembic. Comparador executado sem ambas as chaves:
+dois provedores pulados, 99 linhas e campos de resultado vazios. Cópia do CSV
+idêntica ao original, com 99 rótulos vazios. Contratos Jev/Haiku testados com mocks;
+nenhuma chamada real às APIs nem envio ao WhatsApp nesta validação.
+
 ## Produtos em alta — 2026-10-02
 
 Implementado em `feat/produtos-em-alta`: origem de produtos por bot (`novidades`,
@@ -489,7 +522,7 @@ Regressões de API/core cobrem itens 1, 3, 4, 5, 7, 8, 11, 12 e comparação par
 componentes cobrem 2, 6, 10, estados e paginação do 13. OpenAPI e tipos gerados
 atualizados. Arquivos do worker/filtros/relevância/bot_settings e a seção Filtros
 do BotDetail preservados. Fora de escopo: trusted_proxies/IP real, Bot.last_run_at
-e /system/status. ADR-025 registra a persistência de sync e a conciliação.
+e /system/status. ADR-026 registra a persistência de sync e a conciliação.
 
 Validação final no banco `ninaofertas_test2`: `227 passed, 140 warnings in 71.93s
 (0:01:11)`; Ruff `All checks passed!`; dashboard lint com exit code 0,

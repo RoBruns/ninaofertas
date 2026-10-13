@@ -1,6 +1,7 @@
 """Aplica os critérios de `config.json` sobre uma oferta capturada."""
 from __future__ import annotations
 
+import re
 from datetime import datetime, timezone
 from unicodedata import combining, normalize
 
@@ -249,7 +250,10 @@ def _contem_alguma(texto: str, termos: list[str]) -> bool:
         return "".join(char for char in normalize("NFD", valor.lower()) if not combining(char))
 
     texto_lower = sem_acento(texto)
-    return any(sem_acento(termo) in texto_lower for termo in termos)
+    return any(
+        re.search(r"(?<![a-z0-9])" + re.escape(sem_acento(termo)), texto_lower)
+        for termo in termos
+    )
 
 
 def _bomba_dagua_ok_no_auto(nome: str) -> bool:
