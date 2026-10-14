@@ -12,7 +12,7 @@ ambiente `production` · região US East.
 | `nina-api` | FastAPI | não | API V2 na rede interna |
 | `nina-dashboard` | Caddy + SPA | **sim** | Frontend e proxy `/api` |
 | `evolution-api` | imagem | sim | WhatsApp · volume 4.9 GB |
-| `nina-db` | Postgres | **não** | Dados. Sem URL pública — manter assim |
+| `nina-db` | Postgres | **não** | Dados. TCP Proxy apenas temporariamente para backup; desligar depois |
 | `Redis` | banco | não | Cache da `evolution-api` (`CACHE_REDIS_URI`, db 6). Adicionado em 2026-09-23; o bot não usa |
 | `rogstools` | — | sim | **Outro projeto. Não tocar.** |
 
@@ -24,14 +24,15 @@ railway variables --service nina-worker
 railway up --service nina-worker
 ```
 
-> O Postgres não tem `DATABASE_PUBLIC_URL` nem TCP proxy — é acessível apenas de
-> dentro da rede Railway. Isso é proposital: **não crie URL pública para o banco.**
+> O Postgres fica na rede interna. Para backup local, o dono pode habilitar
+> temporariamente o TCP Proxy, usar `DATABASE_PUBLIC_URL` e desligar o proxy logo
+> depois (procedimento em [Backup](#backup)).
 
 ### Como acessar o banco a partir da máquina local
 
 `railway run` **não serve** para isso: injeta as variáveis mas executa o processo
-localmente, então `postgres.railway.internal` não resolve. O caminho que funciona
-é o túnel SSH:
+localmente, então `postgres.railway.internal` não resolve. Para backup, use o
+TCP Proxy temporário descrito abaixo. Outra opção de acesso é o túnel SSH:
 
 ```bash
 # uma vez, se ainda não houver chave registrada:
@@ -128,10 +129,9 @@ o banco guarda datas UTC. O Brasil não tem horário de verão desde 2019.
 railway run --service nina-api alembic upgrade head
 ```
 
-Antes de qualquer migration que altere tabela existente:
-```bash
-railway run --service nina-api pg_dump "$DATABASE_URL" -Fc -f backup-$(date +%F).dump
-```
+Antes de qualquer migration que altere tabela existente, gere o ZIP lógico e
+teste sua restauração em banco descartável conforme [Backup](#backup).
+`railway run` executa localmente e não resolve o endereço interno do banco.
 
 Regras: `ofertas` e `envios` só recebem coluna nullable · nenhuma migration dropa
 coluna delas · toda migration tem `downgrade` testado · migration roda antes do
@@ -151,8 +151,85 @@ migrations são aditivas, a versão antiga do código convive com o schema novo.
 
 ## Backup
 
-`pg_dump` diário do Postgres (job na Railway ou cron externo), retenção 7 dias.
-Testar a restauração uma vez — backup não verificado não é backup.
+O `nina-db` usa Postgres 18 e o `pg_dump` local é 16, incompatível com esse
+servidor. Os scripts `scripts/backup_db.py` e `scripts/restore_db.py` usam Python
+e psycopg 3, sem binários do Postgres. **Ainda não há backup automático** no
+plano Hobby. Antes das migrations 0007–0009, gere um backup e restaure uma cópia
+em banco descartável. Agendamento diário e retenção de 7 dias continuam pendentes.
+
+Para gerar a partir da máquina local:
+
+1. No serviço **nina-db** da Railway, abra **Settings → Networking** e habilite
+   o **TCP Proxy**. Use a URL pública que aparece em `DATABASE_PUBLIC_URL`.
+2. Na raiz do repositório, com o venv e dependências instalados, coloque essa URL
+   em `DATABASE_URL` no ambiente do terminal (sem exibi-la nem compartilhá-la).
+   Execute o comando abaixo. Também é aceito `--url <postgres-url>`; a variável
+   evita colocar a senha na linha de comando/histórico. Ambos os prefixos
+   `postgres://` e `postgresql://` são aceitos.
+3. **Desligue o TCP Proxy logo depois**, inclusive se o comando falhar.
+
+```powershell
+# DATABASE_URL já definida com DATABASE_PUBLIC_URL, sem imprimir seu conteúdo:
+./venv/Scripts/python.exe scripts/backup_db.py --out C:/Backups/nina/nina-antes-saas.zip
+Remove-Item Env:DATABASE_URL
+```
+
+Crie a pasta de destino antes. Guarde os ZIPs **fora do repositório e fora da
+Railway**, em armazenamento com acesso restrito e cópia separada; `backups/`
+também está no `.gitignore` para arquivos locais temporários. O ZIP não é cifrado:
+contém dados pessoais e hashes de senha, além das credenciais operacionais já
+cifradas. Guarde `CREDENTIALS_KEY` separadamente no gerenciador de senhas para
+poder decifrar os tokens depois da restauração. Não anexe backups a commits,
+issues, logs ou conversas.
+
+O backup usa uma transação `REPEATABLE READ READ ONLY`: uma foto consistente de
+todas as tabelas base de `public`, inclusive `alembic_version`, `ofertas` e
+`envios`. Os CSVs vão em streaming para `tables/<tabela>.csv`; `manifest.json`
+registra data UTC, versão do servidor, revisão Alembic, colunas/tipos e contagens.
+O resumo mostra host/banco, tabelas, linhas e bytes, sem URL ou senha. Um arquivo
+de destino existente é recusado; falhas removem o ZIP incompleto.
+
+Para restaurar, crie um **banco de destino vazio**, use o checkout que contém a
+revisão do manifesto e configure a URL desse destino em `DATABASE_URL`:
+
+```powershell
+# Exemplo: DATABASE_URL aponta para um banco descartável chamado nina_restore.
+./venv/Scripts/python.exe scripts/restore_db.py --backup C:/Backups/nina/nina-antes-saas.zip --confirmar nina_restore
+Remove-Item Env:DATABASE_URL
+```
+
+Também aceita `--url <destino>`. `--confirmar` precisa corresponder exatamente ao
+nome do banco da URL. Qualquer tabela em `public` com dados bloqueia a operação,
+exceto `platforms` e `plans` (seeds, esvaziados na transação de carga) e
+`alembic_version` (metadado mantido pelo Alembic, sem COPY). Use um destino sem
+aplicações conectadas. A restauração roda `alembic upgrade <revisão-do-manifesto>`
+com `DATABASE_URL` do destino em processo separado; `ofertas`/`envios` presentes
+no backup são criadas por `Base.metadata.create_all` (ADR-012). Não migra
+automaticamente o backup para `head`: faça isso somente após validar a cópia.
+
+A carga inteira usa uma transação com `session_replication_role = replica`,
+sem executar FKs nem o gatilho do livro-razão, e requer um usuário com permissão
+para alterar esse parâmetro (por exemplo, superusuário). Ao fim restaura o papel
+da sessão, confere cada contagem e ajusta todas as sequências ao máximo existente
+(ou 1, ainda não usado, para tabela vazia). Falha na carga/contagem reverte os
+dados; a criação inicial do schema pelas migrations pode permanecer no destino.
+O formato cobre as tabelas da aplicação reconstruídas por migrations e modelos;
+não inclui roles, grants, objetos de outros schemas nem DDL customizado externo.
+
+O teste `tests/test_backup_db.py` faz backup → `DROP SCHEMA public CASCADE` →
+restauração em **Postgres real**, compara todas as linhas de todas as tabelas,
+incluindo tipos nativos, token cifrado e livro-razão; verifica sequências,
+gatilho, revisão anterior à SaaS, foto consistente sob escrita concorrente e
+recusas por confirmação errada/destino com dados. Nunca aponte esse teste para
+produção: ele só usa `TEST_DATABASE_URL`, com a trava de `tests/_db_guard.py`.
+
+```powershell
+$env:TEST_DATABASE_URL = 'postgresql://postgres:postgres@localhost:5432/ninaofertas_test'
+./venv/Scripts/python.exe -m pytest -q tests/test_backup_db.py
+```
+
+Esse teste valida o procedimento; a cópia real de produção ainda precisa ser
+gerada e ensaiada num destino separado antes do deploy.
 
 O volume da `evolution-api` (`/evolution/instances`) guarda a sessão do WhatsApp.
 **Perder esse volume significa reparear o número por QR Code** — e o WhatsApp
@@ -235,7 +312,7 @@ público** — só é alcançável pelo proxy.
 | # | Passo | Reversível? |
 |---|---|---|
 | 0 | `git fetch producao`: se houver commit novo na produção, integrar antes | — |
-| 1 | `pg_dump` do banco de produção, guardado fora da Railway | — |
+| 1 | ZIP com `scripts/backup_db.py`, guardado fora da Railway, e restauração ensaiada em banco descartável (ver Backup) | — |
 | 2 | Criar `nina-api` e `nina-dashboard` (sem tráfego ainda), com config própria | apagar serviço |
 | 3 | Variáveis da API: `JWT_SECRET`, `CREDENTIALS_KEY`, `WORKER_TOKEN` gerados; `DATABASE_URL` e `EVOLUTION_*` por referência. `ADMIN_EMAIL`/`ADMIN_PASSWORD` **definidos pelo usuário** (a senha não passa pela conversa) | trocar valor |
 | 4 | `alembic upgrade head` no banco de produção (só aditivo; `ofertas`/`envios` ganham colunas nullable) e `python -m core.seed` (bots pausados) | downgrade testado; backup do passo 1 |

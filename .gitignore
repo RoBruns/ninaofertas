@@ -7,6 +7,7 @@ ofertas.db
 ofertas.db-journal
 logs/
 data/
+backups/
 whatsapp-qr.png
 evolution-connect.json
 evolution-create.json

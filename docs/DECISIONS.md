@@ -165,6 +165,13 @@ credencial usa os primeiros 16 bytes do SHA-256 (32 caracteres hexadecimais).
 Extensões não são removidas no downgrade por serem objetos globais potencialmente
 compartilhados por outros schemas.
 
+**Restauração lógica (2026-10-14):** `scripts/restore_db.py` executa Alembic até
+a revisão do manifesto em um banco vazio e materializa por
+`Base.metadata.create_all` somente `ofertas`/`envios` que constam no backup.
+Não altera a baseline nem cria tabelas administrativas pelo metadata, preservando
+as migrations como fonte dos gatilhos, constraints e seeds. O procedimento e
+seu teste de restauração em Postgres real estão em `docs/DEPLOYMENT.md`.
+
 ---
 
 ## ADR-013 — Exclusão de usuário é desativação lógica

@@ -184,10 +184,12 @@ nina-worker (APScheduler) ──────────────── nina-
 
 `STATUS.md` é histórico da V1 (2026-09-07) — não reflete o projeto atual.
 
-## Pendências conhecidas (2026-09-30)
+## Pendências conhecidas (atualizado em 2026-10-14)
 
-- Backup do `nina-db`: não existe; o plano Hobby não tem backup nativo (opção avaliada:
-  dump agendado, criptografado, para Cloudflare R2).
+- Backup do `nina-db`: scripts lógicos Python em `scripts/backup_db.py` e
+  `scripts/restore_db.py`, com restauração testada em Postgres real. Ainda faltam
+  cópia real antes do deploy e agendamento; o plano Hobby não tem backup nativo
+  (opção avaliada: backup agendado, criptografado, para Cloudflare R2).
 - Vendas: a importação do ML funciona desde 2026-09-30 (16 vendas, todas pendentes);
   se falhar, o evento `ml_sales_sync_failed` traz o diagnóstico. Shopee retorna 0
   conversões (aceito pelo dono).

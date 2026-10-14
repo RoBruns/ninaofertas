@@ -1,5 +1,37 @@
 # Roadmap de implementação
 
+## Backup lógico e restauração — 2026-10-14
+
+Implementado em `feat/saas`, sem commit, push ou deploy:
+
+1. `scripts/backup_db.py`: psycopg 3, snapshot `REPEATABLE READ READ ONLY`, COPY
+   CSV em streaming para ZIP de todas as tabelas base de `public`, manifesto
+   com revisão Alembic, data UTC, servidor, colunas/tipos e contagens. Resumo
+   sem credenciais; arquivo existente preservado e ZIP incompleto removido.
+2. `scripts/restore_db.py`: confirmação pelo nome do banco, recusa de dados
+   operacionais, reconstrução na revisão exata via Alembic com `DATABASE_URL`
+   em processo separado e criação das duas tabelas legadas por metadata.
+   Carga transacional com FKs/gatilhos suspensos, papel de sessão restaurado,
+   contagens conferidas e sequências ajustadas. Seeds platforms/plans são
+   substituídos; alembic_version fica sob gestão do Alembic.
+3. `tests/test_backup_db.py`: oito testes em Postgres real, com comparação
+   linha a linha de todas as tabelas, tipos nativos, token cifrado, livro-razão,
+   sequências vazias/preenchidas, gatilho após carga, revisão 0006, concorrência,
+   rollback e recusas de confirmação/dados/arquivo existente.
+4. DEPLOYMENT atualizado com TCP Proxy temporário e `DATABASE_PUBLIC_URL`,
+   geração, guarda fora do repositório, restauração e limites do formato;
+   `backups/` ignorado pelo Git e contexto dos agentes atualizado.
+
+Validação no Postgres local 16.15 (`ninaofertas_test`): **415 testes backend
+passaram** (208,61 s), incluindo os **8 testes novos**; `ruff check .` sem erros.
+A suíte usou `--basetemp=.tmp/backup-full -o cache_dir=.tmp/backup-cache` pelas
+restrições da sandbox; os 268 warnings são da configuração existente do Alembic
+(`path_separator`). A compatibilidade com Postgres 18 usa COPY pelo protocolo
+do psycopg, sem pg_dump; servidor 18 não foi acessado nesta tarefa. Cópia real
+do `nina-db`, ensaio dessa cópia antes do deploy, armazenamento externo e
+agendamento continuam pendentes operacionais. Dashboard e worker não alterados;
+nenhum envio real, acesso a produção ou alteração de infraestrutura.
+
 ## Filtro de público — 2026-10-13
 
 Implementado em `feat/filtro-publico`: termos casam no início de palavra; público e
