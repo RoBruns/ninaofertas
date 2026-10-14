@@ -124,7 +124,7 @@ def list_accounts(
     page_size: Annotated[int, Query(ge=1, le=200)] = 50,
     sort: str = "-created_at",
 ) -> PaginatedResponse[AccountResponse]:
-    statement = select(PlatformAccount).where(PlatformAccount.owner_id == current_user.id)
+    statement = select(PlatformAccount).where(PlatformAccount.owner_id == current_user.tenant_id)
     if platform_id is not None:
         statement = statement.where(PlatformAccount.platform_id == platform_id)
     if status is not None:
@@ -165,7 +165,7 @@ def create_account(
         raise APIError(404, "NOT_FOUND", "Plataforma não encontrada")
     duplicate = session.scalar(
         select(PlatformAccount.id).where(
-            PlatformAccount.owner_id == admin.id,
+            PlatformAccount.owner_id == admin.tenant_id,
             PlatformAccount.platform_id == payload.platform_id,
             PlatformAccount.label == payload.label,
         )
@@ -175,7 +175,7 @@ def create_account(
     now = datetime.now(timezone.utc)
     account = PlatformAccount(
         id=uuid4(),
-        owner_id=admin.id,
+        owner_id=admin.tenant_id,
         platform_id=payload.platform_id,
         label=payload.label,
         external_id=payload.external_id,
@@ -208,7 +208,7 @@ def get_account(
     current_user: Annotated[User, Depends(get_current_user)],
     session: Annotated[Session, Depends(get_db)],
 ) -> AccountResponse:
-    return account_response(session, get_owned_account(session, account_id, current_user.id))
+    return account_response(session, get_owned_account(session, account_id, current_user.tenant_id))
 
 
 @router.patch(
@@ -223,7 +223,7 @@ def update_account(
     admin: AdminUser,
     session: Annotated[Session, Depends(get_db)],
 ) -> AccountResponse:
-    account = get_owned_account(session, account_id, admin.id)
+    account = get_owned_account(session, account_id, admin.tenant_id)
     before = _audit_account(account_response(session, account))
     changes = payload.model_dump(exclude_unset=True)
     if changes.get("label", "valid") is None or changes.get("config", {}) is None:
@@ -231,7 +231,7 @@ def update_account(
     if "label" in changes:
         duplicate = session.scalar(
             select(PlatformAccount.id).where(
-                PlatformAccount.owner_id == admin.id,
+                PlatformAccount.owner_id == admin.tenant_id,
                 PlatformAccount.platform_id == account.platform_id,
                 PlatformAccount.label == changes["label"],
                 PlatformAccount.id != account.id,
@@ -269,7 +269,7 @@ def delete_account(
     admin: AdminUser,
     session: Annotated[Session, Depends(get_db)],
 ) -> None:
-    account = get_owned_account(session, account_id, admin.id)
+    account = get_owned_account(session, account_id, admin.tenant_id)
     bots = list(
         session.scalars(
             select(Bot)
@@ -309,7 +309,7 @@ def _change_status(
     user: User,
     session: Session,
 ) -> AccountResponse:
-    account = get_owned_account(session, account_id, user.id)
+    account = get_owned_account(session, account_id, user.tenant_id)
     before = _audit_account(account_response(session, account))
     account.status = status
     account.updated_at = datetime.now(timezone.utc)

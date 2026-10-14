@@ -179,6 +179,7 @@ def test_events_redaction_filters_retention_and_role_permissions(
         session.add_all(
             [
                 Event(
+                    tenant_id=viewer.tenant_id,
                     level="error",
                     type="secret_test",
                     message="Falha tecnica",
@@ -476,7 +477,7 @@ def test_cada_detector_dispara_e_ignora_caso_saudavel(
                 imported_at=now,
             )
         )
-        session.add(AuditLog(user_id=owner.id, entity_type="sale_import",
+        session.add(AuditLog(tenant_id=owner.tenant_id, user_id=owner.id, entity_type="sale_import",
                              entity_id=str(fresh_account_id), action="sync_success",
                              created_at=now, after={"source": "sync_automatic"}))
         old_category = ExpenseCategory(owner_id=owner.id, slug="trafego", name="Trafego")

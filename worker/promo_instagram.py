@@ -6,7 +6,7 @@ import time
 from core import db, relogio, repositories
 from core.settings import BASE_DIR
 from worker import whatsapp
-from worker.channels import canais_ativos, grupo_whatsapp, load_filtros, nome_canal, usar_canal
+from worker.channels import bot_atual, grupo_db_id, canais_ativos, grupo_whatsapp, load_filtros, nome_canal, usar_canal
 from worker.logger import logger
 
 SKU = "promo:instagram"
@@ -30,6 +30,9 @@ def ciclo() -> None:
         if i:
             time.sleep(12)
         with usar_canal(canal):
+            runtime = bot_atual()
+            if runtime is None or not runtime.settings.content.recado_instagram:
+                continue
             quiet_hours = load_filtros().get("quiet_hours")
             if relogio.em_silencio(quiet_hours):
                 logger.info(f"[{nome_canal()}] Fora do horário. Recado do Instagram adiado.")
@@ -38,6 +41,9 @@ def ciclo() -> None:
 
 
 def _enviar_canal() -> None:
+    runtime = bot_atual()
+    if runtime is None or not runtime.settings.content.recado_instagram:
+        return
     grupo = grupo_whatsapp()
     if not grupo:
         return
@@ -51,7 +57,9 @@ def _enviar_canal() -> None:
             )
             return
 
-        desde_qualquer = repositories.minutos_desde_ultimo_envio(session)
+        desde_qualquer = repositories.minutos_desde_ultimo_envio(
+            session, **({"escopo_bot_id": runtime.id} if runtime.is_test else {"tenant_id": runtime.owner_id, "excluir_bots_teste": True})
+        )
         if desde_qualquer is not None and desde_qualquer < 3:
             logger.info(f"[{nome_canal()}] recado Instagram adiado: acabou de sair oferta")
             return
@@ -78,6 +86,8 @@ def _enviar_canal() -> None:
             mensagem=MENSAGEM,
             preco=0.0,
             status="sucesso" if ok else "falha",
+            bot_id=runtime.id,
+            group_id=grupo_db_id(),
         )
         if ok:
             logger.info(f"[{nome_canal()}] Recado do Instagram enviado.")

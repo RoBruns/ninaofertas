@@ -533,3 +533,40 @@ fixtures no TEMP do Windows. A suíte inteira passou com
 o teste da allowlist de mídia. Warnings restantes são da configuração do Alembic.
 Sem envio real, produção ou deploy. O histórico de sincronização começa nos
 novos sucessos; despesas, que só têm data, continuam comparadas por dia.
+
+## Nina Bot SaaS — fase S1 (2026-10-14)
+
+Branch `feat/saas`, sem commit, push ou deploy; revisão e commit pelo Claude.
+
+- Implementado: migration 0007_tenants, backfill com UUIDs preservados, FKs de
+  dono para conta, auditoria/eventos escopados, índice único de instância e
+  upgrade → downgrade → upgrade testado com dados existentes.
+- Implementado: autorização de platform admin, usuários restritos à conta,
+  `/auth/me` com tenant, gestão de contas em `/platform`, suspensão transacional
+  com pausa dos bots e bloqueio de login, refresh e acesso autenticado.
+- Implementado: freio da conta escopado por tenant, com envios legados dos seus
+  grupos; recado do Instagram opt-in e registro de bot/grupo. Limites seguros,
+  envio multigrupo e deduplicação preservados. Settings antigos em formato plano
+  preservam os mesmos filtros e ritmo após upgrade e downgrade. O worker também
+  ignora contas suspensas mesmo se houver bot com status ativo no banco.
+- Implementado: conexão de WhatsApp com nome de instância gerado, Evolution v2
+  simulada em testes, controle de instância livre só para platform admin. Instância
+  criada sem QR pronto fica gravada para permitir nova tentativa de conexão.
+- Implementado: marca Nina Bot, nome da conta no menu, página Plataforma,
+  confirmação de suspensão na UI, contrato OpenAPI e tipos gerados.
+- Implementado: matriz de rotas derivada do app, exclusões justificadas,
+  isolamento de leitura/escrita com comparação das tabelas, cobertura de
+  privilégios, criação de conta e autoria de usuários da mesma conta.
+
+Pendente operacional: revisão pelo Claude e, antes do deploy pelo dono, conferir
+que os bots de produção da Nina pertencem à mesma conta e que os grupos dos
+envios legados estão cadastrados. Nenhuma consulta ou alteração de produção foi
+feita nesta tarefa. Cobrança, planos, backup e demais fases S2/S3 permanecem fora
+do escopo. ADR-027 e ADR-028 documentam as decisões.
+
+Validação final em `ninaofertas_test`: **324 testes backend passaram**; Ruff sem
+erros. Dashboard: lint sem erros, **19 arquivos / 70 testes passaram**, build
+concluído. OpenAPI conferido contra o app e tipos regenerados. A suíte usou
+`--basetemp=.tmp/s1-complete -o cache_dir=.tmp/s1-cache` devido às restrições da
+sandbox no TEMP e cache padrão; warnings restantes são da configuração do Alembic.
+Testes de Evolution usam HTTP simulado, e os testes não enviam WhatsApp real.

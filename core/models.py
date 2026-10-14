@@ -44,11 +44,24 @@ class Base(DeclarativeBase):
     pass
 
 
+class Tenant(Base):
+    __tablename__ = "tenants"
+    __table_args__ = (CheckConstraint("status IN ('active', 'suspended')", name="ck_tenants_status"),)
+    id: Mapped[PythonUUID] = mapped_column(UUID_TYPE, primary_key=True, server_default=text("gen_random_uuid()"))
+    name: Mapped[str] = mapped_column(Text)
+    is_internal: Mapped[bool] = mapped_column(Boolean, server_default=text("false"))
+    status: Mapped[str] = mapped_column(Text, server_default=text("'active'"))
+    created_at: Mapped[datetime] = mapped_column(TIMESTAMPTZ, server_default=text("now()"))
+
+
 class User(Base):
     __tablename__ = "users"
     id: Mapped[PythonUUID] = mapped_column(
         UUID_TYPE, primary_key=True, server_default=text("gen_random_uuid()")
     )
+    tenant_id: Mapped[PythonUUID] = mapped_column(UUID_TYPE, ForeignKey("tenants.id"), index=True)
+    is_platform_admin: Mapped[bool] = mapped_column(Boolean, server_default=text("false"))
+    tenant: Mapped[Tenant] = relationship(lazy="joined")
     email: Mapped[str] = mapped_column(CITEXT_TYPE, unique=True)
     password_hash: Mapped[str] = mapped_column(Text)
     name: Mapped[str | None] = mapped_column(Text)
@@ -60,8 +73,10 @@ class User(Base):
 
 
 class AuditLog(Base):
+    tenant_id: Mapped[PythonUUID | None] = mapped_column(UUID_TYPE, ForeignKey("tenants.id"))
     __tablename__ = "audit_logs"
     __table_args__ = (
+        Index("ix_audit_logs_tenant_created", "tenant_id", text("created_at DESC")),
         Index(
             "ix_audit_logs_entity_created_at", "entity_type", "entity_id", text("created_at DESC")
         ),
@@ -94,7 +109,7 @@ class PlatformAccount(Base):
     id: Mapped[PythonUUID] = mapped_column(
         UUID_TYPE, primary_key=True, server_default=text("gen_random_uuid()")
     )
-    owner_id: Mapped[PythonUUID] = mapped_column(UUID_TYPE, ForeignKey("users.id"))
+    owner_id: Mapped[PythonUUID] = mapped_column(UUID_TYPE, ForeignKey("tenants.id"))
     platform_id: Mapped[int] = mapped_column(Integer, ForeignKey("platforms.id"))
     label: Mapped[str] = mapped_column(Text)
     external_id: Mapped[str | None] = mapped_column(Text)
@@ -130,11 +145,11 @@ class PlatformCredential(Base):
 
 class Phone(Base):
     __tablename__ = "phones"
-    __table_args__ = (UniqueConstraint("owner_id", "number"),)
+    __table_args__ = (UniqueConstraint("owner_id", "number"), Index("uq_phones_evolution_instance", "evolution_instance", unique=True, postgresql_where=text("evolution_instance IS NOT NULL")),)
     id: Mapped[PythonUUID] = mapped_column(
         UUID_TYPE, primary_key=True, server_default=text("gen_random_uuid()")
     )
-    owner_id: Mapped[PythonUUID] = mapped_column(UUID_TYPE, ForeignKey("users.id"))
+    owner_id: Mapped[PythonUUID] = mapped_column(UUID_TYPE, ForeignKey("tenants.id"))
     label: Mapped[str] = mapped_column(Text)
     number: Mapped[str] = mapped_column(Text)
     evolution_instance: Mapped[str | None] = mapped_column(Text)
@@ -147,7 +162,7 @@ class Niche(Base):
     __tablename__ = "niches"
     __table_args__ = (UniqueConstraint("owner_id", "slug"),)
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    owner_id: Mapped[PythonUUID] = mapped_column(UUID_TYPE, ForeignKey("users.id"))
+    owner_id: Mapped[PythonUUID] = mapped_column(UUID_TYPE, ForeignKey("tenants.id"))
     slug: Mapped[str] = mapped_column(Text)
     name: Mapped[str] = mapped_column(Text)
 
@@ -158,7 +173,7 @@ class Bot(Base):
     id: Mapped[PythonUUID] = mapped_column(
         UUID_TYPE, primary_key=True, server_default=text("gen_random_uuid()")
     )
-    owner_id: Mapped[PythonUUID] = mapped_column(UUID_TYPE, ForeignKey("users.id"))
+    owner_id: Mapped[PythonUUID] = mapped_column(UUID_TYPE, ForeignKey("tenants.id"))
     name: Mapped[str] = mapped_column(Text)
     slug: Mapped[str] = mapped_column(Text)
     niche_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("niches.id"))
@@ -185,7 +200,7 @@ class BotConfigBackup(Base):
     id: Mapped[PythonUUID] = mapped_column(
         UUID_TYPE, primary_key=True, server_default=text("gen_random_uuid()")
     )
-    owner_id: Mapped[PythonUUID] = mapped_column(UUID_TYPE, ForeignKey("users.id"))
+    owner_id: Mapped[PythonUUID] = mapped_column(UUID_TYPE, ForeignKey("tenants.id"))
     bot_id: Mapped[PythonUUID] = mapped_column(UUID_TYPE, ForeignKey("bots.id", ondelete="CASCADE"))
     settings: Mapped[dict[str, Any]] = mapped_column(JSON_TYPE)
     message_template: Mapped[str | None] = mapped_column(Text)
@@ -203,7 +218,7 @@ class Group(Base):
     id: Mapped[PythonUUID] = mapped_column(
         UUID_TYPE, primary_key=True, server_default=text("gen_random_uuid()")
     )
-    owner_id: Mapped[PythonUUID] = mapped_column(UUID_TYPE, ForeignKey("users.id"))
+    owner_id: Mapped[PythonUUID] = mapped_column(UUID_TYPE, ForeignKey("tenants.id"))
     phone_id: Mapped[PythonUUID | None] = mapped_column(UUID_TYPE, ForeignKey("phones.id"))
     whatsapp_id: Mapped[str] = mapped_column(Text)
     name: Mapped[str | None] = mapped_column(Text)
@@ -242,7 +257,7 @@ class Campaign(Base):
     id: Mapped[PythonUUID] = mapped_column(
         UUID_TYPE, primary_key=True, server_default=text("gen_random_uuid()")
     )
-    owner_id: Mapped[PythonUUID] = mapped_column(UUID_TYPE, ForeignKey("users.id"))
+    owner_id: Mapped[PythonUUID] = mapped_column(UUID_TYPE, ForeignKey("tenants.id"))
     name: Mapped[str] = mapped_column(Text)
     channel: Mapped[str | None] = mapped_column(Text)
     external_id: Mapped[str | None] = mapped_column(Text)
@@ -258,7 +273,7 @@ class ExpenseCategory(Base):
     __tablename__ = "expense_categories"
     __table_args__ = (UniqueConstraint("owner_id", "slug"),)
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    owner_id: Mapped[PythonUUID] = mapped_column(UUID_TYPE, ForeignKey("users.id"))
+    owner_id: Mapped[PythonUUID] = mapped_column(UUID_TYPE, ForeignKey("tenants.id"))
     slug: Mapped[str] = mapped_column(Text)
     name: Mapped[str] = mapped_column(Text)
 
@@ -273,7 +288,7 @@ class Expense(Base):
     id: Mapped[PythonUUID] = mapped_column(
         UUID_TYPE, primary_key=True, server_default=text("gen_random_uuid()")
     )
-    owner_id: Mapped[PythonUUID] = mapped_column(UUID_TYPE, ForeignKey("users.id"))
+    owner_id: Mapped[PythonUUID] = mapped_column(UUID_TYPE, ForeignKey("tenants.id"))
     description: Mapped[str] = mapped_column(Text)
     amount: Mapped[Decimal] = mapped_column(MONEY)
     currency: Mapped[str] = mapped_column(Text, server_default=text("'BRL'"))
@@ -352,7 +367,7 @@ class Sale(Base):
     id: Mapped[PythonUUID] = mapped_column(
         UUID_TYPE, primary_key=True, server_default=text("gen_random_uuid()")
     )
-    owner_id: Mapped[PythonUUID] = mapped_column(UUID_TYPE, ForeignKey("users.id"))
+    owner_id: Mapped[PythonUUID] = mapped_column(UUID_TYPE, ForeignKey("tenants.id"))
     account_id: Mapped[PythonUUID | None] = mapped_column(
         UUID_TYPE, ForeignKey("platform_accounts.id")
     )
@@ -406,8 +421,9 @@ class AutomationRun(Base):
 
 
 class Event(Base):
+    tenant_id: Mapped[PythonUUID | None] = mapped_column(UUID_TYPE, ForeignKey("tenants.id"))
     __tablename__ = "events"
-    __table_args__ = (Index("ix_events_level_created_at", "level", text("created_at DESC")),)
+    __table_args__ = (Index("ix_events_level_created_at", "level", text("created_at DESC")), Index("ix_events_tenant_created", "tenant_id", text("created_at DESC")))
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
     bot_id: Mapped[PythonUUID | None] = mapped_column(UUID_TYPE, ForeignKey("bots.id"))
     entity_type: Mapped[str | None] = mapped_column(Text)
@@ -433,7 +449,7 @@ class Alert(Base):
     id: Mapped[PythonUUID] = mapped_column(
         UUID_TYPE, primary_key=True, server_default=text("gen_random_uuid()")
     )
-    owner_id: Mapped[PythonUUID] = mapped_column(UUID_TYPE, ForeignKey("users.id"))
+    owner_id: Mapped[PythonUUID] = mapped_column(UUID_TYPE, ForeignKey("tenants.id"))
     type: Mapped[str] = mapped_column(Text)
     severity: Mapped[str] = mapped_column(Text)
     entity_type: Mapped[str | None] = mapped_column(Text)
@@ -477,7 +493,7 @@ class MetricSnapshot(Base):
         ),
     )
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
-    owner_id: Mapped[PythonUUID] = mapped_column(UUID_TYPE, ForeignKey("users.id"))
+    owner_id: Mapped[PythonUUID] = mapped_column(UUID_TYPE, ForeignKey("tenants.id"))
     day: Mapped[date] = mapped_column(Date)
     bot_id: Mapped[PythonUUID | None] = mapped_column(UUID_TYPE, ForeignKey("bots.id"))
     group_id: Mapped[PythonUUID | None] = mapped_column(UUID_TYPE, ForeignKey("groups.id"))

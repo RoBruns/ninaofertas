@@ -232,3 +232,59 @@ def test_0006_test_bots_upgrade_downgrade(postgres_schema) -> None:
     command.downgrade(config, "0005")
     assert {column["name"] for column in inspect(engine).get_columns("bots")} == before
     assert "bot_config_backups" not in inspect(engine).get_table_names()
+
+
+def test_0007_tenants_preserva_donos_e_reverte(postgres_schema) -> None:
+    _, engine = postgres_schema
+    config = _config()
+    command.upgrade(config, "0006")
+    user_id, bot_id = uuid.uuid4(), uuid.uuid4()
+    with engine.begin() as connection:
+        connection.execute(text("INSERT INTO users (id, email, password_hash, role) VALUES (:id, 'tenant@test.com', 'x', 'admin')"), {"id": user_id})
+        connection.execute(text("INSERT INTO bots (id, owner_id, name, slug, settings) VALUES (:id, :owner, 'Bot', 'bot', '{\"content\": {\"aceitar_cupons\": false}, \"filters\": {\"preco_minimo\": 42}}')"), {"id": bot_id, "owner": user_id})
+        connection.execute(text("INSERT INTO events (bot_id, level, type, message) VALUES (:bot, 'info', 'teste', 'teste')"), {"bot": bot_id})
+        connection.execute(text("INSERT INTO audit_logs (user_id, entity_type, entity_id, action) VALUES (:user, 'bot', :bot, 'create')"), {"user": user_id, "bot": str(bot_id)})
+    previous_fks = {table: fk["name"] for table in inspect(engine).get_table_names() for fk in inspect(engine).get_foreign_keys(table) if fk["constrained_columns"] == ["owner_id"]}
+    for _ in range(2):
+        command.upgrade(config, "0007")
+        with engine.connect() as connection:
+            assert connection.execute(text("SELECT id, name, is_internal, status FROM tenants")).one() == (user_id, "tenant@test.com", True, "active")
+            assert connection.execute(text("SELECT tenant_id, is_platform_admin FROM users")).one() == (user_id, True)
+            row = connection.execute(text("SELECT owner_id, settings FROM bots")).one()
+            assert row[0] == user_id
+            assert row[1] == {"content": {"aceitar_cupons": False, "recado_instagram": True}, "filters": {"preco_minimo": 42}}
+            assert connection.scalar(text("SELECT tenant_id FROM events")) == user_id
+            assert connection.scalar(text("SELECT tenant_id FROM audit_logs")) == user_id
+        for table, name in previous_fks.items():
+            fk = next(fk for fk in inspect(engine).get_foreign_keys(table) if fk["constrained_columns"] == ["owner_id"])
+            assert fk["name"] == name and fk["referred_table"] == "tenants"
+        command.downgrade(config, "0006")
+        assert "tenants" not in inspect(engine).get_table_names()
+        with engine.connect() as connection:
+            assert connection.scalar(text("SELECT owner_id FROM bots")) == user_id
+            assert "recado_instagram" not in connection.scalar(text("SELECT settings FROM bots"))["content"]
+    command.upgrade(config, "head")
+
+
+def test_0007_settings_planos_revertem_sem_content_vazio(postgres_schema) -> None:
+    import json
+
+    from core.bot_settings import BotSettings
+
+    _, engine = postgres_schema
+    config = _config()
+    command.upgrade(config, "0006")
+    user_id = uuid.uuid4()
+    original = {"preco_minimo": 77, "intervalo_minutos_entre_ofertas": 11}
+    with engine.begin() as connection:
+        connection.execute(text("INSERT INTO users (id, email, password_hash) VALUES (:id, 'plano@test.com', 'x')"), {"id": user_id})
+        connection.execute(text("INSERT INTO bots (owner_id, name, slug, settings) VALUES (:owner, 'Plano', 'plano', cast(:settings AS jsonb))"), {"owner": user_id, "settings": json.dumps(original)})
+    command.upgrade(config, "0007")
+    with engine.connect() as connection:
+        settings = BotSettings.model_validate(connection.scalar(text("SELECT settings FROM bots")))
+        assert settings.legacy_input and settings.content.recado_instagram
+        assert settings.model_dump() == {**original, "recado_instagram": True}
+    command.downgrade(config, "0006")
+    with engine.connect() as connection:
+        assert connection.scalar(text("SELECT settings FROM bots")) == original
+    command.upgrade(config, "0007")

@@ -81,7 +81,7 @@ def list_expenses(
     page_size: Annotated[int, Query(ge=1, le=200)] = 50,
     sort: str = "-created_at",
 ) -> PaginatedResponse[ExpenseResponse]:
-    statement = select(Expense).where(Expense.owner_id == user.id)
+    statement = select(Expense).where(Expense.owner_id == user.tenant_id)
     filters = (
         (from_date, Expense.incurred_on >= from_date if from_date else None),
         (to_date, Expense.incurred_on <= to_date if to_date else None),
@@ -122,8 +122,8 @@ def create_expense(
     session: Annotated[Session, Depends(get_db)],
 ) -> ExpenseResponse:
     values = payload.model_dump()
-    _validate_refs(session, user.id, values)
-    expense = Expense(id=uuid4(), owner_id=user.id, created_by=user.id, source="manual", **values)
+    _validate_refs(session, user.tenant_id, values)
+    expense = Expense(id=uuid4(), owner_id=user.tenant_id, created_by=user.id, source="manual", **values)
     session.add(expense)
     session.flush()
     response = _response(expense)
@@ -153,13 +153,13 @@ def update_expense(
     user: OperatorUser,
     session: Annotated[Session, Depends(get_db)],
 ) -> ExpenseResponse:
-    expense = _owned(session, expense_id, user.id)
+    expense = _owned(session, expense_id, user.tenant_id)
     before = _response(expense).model_dump(mode="json")
     changes = payload.model_dump(exclude_unset=True)
     required = {"description", "amount", "incurred_on", "currency"}
     if any(changes.get(field, "valid") is None for field in required):
         raise APIError(422, "VALIDATION_ERROR", "Campos obrigatórios não aceitam null")
-    _validate_refs(session, user.id, changes)
+    _validate_refs(session, user.tenant_id, changes)
     for field, value in changes.items():
         setattr(expense, field, value)
     session.flush()
@@ -189,7 +189,7 @@ def delete_expense(
     user: OperatorUser,
     session: Annotated[Session, Depends(get_db)],
 ) -> None:
-    expense = _owned(session, expense_id, user.id)
+    expense = _owned(session, expense_id, user.tenant_id)
     before = _response(expense).model_dump(mode="json")
     session.delete(expense)
     record_audit(
@@ -207,7 +207,7 @@ def list_categories(
         ExpenseCategoryResponse.model_validate(item, from_attributes=True)
         for item in session.scalars(
             select(ExpenseCategory)
-            .where(ExpenseCategory.owner_id == user.id)
+            .where(ExpenseCategory.owner_id == user.tenant_id)
             .order_by(ExpenseCategory.name.asc())
         )
     ]
@@ -227,12 +227,12 @@ def create_category(
 ) -> ExpenseCategoryResponse:
     duplicate = session.scalar(
         select(ExpenseCategory.id).where(
-            ExpenseCategory.owner_id == user.id, ExpenseCategory.slug == payload.slug
+            ExpenseCategory.owner_id == user.tenant_id, ExpenseCategory.slug == payload.slug
         )
     )
     if duplicate is not None:
         raise APIError(409, "CONFLICT", "Já existe uma categoria com este slug")
-    category = ExpenseCategory(owner_id=user.id, **payload.model_dump())
+    category = ExpenseCategory(owner_id=user.tenant_id, **payload.model_dump())
     session.add(category)
     session.flush()
     response = ExpenseCategoryResponse.model_validate(category, from_attributes=True)
@@ -308,7 +308,7 @@ def import_expenses(
     rows = _expense_csv(file.file.read())
     for line, payload, _external_id in rows:
         try:
-            _validate_refs(session, user.id, payload.model_dump())
+            _validate_refs(session, user.tenant_id, payload.model_dump())
         except APIError as exc:
             raise APIError(
                 422,
@@ -328,7 +328,7 @@ def import_expenses(
         session.add(
             Expense(
                 id=uuid4(),
-                owner_id=user.id,
+                owner_id=user.tenant_id,
                 created_by=user.id,
                 source="csv_import",
                 external_id=external_id,

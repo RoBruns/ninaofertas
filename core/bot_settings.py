@@ -48,6 +48,7 @@ PACING_KEYS = {
     "max_ofertas_globais_por_dia",
 }
 CONTENT_KEYS = {
+    "recado_instagram",
     "aceitar_cupons",
     "aceitar_campanhas",
     "max_cupons_por_dia",
@@ -104,6 +105,7 @@ class Pacing(BaseModel):
 
 
 class Content(BaseModel):
+    recado_instagram: bool = False
     model_config = ConfigDict(extra="allow")
 
     aceitar_cupons: bool = True
@@ -175,6 +177,17 @@ class BotSettings(BaseModel):
     @model_validator(mode="before")
     @classmethod
     def accept_legacy_config(cls, value: Any) -> Any:
+        # A 0007 adiciona apenas content.recado_instagram aos settings antigos.
+        # Esse campo não pode transformar uma configuração plana em uma
+        # configuração estruturada e introduzir defaults no runtime existente.
+        if (
+            isinstance(value, dict)
+            and isinstance(value.get("content"), dict)
+            and set(value["content"]) <= {"recado_instagram"}
+            and not any(key in value for key in ("filters", "pacing", "schedule", "attribution"))
+            and set(value) & LEGACY_KEYS
+        ):
+            value = {**{key: item for key, item in value.items() if key != "content"}, **value["content"]}
         if not isinstance(value, dict) or any(
             key in value for key in ("filters", "pacing", "content", "schedule", "attribution")
         ):

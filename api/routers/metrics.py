@@ -144,8 +144,8 @@ def overview(
     params: Annotated[FilterDependencies, Depends()],
 ) -> OverviewResponse:
     filters = params.value
-    current = calculate_metrics(session, user.id, filters)
-    previous = calculate_metrics(session, user.id, filters.previous, include_data_warnings=False)
+    current = calculate_metrics(session, user.tenant_id, filters)
+    previous = calculate_metrics(session, user.tenant_id, filters.previous, include_data_warnings=False)
     kpis = OverviewKPIs(
         **{metric: _kpi(metric, current.values, previous.values) for metric in METRIC_NAMES}
     )
@@ -173,7 +173,7 @@ def metric_timeseries(
         )
     points, warnings = timeseries(
         session,
-        user.id,
+        user.tenant_id,
         params.value,
         metric,  # type: ignore[arg-type]
         granularity,  # type: ignore[arg-type]
@@ -201,7 +201,7 @@ def _breakdown(
     sort_field = sort.removeprefix("-")
     if sort_field not in SORT_FIELDS:
         raise APIError(422, "VALIDATION_ERROR", "Parâmetros inválidos", {"sort": "campo inválido"})
-    rows, warnings = grouped_metrics(session, user.id, filters, dimension)
+    rows, warnings = grouped_metrics(session, user.tenant_id, filters, dimension)
     items = [
         MetricBreakdownItem(id=entity_id, name=name, **values.public())
         for entity_id, name, values in rows
@@ -251,7 +251,7 @@ def funnel(
     session: Annotated[Session, Depends(get_db)],
     params: Annotated[FilterDependencies, Depends()],
 ) -> FunnelResponse:
-    result = calculate_metrics(session, user.id, params.value)
+    result = calculate_metrics(session, user.tenant_id, params.value)
     values = result.values
     return FunnelResponse(
         period=_period(params.value),

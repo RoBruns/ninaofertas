@@ -71,6 +71,20 @@ class EvolutionClient:
             "banned": "banned",
         }.get(normalized, "unknown")
 
+    def create_instance(self, instance: str) -> tuple[str | None, datetime]:
+        try:
+            with httpx.Client(timeout=5.0) as client:
+                response = client.post(
+                    f"{self.base_url}/instance/create", headers=self.headers,
+                    json={"instanceName": instance, "qrcode": True, "integration": "WHATSAPP-BAILEYS"},
+                )
+            response.raise_for_status()
+            payload = response.json()
+            code = (payload.get("qrcode") or {}).get("base64") or payload.get("base64")
+            return str(code) if code else None, datetime.now(timezone.utc) + timedelta(seconds=60)
+        except (httpx.HTTPError, ValueError, TypeError, AttributeError) as exc:
+            raise EvolutionUnavailable("evolution-api indisponível") from exc
+
     def qrcode(self, instance: str | None) -> tuple[str, datetime]:
         if not instance:
             raise EvolutionUnavailable("Telefone sem instância da evolution-api")

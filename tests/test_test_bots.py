@@ -9,7 +9,7 @@ from sqlalchemy import select
 from core import config_provider, relogio, repositories
 from core.bot_settings import BotSettings
 from core.metrics import MetricFilters, _event_conditions, _sales_conditions
-from core.models import Bot, BotConfigBackup, Click, Envio, Oferta, Sale, PlatformAccount
+from core.models import Bot, BotConfigBackup, Click, Envio, Oferta, Sale, PlatformAccount, Group
 from tests.test_api import client, session_factory
 from tests.test_bots_api import admin_context, create_bot
 from tests.test_worker_config import _active_bot, _patch_sessions, _reset_cache
@@ -207,6 +207,7 @@ def test_freio_scope(session_factory, control, sender_test):
             ]
         )
     runtime = config_provider.BotRuntime(
+        owner_id=prod.owner_id,
         id=prod.id if sender_test else test_id,
         slug="bot",
         nome="Bot",
@@ -376,6 +377,7 @@ def test_legacy_sends_and_coupon_group_protection(session_factory):
     prod, _ = _active_bot(session_factory)
     test_id = uuid4()
     with session_factory.begin() as session:
+        session.add(Group(id=uuid4(), owner_id=prod.owner_id, whatsapp_id="legado", name="Legado"))
         session.add(
             Bot(
                 id=test_id,
@@ -411,6 +413,7 @@ def test_legacy_sends_and_coupon_group_protection(session_factory):
             )
         )
     runtime = config_provider.BotRuntime(
+        owner_id=prod.owner_id,
         id=prod.id,
         slug="prod",
         nome="Produção",

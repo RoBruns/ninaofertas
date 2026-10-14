@@ -5,10 +5,10 @@ from __future__ import annotations
 from datetime import datetime, timedelta
 from uuid import UUID
 
-from sqlalchemy import func, or_, select
+from sqlalchemy import and_, func, or_, select
 from sqlalchemy.orm import Session
 
-from core.models import Bot, Envio, Oferta
+from core.models import Bot, Envio, Group, Oferta
 from core import relogio
 
 
@@ -140,7 +140,12 @@ def grupo_ja_enviou(session: Session, grupo: str | None = None) -> bool:
     return q.first() is not None
 
 
-def _escopo_envios(q, escopo_bot_id: UUID | None, excluir_bots_teste: bool):
+def _escopo_envios(q, escopo_bot_id: UUID | None, excluir_bots_teste: bool, tenant_id: UUID | None = None):
+    if tenant_id is not None:
+        q = q.filter(or_(
+            Envio.bot_id.in_(select(Bot.id).where(Bot.owner_id == tenant_id)),
+            and_(Envio.bot_id.is_(None), Envio.grupo.in_(select(Group.whatsapp_id).where(Group.owner_id == tenant_id))),
+        ))
     if escopo_bot_id is not None:
         q = q.filter(Envio.bot_id == escopo_bot_id)
     if excluir_bots_teste:
@@ -160,6 +165,7 @@ def contar_envios_desde(
     *,
     escopo_bot_id: UUID | None = None,
     excluir_bots_teste: bool = False,
+    tenant_id: UUID | None = None,
 ) -> int:
     # Na conta, uma oferta disparada para varios grupos consome um unico slot
     # do freio anti-ban. Por grupo continua sendo uma linha por oferta.
@@ -169,7 +175,7 @@ def contar_envios_desde(
     )
     if grupo:
         q = q.filter(Envio.grupo == grupo)
-    return _escopo_envios(q, escopo_bot_id, excluir_bots_teste).scalar() or 0
+    return _escopo_envios(q, escopo_bot_id, excluir_bots_teste, tenant_id).scalar() or 0
 
 
 def ordenar_grupos_por_ultimo_envio(session: Session, grupos: tuple[str, ...]) -> tuple[str, ...]:
@@ -216,13 +222,14 @@ def minutos_desde_ultimo_envio(
     *,
     escopo_bot_id: UUID | None = None,
     excluir_bots_teste: bool = False,
+    tenant_id: UUID | None = None,
 ) -> float | None:
     """Minutos desde o último envio com sucesso. None se nunca enviou."""
     q = session.query(Envio.enviado_em).filter(Envio.status == "sucesso")
     if grupo:
         q = q.filter(Envio.grupo == grupo)
     ultimo = (
-        _escopo_envios(q, escopo_bot_id, excluir_bots_teste)
+        _escopo_envios(q, escopo_bot_id, excluir_bots_teste, tenant_id)
         .order_by(Envio.enviado_em.desc())
         .first()
     )

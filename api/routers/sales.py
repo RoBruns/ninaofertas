@@ -7,7 +7,7 @@ from typing import Annotated, Any
 from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Depends, File, Form, Query, Request, UploadFile
-from sqlalchemy import Select, and_, func, or_, select
+from sqlalchemy import Select, func, select
 from sqlalchemy.orm import Session
 
 from api.audit import record_audit
@@ -64,7 +64,7 @@ def list_sales(
     page_size: Annotated[int, Query(ge=1, le=200)] = 50,
     sort: str = "-ordered_at",
 ) -> PaginatedResponse[SaleResponse]:
-    statement = select(Sale).where(Sale.owner_id == user.id)
+    statement = select(Sale).where(Sale.owner_id == user.tenant_id)
     if from_date is not None:
         statement = statement.where(
             Sale.ordered_at >= datetime.combine(from_date, time.min, timezone.utc)
@@ -187,16 +187,16 @@ def import_sales(
         raise APIError(
             422, "VALIDATION_ERROR", "CSV inválido; nenhuma linha foi importada", fields
         ) from None
-    _validate_row_refs(session, user.id, rows)
+    _validate_row_refs(session, user.tenant_id, rows)
 
     imported = skipped = 0
     now = datetime.now(timezone.utc)
     for row in rows:
-        values = _sale_values(row, user.id, platform.id)
+        values = _sale_values(row, user.tenant_id, platform.id)
         sale = session.scalar(
             select(Sale).where(Sale.platform_id == platform.id, Sale.external_id == row.external_id)
         )
-        if sale is not None and sale.owner_id != user.id:
+        if sale is not None and sale.owner_id != user.tenant_id:
             raise APIError(409, "CONFLICT", "Venda já pertence a outro usuário")
         if sale is None:
             session.add(Sale(id=uuid4(), imported_at=now, **values))
@@ -237,9 +237,7 @@ def list_imports(
         select(AuditLog)
         .where(
             AuditLog.entity_type == "sale_import",
-            or_(AuditLog.user_id == user.id, and_(
-                AuditLog.user_id.is_(None), AuditLog.after["owner_id"].as_string() == str(user.id),
-            )),
+            AuditLog.tenant_id == user.tenant_id,
         )
         .order_by(AuditLog.created_at.desc())
         .limit(100)
@@ -277,7 +275,7 @@ def sync_sales(
 ) -> SalesSyncResponse:
     account = session.scalar(
         select(PlatformAccount).where(
-            PlatformAccount.id == payload.account_id, PlatformAccount.owner_id == user.id
+            PlatformAccount.id == payload.account_id, PlatformAccount.owner_id == user.tenant_id
         )
     )
     if account is None:

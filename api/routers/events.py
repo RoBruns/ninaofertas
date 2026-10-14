@@ -5,7 +5,7 @@ from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
 from api.audit import redact_sensitive
@@ -30,7 +30,10 @@ def list_events(
     page: Annotated[int, Query(ge=1)] = 1,
     page_size: Annotated[int, Query(ge=1, le=200)] = 50,
 ) -> PaginatedResponse[EventResponse]:
-    statement = select(Event)
+    scope = Event.tenant_id == _user.tenant_id
+    if _user.is_platform_admin:
+        scope = or_(scope, Event.tenant_id.is_(None))
+    statement = select(Event).where(scope)
     # Cada condição só é montada quando o filtro foi informado: `coluna >= None`
     # levanta ArgumentError já na construção, então montar tudo antes e filtrar
     # depois derrubava a rota quando `from`/`to` não vinham — o caso comum.

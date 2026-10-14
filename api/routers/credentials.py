@@ -85,7 +85,7 @@ def list_credentials(
     current_user: Annotated[User, Depends(get_current_user)],
     session: Annotated[Session, Depends(get_db)],
 ) -> list[CredentialStatus]:
-    account = get_owned_account(session, account_id, current_user.id)
+    account = get_owned_account(session, account_id, current_user.tenant_id)
     return [
         credential_status(credential)
         for credential in session.scalars(
@@ -110,7 +110,7 @@ def put_credential(
     session: Annotated[Session, Depends(get_db)],
 ) -> None:
     kind = _validate_kind(kind)
-    account = get_owned_account(session, account_id, admin.id)
+    account = get_owned_account(session, account_id, admin.tenant_id)
     value = payload.value
     if kind == "cookie":
         try:
@@ -146,7 +146,7 @@ def delete_credential(
     session: Annotated[Session, Depends(get_db)],
 ) -> None:
     kind = _validate_kind(kind)
-    account = get_owned_account(session, account_id, admin.id)
+    account = get_owned_account(session, account_id, admin.tenant_id)
     credential = _get_credential(session, account.id, kind)
     before = {"kind": credential.kind, "fingerprint": credential.fingerprint}
     credential_id = credential.id
@@ -177,7 +177,7 @@ def test_credential(
     session: Annotated[Session, Depends(get_db)],
 ) -> CredentialTestResponse:
     kind = _validate_kind(kind)
-    account = get_owned_account(session, account_id, user.id)
+    account = get_owned_account(session, account_id, user.tenant_id)
     target = _get_credential(session, account.id, kind)
     platform = session.get(Platform, account.platform_id)
     if platform is None:

@@ -67,6 +67,7 @@ def record_audit(
 ) -> AuditLog:
     values: dict[str, Any] = {
         "user_id": user.id if user is not None else None,
+        "tenant_id": user.tenant_id if user is not None else None,
         "entity_type": entity_type,
         "entity_id": str(entity_id),
         "action": action,

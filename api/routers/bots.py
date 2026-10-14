@@ -240,7 +240,7 @@ def list_bots(
     page_size: Annotated[int, Query(ge=1, le=200)] = 50,
     sort: str = "-created_at",
 ) -> PaginatedResponse[BotResponse]:
-    statement = select(Bot).where(Bot.owner_id == user.id)
+    statement = select(Bot).where(Bot.owner_id == user.tenant_id)
     if not include_archived:
         statement = statement.where(Bot.archived_at.is_(None))
     if is_test is not None:
@@ -282,13 +282,13 @@ def create_bot(
     admin: AdminUser,
     session: Annotated[Session, Depends(get_db)],
 ) -> BotResponse:
-    if session.scalar(select(Bot.id).where(Bot.owner_id == admin.id, Bot.slug == payload.slug)):
+    if session.scalar(select(Bot.id).where(Bot.owner_id == admin.tenant_id, Bot.slug == payload.slug)):
         raise APIError(409, "CONFLICT", "Já existe um bot com este slug")
-    _validate_refs(session, admin.id, niche_id=payload.niche_id, phone_id=payload.phone_id)
+    _validate_refs(session, admin.tenant_id, niche_id=payload.niche_id, phone_id=payload.phone_id)
     now = datetime.now(timezone.utc)
     bot = Bot(
         id=uuid4(),
-        owner_id=admin.id,
+        owner_id=admin.tenant_id,
         name=payload.name,
         slug=payload.slug,
         niche_id=payload.niche_id,
@@ -328,7 +328,7 @@ def _backup(
 ) -> None:
     session.add(
         BotConfigBackup(
-            owner_id=user.id,
+            owner_id=user.tenant_id,
             bot_id=bot.id,
             settings=deepcopy(bot.settings),
             message_template=bot.message_template,
@@ -367,7 +367,7 @@ def create_test_bot(
     admin: AdminUser,
     session: Annotated[Session, Depends(get_db)],
 ) -> BotResponse:
-    source = _owned(session, payload.source_bot_id, admin.id) if payload.source_bot_id else None
+    source = _owned(session, payload.source_bot_id, admin.tenant_id) if payload.source_bot_id else None
     if source:
         _not_archived(source)
     niche_id = (
@@ -380,7 +380,7 @@ def create_test_bot(
         if payload.account_ids is not None
         else (_account_ids(session, source.id) if source else [])
     )
-    _validate_refs(session, admin.id, niche_id=niche_id, phone_id=payload.phone_id)
+    _validate_refs(session, admin.tenant_id, niche_id=niche_id, phone_id=payload.phone_id)
     slug = payload.slug
     if slug is None:
         base = (
@@ -397,16 +397,16 @@ def create_test_bot(
             or "teste"
         )
         slug = (
-            _unique_slug(session, admin.id, base)
-            if session.scalar(select(Bot.id).where(Bot.owner_id == admin.id, Bot.slug == base))
+            _unique_slug(session, admin.tenant_id, base)
+            if session.scalar(select(Bot.id).where(Bot.owner_id == admin.tenant_id, Bot.slug == base))
             else base
         )
-    if session.scalar(select(Bot.id).where(Bot.owner_id == admin.id, Bot.slug == slug)):
+    if session.scalar(select(Bot.id).where(Bot.owner_id == admin.tenant_id, Bot.slug == slug)):
         raise APIError(409, "CONFLICT", "Já existe um bot com este slug")
     defaults = BotSettings().model_dump(mode="json")
     bot = Bot(
         id=uuid4(),
-        owner_id=admin.id,
+        owner_id=admin.tenant_id,
         name=payload.name,
         slug=slug,
         niche_id=niche_id,
@@ -453,7 +453,7 @@ def import_config(
     locked = list(
         session.scalars(
             select(Bot)
-            .where(Bot.owner_id == admin.id, Bot.id.in_([test_bot_id, payload.target_bot_id]))
+            .where(Bot.owner_id == admin.tenant_id, Bot.id.in_([test_bot_id, payload.target_bot_id]))
             .order_by(Bot.id)
             .with_for_update()
         )
@@ -496,7 +496,7 @@ def import_config(
 def archive_test(
     bot_id: UUID, request: Request, admin: AdminUser, session: Annotated[Session, Depends(get_db)]
 ) -> BotResponse:
-    bot = _owned(session, bot_id, admin.id)
+    bot = _owned(session, bot_id, admin.tenant_id)
     _not_archived(bot)
     if not bot.is_test:
         raise APIError(409, "CONFLICT", "Só bots de teste podem ser arquivados")
@@ -514,11 +514,11 @@ def config_backups(
     page: Annotated[int, Query(ge=1)] = 1,
     page_size: Annotated[int, Query(ge=1, le=200)] = 50,
 ) -> PaginatedResponse[BotConfigBackupResponse]:
-    _owned(session, bot_id, user.id)
+    _owned(session, bot_id, user.tenant_id)
     items, total = paginate(
         session,
         select(BotConfigBackup).where(
-            BotConfigBackup.bot_id == bot_id, BotConfigBackup.owner_id == user.id
+            BotConfigBackup.bot_id == bot_id, BotConfigBackup.owner_id == user.tenant_id
         ),
         PaginationParams(page=page, page_size=page_size, sort="-created_at"),
         {"created_at": BotConfigBackup.created_at},
@@ -530,7 +530,7 @@ def config_backups(
                 reason=b.reason,
                 source_bot_id=b.source_bot_id,
                 source_bot_name=session.scalar(
-                    select(Bot.name).where(Bot.id == b.source_bot_id, Bot.owner_id == user.id)
+                    select(Bot.name).where(Bot.id == b.source_bot_id, Bot.owner_id == user.tenant_id)
                 )
                 if b.source_bot_id
                 else None,
@@ -558,7 +558,7 @@ def restore_config(
     session: Annotated[Session, Depends(get_db)],
 ) -> BotResponse:
     bot = session.scalar(
-        select(Bot).where(Bot.id == bot_id, Bot.owner_id == admin.id).with_for_update()
+        select(Bot).where(Bot.id == bot_id, Bot.owner_id == admin.tenant_id).with_for_update()
     )
     if bot is None:
         raise APIError(404, "NOT_FOUND", "Bot não encontrado")
@@ -567,7 +567,7 @@ def restore_config(
         select(BotConfigBackup).where(
             BotConfigBackup.id == backup_id,
             BotConfigBackup.bot_id == bot.id,
-            BotConfigBackup.owner_id == admin.id,
+            BotConfigBackup.owner_id == admin.tenant_id,
         )
     )
     if backup is None:
@@ -599,7 +599,7 @@ def get_bot(
     user: Annotated[User, Depends(get_current_user)],
     session: Annotated[Session, Depends(get_db)],
 ) -> BotResponse:
-    return bot_response(session, _owned(session, bot_id, user.id))
+    return bot_response(session, _owned(session, bot_id, user.tenant_id))
 
 
 @router.patch(
@@ -612,7 +612,7 @@ def update_bot(
     admin: AdminUser,
     session: Annotated[Session, Depends(get_db)],
 ) -> BotResponse:
-    bot = _owned(session, bot_id, admin.id)
+    bot = _owned(session, bot_id, admin.tenant_id)
     before = _audit(bot_response(session, bot))
     changes = payload.model_dump(exclude_unset=True)
     if (
@@ -624,13 +624,13 @@ def update_bot(
         raise APIError(422, "VALIDATION_ERROR", "name, slug, settings e status não aceitam null")
     if "slug" in changes and session.scalar(
         select(Bot.id).where(
-            Bot.owner_id == admin.id, Bot.slug == changes["slug"], Bot.id != bot.id
+            Bot.owner_id == admin.tenant_id, Bot.slug == changes["slug"], Bot.id != bot.id
         )
     ):
         raise APIError(409, "CONFLICT", "Já existe um bot com este slug")
     _validate_refs(
         session,
-        admin.id,
+        admin.tenant_id,
         niche_id=changes.get("niche_id") if "niche_id" in changes else None,
         phone_id=changes.get("phone_id") if "phone_id" in changes else None,
     )
@@ -660,7 +660,7 @@ def delete_bot(
     admin: AdminUser,
     session: Annotated[Session, Depends(get_db)],
 ) -> None:
-    bot = _owned(session, bot_id, admin.id)
+    bot = _owned(session, bot_id, admin.tenant_id)
     if bot.is_test:
         raise APIError(409, "CONFLICT", "Arquive o bot de teste para preservar seu histórico")
     before = _audit(bot_response(session, bot))
@@ -690,14 +690,14 @@ def duplicate_bot(
     admin: AdminUser,
     session: Annotated[Session, Depends(get_db)],
 ) -> BotResponse:
-    source = _owned(session, bot_id, admin.id)
+    source = _owned(session, bot_id, admin.tenant_id)
     _not_archived(source)
     now = datetime.now(timezone.utc)
     duplicate = Bot(
         id=uuid4(),
-        owner_id=admin.id,
+        owner_id=admin.tenant_id,
         name=f"{source.name} (copia)",
-        slug=_unique_slug(session, admin.id, source.slug),
+        slug=_unique_slug(session, admin.tenant_id, source.slug),
         niche_id=source.niche_id,
         phone_id=source.phone_id,
         status="paused",
@@ -739,7 +739,7 @@ def duplicate_bot(
 def _change_status(
     bot_id: UUID, status: str, action: str, request: Request, user: User, session: Session
 ) -> BotResponse:
-    bot = _owned(session, bot_id, user.id)
+    bot = _owned(session, bot_id, user.tenant_id)
     _not_archived(bot)
     before = _audit(bot_response(session, bot))
     if status == "active":
@@ -797,7 +797,7 @@ def run_now(
     user: OperatorUser,
     session: Annotated[Session, Depends(get_db)],
 ) -> CommandResponse:
-    bot = _owned(session, bot_id, user.id)
+    bot = _owned(session, bot_id, user.tenant_id)
     _not_archived(bot)
     command = Command(
         bot_id=bot.id, type="run_now", payload={}, status="pending", requested_by=user.id
@@ -842,7 +842,7 @@ def list_runs(
     page_size: Annotated[int, Query(ge=1, le=200)] = 50,
     sort: str = "-started_at",
 ) -> PaginatedResponse[AutomationRunResponse]:
-    bot = _owned(session, bot_id, user.id)
+    bot = _owned(session, bot_id, user.tenant_id)
     items, total = paginate(
         session,
         select(AutomationRun).where(AutomationRun.bot_id == bot.id),
@@ -860,7 +860,7 @@ def get_health(
     user: Annotated[User, Depends(get_current_user)],
     session: Annotated[Session, Depends(get_db)],
 ) -> BotHealth:
-    bot = _owned(session, bot_id, user.id)
+    bot = _owned(session, bot_id, user.tenant_id)
     latest = session.scalar(
         select(AutomationRun)
         .where(AutomationRun.bot_id == bot.id, AutomationRun.status != "running")
@@ -945,7 +945,7 @@ def set_groups(
     user: OperatorUser,
     session: Annotated[Session, Depends(get_db)],
 ) -> BotResponse:
-    bot = _owned(session, bot_id, user.id)
+    bot = _owned(session, bot_id, user.tenant_id)
     before = _audit(bot_response(session, bot))
     groups = _ensure_groups(session, bot.owner_id, payload.group_ids)
     if bot.status == "active" and not any(group.status != "archived" for group in groups):
@@ -979,7 +979,7 @@ def set_accounts(
     user: OperatorUser,
     session: Annotated[Session, Depends(get_db)],
 ) -> BotResponse:
-    bot = _owned(session, bot_id, user.id)
+    bot = _owned(session, bot_id, user.tenant_id)
     before = _audit(bot_response(session, bot))
     _replace_accounts(session, bot, payload.account_ids)
     session.flush()

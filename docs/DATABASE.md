@@ -7,7 +7,7 @@ Migrations com Alembic. Nomes de tabela em inglês, no plural.
 
 1. **Nada é hardcoded.** Toda configuração operacional é linha de tabela.
 2. **Segredo é cifrado e write-only.** Valor em claro nunca sai do backend.
-3. **`owner_id` desde o início.** Um usuário hoje, sem migração amanhã.
+3. **`owner_id` aponta para `tenants`.** A conta é dona; usuários são autores.
 4. **Métrica é evento, não contador.** Agregamos na leitura; nunca sobrescrevemos
    histórico. Comparação histórica é requisito.
 5. **Dinheiro é `NUMERIC(14,2)`.** Nunca `float`. Percentual é `NUMERIC(7,4)`.
@@ -44,20 +44,40 @@ Evolução aditiva apenas (colunas novas, sempre nullable):
 
 ## Identidade e auditoria
 
+Migration **0007_tenants** cria uma conta interna por usuário existente, com
+`tenants.id = users.id` e nome `coalesce(users.name, users.email)`. Nenhum dono
+operacional é reescrito: as constraints descobertas pelo inspector passam a
+referenciar `tenants.id`. Admins existentes recebem `is_platform_admin=true`.
+O downgrade restaura as FKs, remove os campos e os índices novos; contas novas
+sem usuário de UUID igual recebem um usuário inativo representativo para manter
+as FKs antigas e preservar seus dados no retorno ao schema anterior.
+
 ```sql
+tenants (
+  id UUID PK DEFAULT gen_random_uuid(),
+  name TEXT NOT NULL,
+  is_internal BOOLEAN NOT NULL DEFAULT false,
+  status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'suspended')),
+  created_at TIMESTAMPTZ DEFAULT now()
+)
+
 users (
   id            UUID PK DEFAULT gen_random_uuid(),
+  tenant_id     UUID NOT NULL REFERENCES tenants(id), -- índice
+  is_platform_admin BOOLEAN NOT NULL DEFAULT false,
   email         CITEXT UNIQUE NOT NULL,
   password_hash TEXT NOT NULL,             -- argon2id
   name          TEXT,
   role          TEXT NOT NULL DEFAULT 'admin',   -- admin | operator | viewer
   is_active     BOOLEAN NOT NULL DEFAULT TRUE,
+  session_version INT NOT NULL DEFAULT 0,
   last_login_at TIMESTAMPTZ,
   created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
 )
 
 audit_logs (
   id          BIGSERIAL PK,
+  tenant_id   UUID REFERENCES tenants(id),       -- backfill pela conta do autor
   user_id     UUID REFERENCES users(id),        -- NULL = ação do sistema
   entity_type TEXT NOT NULL,                     -- 'bot' | 'platform_account' | ...
   entity_id   TEXT NOT NULL,
@@ -68,6 +88,7 @@ audit_logs (
   created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
 )
 CREATE INDEX ON audit_logs (entity_type, entity_id, created_at DESC);
+CREATE INDEX ON audit_logs (tenant_id, created_at DESC);
 ```
 
 `before`/`after` passam por um redator que substitui qualquer campo sensível por
@@ -88,7 +109,7 @@ platforms (
 
 platform_accounts (
   id           UUID PK DEFAULT gen_random_uuid(),
-  owner_id     UUID NOT NULL REFERENCES users(id),
+  owner_id     UUID NOT NULL REFERENCES tenants(id),
   platform_id  INT  NOT NULL REFERENCES platforms(id),
   label        TEXT NOT NULL,               -- "Conta ML 01"
   external_id  TEXT,                        -- id do afiliado na plataforma
@@ -142,7 +163,7 @@ platform_credentials (
 ```sql
 phones (
   id                 UUID PK DEFAULT gen_random_uuid(),
-  owner_id           UUID NOT NULL REFERENCES users(id),
+  owner_id           UUID NOT NULL REFERENCES tenants(id),
   label              TEXT NOT NULL,          -- "Chip principal"
   number             TEXT NOT NULL,          -- E.164: 558531791835
   evolution_instance TEXT,                   -- instância na evolution-api
@@ -157,7 +178,7 @@ Resolve P3: o `"558531791835"` literal em `whatsapp.py` passa a ser esta linha.
 ```sql
 niches (
   id       SERIAL PK,
-  owner_id UUID NOT NULL REFERENCES users(id),
+  owner_id UUID NOT NULL REFERENCES tenants(id),
   slug     TEXT NOT NULL,                   -- 'casa' | 'automotivo' | 'tecnologia'
   name     TEXT NOT NULL,
   UNIQUE (owner_id, slug)
@@ -165,7 +186,7 @@ niches (
 
 bots (
   id            UUID PK DEFAULT gen_random_uuid(),
-  owner_id      UUID NOT NULL REFERENCES users(id),
+  owner_id      UUID NOT NULL REFERENCES tenants(id),
   name          TEXT NOT NULL,              -- "Achadinhos da Nina"
   slug          TEXT NOT NULL,              -- substitui config.py:CANAIS
   niche_id      INT  REFERENCES niches(id),
@@ -193,7 +214,7 @@ nicho, telefone) é coluna. Resolve P1 e P2.
 ```sql
 groups (
   id            UUID PK DEFAULT gen_random_uuid(),
-  owner_id      UUID NOT NULL REFERENCES users(id),
+  owner_id      UUID NOT NULL REFERENCES tenants(id),
   phone_id      UUID REFERENCES phones(id),
   whatsapp_id   TEXT NOT NULL,              -- 120363xxxxxx@g.us
   name          TEXT,
@@ -232,7 +253,7 @@ isso é só um `logger.error` na partida.
 ```sql
 bot_config_backups (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  owner_id UUID NOT NULL REFERENCES users(id),
+  owner_id UUID NOT NULL REFERENCES tenants(id),
   bot_id UUID NOT NULL REFERENCES bots(id) ON DELETE CASCADE,
   settings JSONB NOT NULL,
   message_template TEXT,
@@ -254,7 +275,7 @@ A migration 0006 sucede 0005 e reverte tabela e três colunas no downgrade.
 ```sql
 campaigns (
   id           UUID PK DEFAULT gen_random_uuid(),
-  owner_id     UUID NOT NULL REFERENCES users(id),
+  owner_id     UUID NOT NULL REFERENCES tenants(id),
   name         TEXT NOT NULL,
   channel      TEXT,                        -- 'meta_ads' | 'organic' | 'influencer'
   external_id  TEXT,                        -- id da campanha no Meta Ads
@@ -268,7 +289,7 @@ campaigns (
 
 expense_categories (
   id       SERIAL PK,
-  owner_id UUID NOT NULL REFERENCES users(id),
+  owner_id UUID NOT NULL REFERENCES tenants(id),
   slug     TEXT NOT NULL,        -- 'trafego' | 'infra' | 'chips' | 'ferramentas'
   name     TEXT NOT NULL,
   UNIQUE (owner_id, slug)
@@ -276,7 +297,7 @@ expense_categories (
 
 expenses (
   id           UUID PK DEFAULT gen_random_uuid(),
-  owner_id     UUID NOT NULL REFERENCES users(id),
+  owner_id     UUID NOT NULL REFERENCES tenants(id),
   description  TEXT NOT NULL,
   amount       NUMERIC(14,2) NOT NULL CHECK (amount >= 0),
   currency     TEXT NOT NULL DEFAULT 'BRL',
@@ -314,7 +335,7 @@ clicks (                                 -- só se o redirect próprio for adota
 
 sales (
   id             UUID PK DEFAULT gen_random_uuid(),
-  owner_id       UUID NOT NULL REFERENCES users(id),
+  owner_id       UUID NOT NULL REFERENCES tenants(id),
   account_id     UUID REFERENCES platform_accounts(id),
   platform_id    INT  NOT NULL REFERENCES platforms(id),
   external_id    TEXT NOT NULL,          -- id do pedido na plataforma
@@ -388,6 +409,7 @@ CREATE INDEX ON automation_runs (bot_id, started_at DESC);
 
 events (
   id          BIGSERIAL PK,
+  tenant_id   UUID REFERENCES tenants(id), -- backfill pelo dono do bot
   bot_id      UUID REFERENCES bots(id),
   entity_type TEXT,
   entity_id   TEXT,
@@ -401,7 +423,7 @@ CREATE INDEX ON events (level, created_at DESC);
 
 alerts (
   id            UUID PK DEFAULT gen_random_uuid(),
-  owner_id      UUID NOT NULL REFERENCES users(id),
+  owner_id      UUID NOT NULL REFERENCES tenants(id),
   type          TEXT NOT NULL,           -- bot_offline | auth_expired | cost_anomaly | ...
   severity      TEXT NOT NULL,           -- warning | critical
   entity_type   TEXT,
@@ -453,7 +475,7 @@ A caixa de entrada do worker (D3). Índice parcial porque a query quente é semp
 ```sql
 metric_snapshots (
   id          BIGSERIAL PK,
-  owner_id    UUID NOT NULL REFERENCES users(id),
+  owner_id    UUID NOT NULL REFERENCES tenants(id),
   day         DATE NOT NULL,
   bot_id      UUID REFERENCES bots(id),
   group_id    UUID REFERENCES groups(id),
@@ -494,3 +516,10 @@ reimplementar no frontend.
 
 Regra em todas: **denominador zero devolve `null`, não `0`.** No frontend `null`
 é "sem dados", que é honesto; `0` seria mentira que parece métrica.
+
+
+Migration 0007 cria `uq_phones_evolution_instance`, UNIQUE parcial em
+`phones.evolution_instance WHERE evolution_instance IS NOT NULL`, e
+`ix_events_tenant_created (tenant_id, created_at DESC)`. Em todos os bots
+existentes, define `settings.content.recado_instagram=true`; novos bots usam
+false. Demais settings, nomes, grupos e limites ficam preservados.

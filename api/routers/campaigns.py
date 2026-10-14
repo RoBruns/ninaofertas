@@ -68,7 +68,7 @@ def list_campaigns(
     page_size: Annotated[int, Query(ge=1, le=200)] = 50,
     sort: str = "name",
 ) -> PaginatedResponse[CampaignResponse]:
-    statement = select(Campaign).where(Campaign.owner_id == user.id)
+    statement = select(Campaign).where(Campaign.owner_id == user.tenant_id)
     if status is not None:
         statement = statement.where(Campaign.status == status)
     if bot_id is not None:
@@ -103,8 +103,8 @@ def create_campaign(
     user: OperatorUser,
     session: Annotated[Session, Depends(get_db)],
 ) -> CampaignResponse:
-    _validate_refs(session, user.id, payload.bot_id, payload.niche_id)
-    campaign = Campaign(id=uuid4(), owner_id=user.id, **payload.model_dump())
+    _validate_refs(session, user.tenant_id, payload.bot_id, payload.niche_id)
+    campaign = Campaign(id=uuid4(), owner_id=user.tenant_id, **payload.model_dump())
     session.add(campaign)
     session.flush()
     response = _response(campaign)
@@ -134,14 +134,14 @@ def update_campaign(
     user: OperatorUser,
     session: Annotated[Session, Depends(get_db)],
 ) -> CampaignResponse:
-    campaign = _owned(session, campaign_id, user.id)
+    campaign = _owned(session, campaign_id, user.tenant_id)
     before = _response(campaign).model_dump(mode="json")
     changes = payload.model_dump(exclude_unset=True)
     if changes.get("name", "valid") is None or changes.get("status", "valid") is None:
         raise APIError(422, "VALIDATION_ERROR", "name e status não aceitam null")
     _validate_refs(
         session,
-        user.id,
+        user.tenant_id,
         changes.get("bot_id") if "bot_id" in changes else None,
         changes.get("niche_id") if "niche_id" in changes else None,
     )
@@ -178,7 +178,7 @@ def delete_campaign(
     user: OperatorUser,
     session: Annotated[Session, Depends(get_db)],
 ) -> None:
-    campaign = _owned(session, campaign_id, user.id)
+    campaign = _owned(session, campaign_id, user.tenant_id)
     linked = session.scalar(
         select(Expense.id).where(Expense.campaign_id == campaign.id).limit(1)
     ) or session.scalar(select(GroupJoin.id).where(GroupJoin.campaign_id == campaign.id).limit(1))
@@ -200,9 +200,9 @@ def campaign_metrics(
     from_date: Annotated[date | None, Query(alias="from")] = None,
     to_date: Annotated[date | None, Query(alias="to")] = None,
 ) -> CampaignMetrics:
-    campaign = _owned(session, campaign_id, user.id)
+    campaign = _owned(session, campaign_id, user.tenant_id)
     expense_query = select(func.coalesce(func.sum(Expense.amount), 0)).where(
-        Expense.owner_id == user.id, Expense.campaign_id == campaign.id
+        Expense.owner_id == user.tenant_id, Expense.campaign_id == campaign.id
     )
     joins_query = select(func.count(GroupJoin.id)).where(GroupJoin.campaign_id == campaign.id)
     if from_date is not None:

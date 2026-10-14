@@ -15,6 +15,7 @@ import httpx
 from sqlalchemy import String, cast, select
 from sqlalchemy.orm import Session
 
+from core.tenant_context import event_tenant_id
 from core import db
 from core.credentials import mark_account_credentials_invalid, read_account_credentials
 from core.http_headers import MELI_HTML_HEADERS
@@ -55,6 +56,7 @@ def _event(
     session.add(
         Event(
             entity_type="platform_account",
+            tenant_id=event_tenant_id(session, entity_type="platform_account", entity_id=str(account_id)),
             entity_id=str(account_id),
             level="warning",
             type=event_type,
@@ -417,7 +419,8 @@ def _sync_ml(account_id: UUID, credentials: dict[str, str]) -> SyncResult:
 
 
 def sync_account(
-    account_id: UUID, *, origin: Literal["sync_manual", "sync_automatic"] = "sync_manual"
+    account_id: UUID, *, origin: Literal["sync_manual", "sync_automatic"] = "sync_manual",
+    requested_by: UUID | None = None
 ) -> SyncResult:
     platform_slug, config, credentials = _load_account(account_id)
     if platform_slug == "shopee":
@@ -430,7 +433,8 @@ def sync_account(
         with db.get_session() as session:
             account = session.get(PlatformAccount, account_id)
             session.add(AuditLog(
-                user_id=account.owner_id if origin == "sync_manual" else None,
+                user_id=requested_by if origin == "sync_manual" else None,
+                tenant_id=account.owner_id,
                 entity_type="sale_import",
                 entity_id=str(account.id), action="sync_success",
                 after={"source": origin, "owner_id": str(account.owner_id), "account_id": str(account.id),

@@ -40,7 +40,7 @@ def list_alerts(
     page: Annotated[int, Query(ge=1)] = 1,
     page_size: Annotated[int, Query(ge=1, le=200)] = 50,
 ) -> PaginatedResponse[AlertResponse]:
-    statement = select(Alert).where(Alert.owner_id == user.id)
+    statement = select(Alert).where(Alert.owner_id == user.tenant_id)
     if status is None:
         statement = statement.where(Alert.status.in_(("open", "acknowledged")))
     else:
@@ -75,7 +75,7 @@ def acknowledge_alert(
     current_user: Annotated[User, Depends(get_current_user)],
     session: Annotated[Session, Depends(get_db)],
 ) -> AlertResponse:
-    alert = _owned(session, alert_id, current_user.id)
+    alert = _owned(session, alert_id, current_user.tenant_id)
     if alert.status == "resolved":
         raise APIError(409, "CONFLICT", "Alerta já resolvido")
     alert.status = "acknowledged"
@@ -96,7 +96,7 @@ def resolve_alert(
 ) -> AlertResponse:
     from datetime import datetime, timezone
 
-    alert = _owned(session, alert_id, admin.id)
+    alert = _owned(session, alert_id, admin.tenant_id)
     before = _response(alert).model_dump(mode="json")
     if alert.status != "resolved":
         alert.status = "resolved"

@@ -28,6 +28,7 @@ from api.routers import (
     niches,
     phones,
     platforms,
+    platform,
     sales,
     system,
     users,
@@ -60,7 +61,7 @@ _ERROR_RESPONSES: dict[int | str, dict[str, object]] = {
 }
 
 app = FastAPI(
-    title="Nina Ofertas API",
+    title="Nina Bot API",
     version="0.5.0",
     docs_url="/api/docs",
     openapi_url="/api/openapi.json",
@@ -101,3 +102,5 @@ app.include_router(campaigns.router, prefix="/api")
 app.include_router(sales.router, prefix="/api")
 app.include_router(metrics.router, prefix="/api")
 app.include_router(system.router, prefix="/api")
+
+app.include_router(platform.router, prefix="/api")

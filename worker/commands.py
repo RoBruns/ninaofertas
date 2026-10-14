@@ -11,6 +11,7 @@ import httpx
 from sqlalchemy import select
 from sqlalchemy.exc import DBAPIError, ProgrammingError
 
+from core.tenant_context import event_tenant_id
 from core import db
 from core.config_provider import invalidar_cache
 from core.models import Bot, Command, Event, Group, Phone
@@ -130,7 +131,7 @@ def _executar(session, command: Command) -> str:
         raw_account_id = (command.payload or {}).get("account_id")
         if not raw_account_id:
             raise ValueError("commission_import sem account_id")
-        result = sync_account(UUID(str(raw_account_id)))
+        result = sync_account(UUID(str(raw_account_id)), requested_by=command.requested_by)
         return f"{result.imported} vendas importadas; {result.skipped} sem alteracao"
     raise ValueError(f"Comando desconhecido: {command.type}")
 
@@ -148,6 +149,7 @@ def _marcar_falha(command_id: int, exc: Exception) -> None:
                     session.add(
                         Event(
                             entity_type="platform_account",
+                            tenant_id=event_tenant_id(session, entity_type="platform_account", entity_id=account_id),
                             entity_id=account_id or None,
                             level="error",
                             type="commission_import_failed",

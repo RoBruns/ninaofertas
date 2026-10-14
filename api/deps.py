@@ -57,6 +57,7 @@ def get_current_user(
     user = session.scalar(select(User).where(User.id == user_id))
     if user is None or not user.is_active or payload["sv"] != user.session_version:
         raise APIError(401, "UNAUTHORIZED", "Token inválido ou expirado")
+    ensure_tenant_active(user)
     return user
 
 
@@ -96,3 +97,14 @@ def limit_authenticated_write(
 
     if not limiter.hit("write", str(current_user.id), 60, 60):
         raise APIError(429, "RATE_LIMITED", "Limite de escrita excedido")
+
+
+def ensure_tenant_active(user: User) -> None:
+    if user.tenant.status == "suspended":
+        raise APIError(403, "TENANT_SUSPENDED", "Conta suspensa")
+
+
+def require_platform_admin(current_user: Annotated[User, Depends(get_current_user)]) -> User:
+    if not current_user.is_platform_admin:
+        raise APIError(403, "FORBIDDEN", "Acesso restrito à administração da plataforma")
+    return current_user

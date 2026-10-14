@@ -56,7 +56,7 @@ def list_groups(
     page_size: Annotated[int, Query(ge=1, le=200)] = 50,
     sort: str = "name",
 ) -> PaginatedResponse[GroupResponse]:
-    statement = select(Group).where(Group.owner_id == user.id)
+    statement = select(Group).where(Group.owner_id == user.tenant_id)
     if phone_id is not None:
         statement = statement.where(Group.phone_id == phone_id)
     if status is not None:
@@ -81,10 +81,10 @@ def create_group(
     admin: AdminUser,
     session: Annotated[Session, Depends(get_db)],
 ) -> GroupResponse:
-    _owned_phone(session, payload.phone_id, admin.id)
+    _owned_phone(session, payload.phone_id, admin.tenant_id)
     if session.scalar(select(Group.id).where(Group.phone_id == payload.phone_id, Group.whatsapp_id == payload.whatsapp_id)):
         raise APIError(409, "CONFLICT", "Grupo já cadastrado para este telefone")
-    group = Group(id=uuid4(), owner_id=admin.id, **payload.model_dump())
+    group = Group(id=uuid4(), owner_id=admin.tenant_id, **payload.model_dump())
     session.add(group)
     session.flush()
     response = group_response(group)
@@ -100,7 +100,7 @@ def create_group_from_invite(
     payload: GroupFromInvite, request: Request, response: Response, admin: AdminUser,
     session: Annotated[Session, Depends(get_db)],
 ) -> GroupResponse:
-    phone = _owned_phone(session, payload.phone_id, admin.id)
+    phone = _owned_phone(session, payload.phone_id, admin.tenant_id)
     try:
         info = EvolutionClient().invite_info(phone.evolution_instance, payload.invite_link)
     except EvolutionUnavailable as exc:
@@ -110,7 +110,7 @@ def create_group_from_invite(
     if info.get("isMember") is False or info.get("isParticipant") is False:
         raise APIError(422, "VALIDATION_ERROR", "O telefone precisa já ser membro do grupo")
     existing = session.scalar(select(Group).where(
-        Group.owner_id == admin.id, Group.whatsapp_id == info["id"],
+        Group.owner_id == admin.tenant_id, Group.whatsapp_id == info["id"],
     ).order_by(Group.discovered_at).limit(1))
     if existing:
         response.status_code = 200
@@ -129,14 +129,14 @@ def update_group(
     admin: AdminUser,
     session: Annotated[Session, Depends(get_db)],
 ) -> GroupResponse:
-    group = _owned(session, group_id, admin.id)
+    group = _owned(session, group_id, admin.tenant_id)
     before = group_response(group).model_dump(mode="json")
     changes = payload.model_dump(exclude_unset=True)
     if changes.get("whatsapp_id", "ok") is None or changes.get("status", "ok") is None:
         raise APIError(422, "VALIDATION_ERROR", "whatsapp_id e status não aceitam null")
     target_phone = changes.get("phone_id", group.phone_id)
     if target_phone is not None:
-        _owned_phone(session, target_phone, admin.id)
+        _owned_phone(session, target_phone, admin.tenant_id)
     target_whatsapp = changes.get("whatsapp_id", group.whatsapp_id)
     if session.scalar(
         select(Group.id).where(Group.phone_id == target_phone, Group.whatsapp_id == target_whatsapp, Group.id != group.id)
@@ -157,7 +157,7 @@ def delete_group(
     admin: AdminUser,
     session: Annotated[Session, Depends(get_db)],
 ) -> None:
-    group = _owned(session, group_id, admin.id)
+    group = _owned(session, group_id, admin.tenant_id)
     bots = list(
         session.scalars(
             select(Bot).join(BotGroup, BotGroup.bot_id == Bot.id)

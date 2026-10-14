@@ -17,12 +17,13 @@ from sqlalchemy.exc import DBAPIError, OperationalError, ProgrammingError, SQLAl
 
 from core import db
 from core.bot_settings import BotSettings
-from core.models import Bot, BotGroup, BotPlatformAccount, Event, Group, Niche, Phone
+from core.models import Bot, BotGroup, BotPlatformAccount, Event, Group, Niche, Phone, Tenant
 
 
 @dataclass(frozen=True)
 class BotRuntime:
     id: UUID
+    owner_id: UUID
     slug: str
     nome: str
     niche_slug: str | None
@@ -83,6 +84,7 @@ def registrar_evento_runtime(
             session.add(
                 Event(
                     bot_id=runtime.id if runtime else None,
+                    tenant_id=runtime.owner_id if runtime else None,
                     entity_type="bot" if runtime else None,
                     entity_id=str(runtime.id) if runtime else None,
                     level=level,
@@ -109,6 +111,7 @@ def _registrar_config_invalida(bot: Bot, exc: ValidationError) -> None:
             session.add(
                 Event(
                     bot_id=bot.id,
+                    tenant_id=bot.owner_id,
                     entity_type="bot",
                     entity_id=str(bot.id),
                     level="error",
@@ -129,6 +132,7 @@ def _registrar_bot_nao_executavel(bot: Bot, reasons: list[str]) -> None:
             session.add(
                 Event(
                     bot_id=bot.id,
+                    tenant_id=bot.owner_id,
                     entity_type="bot",
                     entity_id=str(bot.id),
                     level="warning",
@@ -148,9 +152,10 @@ def _carregar() -> list[BotRuntime]:
     with db.get_session() as session:
         rows = session.execute(
             select(Bot, Niche.slug, Phone.number, Phone.evolution_instance)
+            .join(Tenant, Tenant.id == Bot.owner_id)
             .outerjoin(Niche, Niche.id == Bot.niche_id)
             .outerjoin(Phone, Phone.id == Bot.phone_id)
-            .where(Bot.status == "active", Bot.archived_at.is_(None))
+            .where(Bot.status == "active", Bot.archived_at.is_(None), Tenant.status == "active")
             .order_by(Bot.slug)
         ).all()
         for bot, niche_slug, phone_number, evolution_instance in rows:
@@ -195,6 +200,7 @@ def _carregar() -> list[BotRuntime]:
             runtimes.append(
                 BotRuntime(
                     id=bot.id,
+                    owner_id=bot.owner_id,
                     is_test=bot.is_test,
                     slug=bot.slug,
                     nome=bot.name,

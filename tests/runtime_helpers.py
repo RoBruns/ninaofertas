@@ -21,6 +21,7 @@ def runtime_do_config(arquivo: str, *, grupo: str = "grupo@g.us") -> BotRuntime:
     config = json.loads((ROOT / arquivo).read_text(encoding="utf-8"))
     return BotRuntime(
         id=uuid4(),
+        owner_id=uuid4(),
         slug=Path(arquivo).stem.replace(".", "-"),
         nome=arquivo,
         niche_slug=str(config.get("nicho")),

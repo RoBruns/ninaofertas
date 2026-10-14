@@ -150,6 +150,21 @@ O volume da `evolution-api` (`/evolution/instances`) guarda a sessão do WhatsAp
 aplica cooldown de segurança quando há muitas tentativas seguidas (já aconteceu
 neste projeto, registrado em `STATUS.md`). Não recriar o serviço sem necessidade.
 
+**Imagem fixada por digest** desde 2026-10-14:
+`evoapicloud/evolution-api@sha256:966625532d9076a2381e973a271307d107e6f070450de3abeeea8bd18be07252`
+(é a `latest` que já rodava, publicada em 2026-05-06; o log de início diz `v2.3.7`,
+mas o digest difere do da tag `v2.3.7`, então é uma recompilação dela). Antes rodava `:latest`, que podia trocar de
+versão num reinício e mudar o formato das respostas que a API e o worker leem. Para
+atualizar: escolha uma versão **igual ou mais nova** (a Evolution migra o próprio banco;
+voltar versão pode quebrar a sessão), teste o contrato de `core/evolution.py` e troque
+com `railway service source connect --image <imagem> --service evolution-api
+--environment production`, logo depois de um envio ou no silêncio noturno, porque o
+serviço reinicia. A Railway manda o e-mail "Deployment crashed for evolution-api" sobre
+o deploy **antigo**, que sai com erro ao ser encerrado na troca (aconteceu em
+2026-10-14 com o `5decaca1`); confira o id no link do e-mail e o log do deploy novo
+("CONNECTED TO WHATSAPP") antes de agir. O log de início mostra a versão real
+(`v2.3.7` em 2026-10-14).
+
 ## Saúde
 
 ```bash

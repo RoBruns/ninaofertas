@@ -205,7 +205,7 @@ def _freio_anti_ban(
 
     runtime = bot_runtime_atual()
     teste = runtime is not None and runtime.is_test
-    escopo = {"escopo_bot_id": runtime.id} if teste else {"excluir_bots_teste": True}
+    escopo = {"escopo_bot_id": runtime.id} if teste else {"excluir_bots_teste": True, "tenant_id": runtime.owner_id if runtime else None}
     limite = "no bot de teste" if teste else "na conta"
     decorridos_conta = repositories.minutos_desde_ultimo_envio(session, **escopo)
 

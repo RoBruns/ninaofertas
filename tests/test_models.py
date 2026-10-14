@@ -10,6 +10,7 @@ EXPECTED_TABLES = {
     "ofertas",
     "envios",
     "users",
+    "tenants",
     "audit_logs",
     "platforms",
     "platform_accounts",

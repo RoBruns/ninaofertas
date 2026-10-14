@@ -36,7 +36,7 @@ def list_niches(
     return [
         _response(item)
         for item in session.scalars(
-            select(Niche).where(Niche.owner_id == user.id).order_by(Niche.name.asc())
+            select(Niche).where(Niche.owner_id == user.tenant_id).order_by(Niche.name.asc())
         )
     ]
 
@@ -48,9 +48,9 @@ def create_niche(
     admin: AdminUser,
     session: Annotated[Session, Depends(get_db)],
 ) -> NicheResponse:
-    if session.scalar(select(Niche.id).where(Niche.owner_id == admin.id, Niche.slug == payload.slug)):
+    if session.scalar(select(Niche.id).where(Niche.owner_id == admin.tenant_id, Niche.slug == payload.slug)):
         raise APIError(409, "CONFLICT", "Já existe um nicho com este slug")
-    niche = Niche(owner_id=admin.id, slug=payload.slug, name=payload.name)
+    niche = Niche(owner_id=admin.tenant_id, slug=payload.slug, name=payload.name)
     session.add(niche)
     session.flush()
     response = _response(niche)
@@ -67,13 +67,13 @@ def update_niche(
     admin: AdminUser,
     session: Annotated[Session, Depends(get_db)],
 ) -> NicheResponse:
-    niche = _owned(session, niche_id, admin.id)
+    niche = _owned(session, niche_id, admin.tenant_id)
     before = _response(niche).model_dump()
     changes = payload.model_dump(exclude_unset=True)
     if any(value is None for value in changes.values()):
         raise APIError(422, "VALIDATION_ERROR", "slug e name não aceitam null")
     if "slug" in changes and session.scalar(
-        select(Niche.id).where(Niche.owner_id == admin.id, Niche.slug == changes["slug"], Niche.id != niche.id)
+        select(Niche.id).where(Niche.owner_id == admin.tenant_id, Niche.slug == changes["slug"], Niche.id != niche.id)
     ):
         raise APIError(409, "CONFLICT", "Já existe um nicho com este slug")
     for field, value in changes.items():
@@ -91,7 +91,7 @@ def delete_niche(
     admin: AdminUser,
     session: Annotated[Session, Depends(get_db)],
 ) -> None:
-    niche = _owned(session, niche_id, admin.id)
+    niche = _owned(session, niche_id, admin.tenant_id)
     bots = list(session.scalars(select(Bot).where(Bot.niche_id == niche.id).order_by(Bot.name)))
     if bots:
         names = ", ".join(bot.name for bot in bots)

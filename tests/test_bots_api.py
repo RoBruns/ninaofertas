@@ -89,7 +89,7 @@ def add_catalog(
                 owner_id=owner_id,
                 label="WhatsApp principal",
                 number="5511999990000",
-                evolution_instance="nina-principal",
+                evolution_instance=f"nina-{owner_id}",
                 status="unknown",
             )
         )

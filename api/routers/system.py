@@ -25,7 +25,7 @@ def system_status(
     session: Annotated[Session, Depends(get_db)],
 ) -> SystemStatusResponse:
     bots = []
-    for bot in session.scalars(select(Bot).where(Bot.owner_id == user.id).order_by(Bot.name)):
+    for bot in session.scalars(select(Bot).where(Bot.owner_id == user.tenant_id).order_by(Bot.name)):
         latest = session.scalar(
             select(AutomationRun)
             .where(AutomationRun.bot_id == bot.id)
@@ -52,7 +52,7 @@ def system_status(
     priority = {"invalid": 0, "expired": 1, "expiring": 2, "unknown": 3, "valid": 4}
     for account in session.scalars(
         select(PlatformAccount)
-        .where(PlatformAccount.owner_id == user.id)
+        .where(PlatformAccount.owner_id == user.tenant_id)
         .order_by(PlatformAccount.label)
     ):
         statuses = list(
@@ -80,7 +80,7 @@ def system_status(
             last_seen_at=phone.last_seen_at,
         )
         for phone in session.scalars(
-            select(Phone).where(Phone.owner_id == user.id).order_by(Phone.label)
+            select(Phone).where(Phone.owner_id == user.tenant_id).order_by(Phone.label)
         )
     ]
     # `.tuples().all()`: um Result tem `.keys()`, e `dict(result)` o trata como
@@ -89,7 +89,7 @@ def system_status(
         session.execute(
             select(Alert.severity, func.count(Alert.id))
             .where(
-                Alert.owner_id == user.id,
+                Alert.owner_id == user.tenant_id,
                 Alert.status.in_(("open", "acknowledged")),
             )
             .group_by(Alert.severity)

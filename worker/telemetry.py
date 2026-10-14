@@ -10,6 +10,7 @@ from uuid import UUID
 import httpx
 from sqlalchemy import func, select
 
+from core.tenant_context import event_tenant_id
 from core import db
 from core.models import AutomationRun, Event
 from worker.logger import logger
@@ -76,6 +77,7 @@ def registrar_evento(
             session.add(
                 Event(
                     bot_id=bot_id,
+                    tenant_id=event_tenant_id(session, bot_id, entity_type, entity_id),
                     entity_type=entity_type,
                     entity_id=entity_id,
                     level=level,

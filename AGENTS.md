@@ -6,7 +6,9 @@ o código vence — e corrija este arquivo.
 
 ## O que é
 
-Operação de marketing de afiliados. Um worker Python captura ofertas da **Shopee** e do
+**Nina Bot**, produto multi-conta de marketing de afiliados. A operação da Nina é
+uma conta interna; cada cliente tem seus próprios usuários e dados operacionais.
+Um worker Python captura ofertas da **Shopee** e do
 **Mercado Livre**, filtra por nicho, gera link de afiliado e publica em **grupos de
 WhatsApp** pela evolution-api. Uma **API FastAPI** e um **dashboard React** configuram e
 medem a operação: bots, telefones, grupos, contas de afiliado, filtros, ritmo, vendas,
@@ -70,11 +72,12 @@ nina-worker (APScheduler) ──────────────── nina-
 | `worker/dedup.py`, `worker/commands.py`, `worker/telemetry.py`, `worker/whatsapp.py` | dedup por grupo, comandos do dashboard, runs/eventos, Evolution |
 | `core/platforms/` | scrapers Shopee/ML, `affiliate.py` (links de afiliado, `link_rastreado`) |
 | `core/sales_sync.py`, `core/importers/` | importação de vendas (Shopee: API `conversionReport`; ML: JSON do painel `/afiliados/dashboard`) |
-| `core/models.py`, `core/repositories.py`, `migrations/` | modelo de dados e consultas (Alembic 0001–0006) |
+| `core/models.py`, `core/repositories.py`, `migrations/` | modelo de dados, tenants e consultas (Alembic 0001–0007); `owner_id` aponta para tenants |
 | `core/credentials.py`, `core/crypto.py` | segredos cifrados (`CREDENTIALS_KEY`), status de credencial |
 | `core/relogio.py` | hora de Brasília independente do fuso do container; silêncio noturno |
 | `core/alerts.py`, `core/metrics.py` | detectores de alerta, métricas (ROI, ROAS, lucro) |
 | `api/routers/` | rotas; `api/schemas/` contratos; `api/errors.py` formato de erro |
+| `api/routers/platform.py`, `core/tenant_context.py` | `/api/platform`, contas de clientes e dono dos eventos; acesso à plataforma por `is_platform_admin` |
 | `core/seed.py`, `config.json` | seed inicial; `config.json` **só** alimenta o seed |
 
 ## Rodar e testar (Windows, máquina do dono)
@@ -126,12 +129,14 @@ nina-worker (APScheduler) ──────────────── nina-
   telefone com instância Evolution, ao menos um grupo e uma conta com credencial.
   Cada bot só publica plataformas em que tem credencial **não invalidada**.
 - **Freio anti-ban** conta **1 por oferta**, mesmo que ela vá para vários grupos
-  (ADR-021): intervalo entre ofertas, rajada, teto por hora/dia, tetos globais.
+  (ADR-021): intervalo entre ofertas, rajada, teto por hora/dia, tetos da conta.
+  Intervalo, rajada e tetos da conta são escopados por tenant (ADR-028), incluindo
+  envios com `bot_id NULL` em grupos da conta. Os limites de segurança não mudam.
   `max_ofertas_por_dia = 0` desliga só o teto diário (ADR-018).
 - **Bots de teste**: `is_test=true`; configuração copiável é settings + template,
   sempre preservando attribution própria. Importação guarda backup e arquiva o teste
   (`disabled`, `archived_at`), sem apagar histórico. Os controles globais do freio
-  contam produção (incluindo bot_id NULL) ou só o próprio teste; os controles por
+  contam produção da mesma conta (incluindo bot_id NULL dos seus grupos) ou só o próprio teste; os controles por
   grupo e a deduplicação continuam compartilhados. Métricas de envios/cliques/vendas
   omitem testes salvo filtro explícito por bot_id. ADR-023 a cargo do dono.
 - **Nunca envia oferta sem link de afiliado** (`affiliate.link_rastreado`). ML: link
@@ -143,6 +148,11 @@ nina-worker (APScheduler) ──────────────── nina-
 - **Opções por bot** vindas da V1 (ADR-022): `uma_loja_por_ciclo`,
   `ml_ignora_desconto_e_vendas`, `ml_categoria_dispensa_nicho`.
 - **Silêncio noturno** por bot (`schedule.quiet_hours`, padrão 00:00–08:00, Brasília).
+- **Recado do Instagram**: só bots com `content.recado_instagram=true`; padrão false
+  para novos bots. Migration 0007 liga em todos os existentes para preservar o envio.
+- **Isolamento**: `user.tenant_id` é dono; `user.id` é autoria. `role=admin` vale só
+  dentro da conta; `is_platform_admin` controla `/platform`. Instância Evolution
+  livre só para platform admin; clientes conectam por `/phones/{id}/instance`.
 - **Cupom** só entra na mensagem se for código digitável (4–16 letras/números).
 
 ## Convenções
@@ -161,7 +171,7 @@ nina-worker (APScheduler) ──────────────── nina-
 | Pergunta | Arquivo |
 |---|---|
 | Estado das fases e o que falta | `docs/ROADMAP.md` (fonte de verdade do progresso) |
-| Por que foi decidido assim | `docs/DECISIONS.md` (ADR-001 a ADR-022) |
+| Por que foi decidido assim | `docs/DECISIONS.md` (ADR-001 a ADR-028; ADR-023 a cargo do dono) |
 | Rotas e contratos | `docs/API.md`, `openapi.json` |
 | Tabelas e fórmulas | `docs/DATABASE.md` |
 | Worker ↔ API | `docs/BOT_INTEGRATION.md` |

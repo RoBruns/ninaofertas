@@ -9,7 +9,7 @@ import { AuthContext, type AuthContextValue } from '../auth/AuthContext'
 import { ToastProvider } from '../components/Toast'
 import { Accounts } from './Accounts'
 
-const admin: User = { id: 'user-1', email: 'admin@nina.test', name: 'Admin', role: 'admin', is_active: true, last_login_at: null, created_at: '2026-09-23T10:00:00Z' }
+const admin: User = { tenant: { id: 'tenant-1', name: 'Opera\u00e7\u00e3o Nina', is_internal: true }, is_platform_admin: true, id: 'user-1', email: 'admin@nina.test', name: 'Admin', role: 'admin', is_active: true, last_login_at: null, created_at: '2026-09-23T10:00:00Z' }
 const platform: Platform = { id: 1, slug: 'mercadolivre', name: 'Mercado Livre', is_active: true, capabilities: {} }
 const account: Account = {
   id: 'account-1', platform: { id: 1, slug: 'mercadolivre', name: 'Mercado Livre' }, label: 'Conta ML', external_id: '123', status: 'active', config: {}, notes: null,

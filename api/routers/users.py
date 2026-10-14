@@ -37,7 +37,7 @@ def list_users(
     pagination = PaginationParams(page=page, page_size=page_size, sort=sort)
     users, total = paginate(
         session,
-        select(User),
+        select(User).where(User.tenant_id == _admin.tenant_id),
         pagination,
         {"created_at": User.created_at, "email": User.email, "name": User.name},
     )
@@ -65,6 +65,8 @@ def create_user(
         raise APIError(409, "CONFLICT", "Email já cadastrado")
     user = User(
         id=uuid4(),
+        tenant_id=admin.tenant_id,
+        is_platform_admin=False,
         email=payload.email,
         password_hash=hash_password(payload.password),
         name=payload.name,
@@ -100,7 +102,7 @@ def update_user(
     session: Annotated[Session, Depends(get_db)],
 ) -> User:
     user = session.get(User, user_id)
-    if user is None:
+    if user is None or user.tenant_id != admin.tenant_id:
         raise APIError(404, "NOT_FOUND", "Usuário não encontrado")
     changes = payload.model_dump(exclude_unset=True)
     if user.id == admin.id and (
@@ -150,7 +152,7 @@ def delete_user(
     session: Annotated[Session, Depends(get_db)],
 ) -> None:
     user = session.get(User, user_id)
-    if user is None:
+    if user is None or user.tenant_id != admin.tenant_id:
         raise APIError(404, "NOT_FOUND", "Usuário não encontrado")
     if user.id == admin.id:
         raise APIError(409, "CONFLICT", "Não é permitido remover o próprio usuário")

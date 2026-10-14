@@ -27,7 +27,7 @@ from api.deps import get_current_user, get_db
 from api.main import app
 from api.security import REFRESH_COOKIE_NAME, create_access_token, hash_password
 from core.db import normalize_database_url
-from core.models import AuditLog, User
+from core.models import AuditLog, Tenant, User
 
 
 def _recriar_schema_com_migrations(url: str) -> None:
@@ -125,10 +125,19 @@ def add_user(
     email: str,
     password: str = "senha-segura",
     role: str = "viewer",
+    tenant_id=None,
+    is_platform_admin: bool | None = None,
 ) -> User:
     with session_factory.begin() as session:
+        user_id = uuid4()
+        if tenant_id is None:
+            tenant_id = user_id
+            session.add(Tenant(id=tenant_id, name="Usuario", is_internal=True))
+            session.flush()
         user = User(
-            id=uuid4(),
+            id=user_id,
+            tenant_id=tenant_id,
+            is_platform_admin=(role == "admin") if is_platform_admin is None else is_platform_admin,
             email=email,
             password_hash=hash_password(password),
             name="Usuario",
@@ -324,8 +333,8 @@ def test_troca_de_senha_e_desativacao_invalidam_tokens(
     client: TestClient, session_factory: sessionmaker[Session]
 ) -> None:
     admin = add_user(session_factory, email="admin@example.com", role="admin")
-    password_user = add_user(session_factory, email="password@example.com")
-    inactive_user = add_user(session_factory, email="inactive@example.com")
+    password_user = add_user(session_factory, email="password@example.com", tenant_id=admin.tenant_id)
+    inactive_user = add_user(session_factory, email="inactive@example.com", tenant_id=admin.tenant_id)
     admin_token = str(login(client, admin.email)["access_token"])
     password_token = str(login(client, password_user.email)["access_token"])
     password_refresh = client.cookies[REFRESH_COOKIE_NAME]
@@ -440,8 +449,8 @@ def test_auditoria_identifica_autor_sistema_e_usuario_inativo(
     client: TestClient, session_factory: sessionmaker[Session]
 ) -> None:
     admin = add_user(session_factory, email="admin@example.com", role="admin")
-    author = add_user(session_factory, email="author@example.com")
-    inactive = add_user(session_factory, email="inactive-author@example.com")
+    author = add_user(session_factory, email="author@example.com", tenant_id=admin.tenant_id)
+    inactive = add_user(session_factory, email="inactive-author@example.com", tenant_id=admin.tenant_id)
     with session_factory.begin() as session:
         stored_inactive = session.get(User, inactive.id)
         assert stored_inactive is not None
@@ -450,6 +459,7 @@ def test_auditoria_identifica_autor_sistema_e_usuario_inativo(
         session.add_all(
             [
                 AuditLog(
+                    tenant_id=admin.tenant_id,
                     user_id=author.id,
                     entity_type="test",
                     entity_id="active-author",
@@ -459,6 +469,7 @@ def test_auditoria_identifica_autor_sistema_e_usuario_inativo(
                     ip=None,
                 ),
                 AuditLog(
+                    tenant_id=admin.tenant_id,
                     user_id=None,
                     entity_type="test",
                     entity_id="system",
@@ -468,6 +479,7 @@ def test_auditoria_identifica_autor_sistema_e_usuario_inativo(
                     ip=None,
                 ),
                 AuditLog(
+                    tenant_id=admin.tenant_id,
                     user_id=inactive.id,
                     entity_type="test",
                     entity_id="inactive-author",
@@ -497,11 +509,12 @@ def test_listagem_de_auditoria_faz_numero_constante_de_consultas(
     client: TestClient, session_factory: sessionmaker[Session]
 ) -> None:
     admin = add_user(session_factory, email="admin@example.com", role="admin")
-    author = add_user(session_factory, email="author@example.com")
+    author = add_user(session_factory, email="author@example.com", tenant_id=admin.tenant_id)
     with session_factory.begin() as session:
         session.add_all(
             [
                 AuditLog(
+                    tenant_id=admin.tenant_id,
                     user_id=author.id,
                     entity_type="test",
                     entity_id=str(index),
@@ -545,7 +558,7 @@ def test_auditoria_devolve_ip_real_como_texto(
     with session_factory.begin() as session:
         session.add_all(
             [
-                AuditLog(user_id=admin.id, entity_type="ip", entity_id=str(index),
+                AuditLog(tenant_id=admin.tenant_id, user_id=admin.id, entity_type="ip", entity_id=str(index),
                          action="update", before=None, after=None, ip=ip)
                 for index, ip in enumerate(["203.0.113.7", "2001:db8::1", None])
             ]
@@ -616,12 +629,18 @@ def test_500_nao_vaza_stacktrace(
 
     path = f"/api/test-internal-{uuid4()}"
     app.add_api_route(path, explode, methods=["GET"])
-    response = client.get(path, headers=auth_header(token))
-    assert_error(response, 500, "INTERNAL")
-    serialized = response.text.lower()
-    assert "segredo-do-banco" not in serialized
-    assert "password_hash" not in serialized
-    assert "traceback" not in serialized
+    temporary_route = app.routes[-1]
+    try:
+        response = client.get(path, headers=auth_header(token))
+        assert_error(response, 500, "INTERNAL")
+        serialized = response.text.lower()
+        assert "segredo-do-banco" not in serialized
+        assert "password_hash" not in serialized
+        assert "traceback" not in serialized
+    finally:
+        # A matriz de isolamento inspeciona o app; rotas de teste não podem
+        # sobreviver ao teste que as criou.
+        app.routes.remove(temporary_route)
 
 
 def test_admin_nao_pode_se_auto_deletar_nem_rebaixar(

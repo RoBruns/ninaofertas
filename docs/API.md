@@ -4,6 +4,35 @@ FastAPI. Base `/api`. JSON, `snake_case`. Todas as datas em ISO-8601 UTC.
 OpenAPI gerado em `/api/docs` — este documento define o contrato; o gerado
 reflete a implementação. Divergência entre os dois é bug.
 
+## Nina Bot multi-conta — S1
+
+O dono operacional é `user.tenant_id`; a autoria é `user.id`. Todas as rotas
+operacionais consultam apenas a conta do usuário, incluindo usuários, eventos e
+auditoria. Recurso de outra conta retorna 404. `role=admin` administra sua conta;
+`is_platform_admin` é uma permissão separada, sem acesso às operações dos clientes
+nas rotas comuns.
+
+`GET /api/auth/me` e o usuário de `POST /api/auth/login` incluem
+`tenant: {id, name, is_internal}` e `is_platform_admin`. Conta suspensa recebe
+403 `TENANT_SUSPENDED` em login, refresh e acessos autenticados. Usuários criados
+em `/api/users` herdam a conta do autor, com `is_platform_admin=false`; não se
+aceita alteração de tenant ou dessa permissão nas rotas comuns.
+
+| Método e rota | Acesso | Contrato |
+|---|---|---|
+| `GET /api/platform/tenants` | Platform admin | Lista `{id,name,status,is_internal,created_at,users_count,active_bots_count,successful_sends_30d}` |
+| `POST /api/platform/tenants` | Platform admin | `{name,admin_email,admin_name,admin_password}` → 201; cria conta externa e primeiro admin em transação; email repetido → 409 |
+| `PATCH /api/platform/tenants/{tenant_id}` | Platform admin | `{name?,status?}`; suspender pausa bots ativos e audita; própria conta → 409; reativar não ativa bots |
+| `POST /api/phones/{phone_id}/instance` | Admin da conta | Cria instância `nb-<8 do tenant>-<8 do telefone>`; se existente, busca seu QR; responde `QRCodeResponse`; Evolution indisponível → 503 |
+
+`PhoneCreate`/`PhoneUpdate` aceitam `evolution_instance` somente de platform
+admin; campo presente, inclusive null, de outro usuário → 403. Instância usada
+por outro telefone → 409. Remover telefone não remove instância na Evolution.
+
+`settings.content.recado_instagram` é bool, padrão false. Migration 0007 liga
+nos bots existentes. Eventos com `tenant_id=NULL` só aparecem a platform admins;
+auditoria sempre exige o tenant do usuário, inclusive para platform admins.
+
 ## Convenções
 
 **Autenticação.** JWT no header `Authorization: Bearer <token>`. Access token

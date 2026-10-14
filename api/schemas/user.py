@@ -20,10 +20,19 @@ def _normalize_email(value: str | None) -> str | None:
     return value
 
 
+class TenantIdentity(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: UUID
+    name: str
+    is_internal: bool
+
+
 class UserResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: UUID
+    tenant: TenantIdentity
+    is_platform_admin: bool
     email: str
     name: str | None
     role: Role
@@ -33,6 +42,7 @@ class UserResponse(BaseModel):
 
 
 class UserCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
     email: str
     password: str = Field(min_length=8, max_length=1024)
     name: str | None = Field(default=None, max_length=200)
@@ -43,6 +53,7 @@ class UserCreate(BaseModel):
 
 
 class UserUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
     email: str | None = None
     password: str | None = Field(default=None, min_length=8, max_length=1024)
     name: str | None = Field(default=None, max_length=200)

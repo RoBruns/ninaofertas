@@ -12,7 +12,7 @@ from sqlalchemy import select, update
 from sqlalchemy.orm import Session
 
 from api.audit import record_audit
-from api.deps import bearer_scheme, get_current_user, get_db
+from api.deps import ensure_tenant_active, bearer_scheme, get_current_user, get_db
 from api.errors import APIError
 from api.ratelimit import client_ip, limit_login
 from api.schemas.auth import AccessTokenResponse, LoginRequest, LoginResponse
@@ -88,6 +88,7 @@ def login(
         session.commit()
         raise APIError(401, "UNAUTHORIZED", "Email ou senha inválidos")
 
+    ensure_tenant_active(user)
     user.last_login_at = datetime.now(timezone.utc)
     record_audit(
         session,
@@ -120,6 +121,7 @@ def refresh(
     user = session.scalar(select(User).where(User.id == user_id))
     if user is None or not user.is_active or session_version != user.session_version:
         raise APIError(401, "UNAUTHORIZED", "Refresh token inválido ou expirado")
+    ensure_tenant_active(user)
     return AccessTokenResponse(
         access_token=create_access_token(
             str(user.id),

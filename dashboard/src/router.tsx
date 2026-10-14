@@ -8,6 +8,7 @@ import { Login } from './pages/Login'
 import { AlertsPage, AuditPage, CampaignsPage, ExpensesPage, LogsPage, OverviewPage, PerformancePage, SalesPage } from './pages/LazyPages'
 import { PhonesGroups } from './pages/PhonesGroups'
 import { Users } from './pages/Users'
+import { Platform } from './pages/Platform'
 
 export const router = createBrowserRouter([
   { path: '/login', element: <Login /> },
@@ -26,5 +27,6 @@ export const router = createBrowserRouter([
     { path: 'logs', element: <LogsPage /> },
     { path: 'auditoria', element: <AuditPage /> },
     { path: 'usuarios', element: <Users /> },
+    { path: 'plataforma', element: <Platform /> },
   ] }] },
 ])

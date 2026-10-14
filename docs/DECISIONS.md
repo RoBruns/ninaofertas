@@ -457,3 +457,47 @@ chuveiros e torneira, casos de fronteira. O Haiku 5.5 acertou no máximo 86/99
 (corte 0,4) e barra eletrodomésticos e móveis em qualquer corte. Decisão: Jev,
 corte 0,6. `TYPESAFE_API_KEY` está no `nina-worker`; o filtro está ligado no bot
 de teste e o Nina segue sem ele até a importação.
+
+---
+
+## ADR-027 — Conta acima do usuário no Nina Bot
+**Data:** 2026-10-14 · **Status:** aceita · **Decisor:** usuário (fase S1)
+
+A operação pertence a `tenants`, e cada usuário pertence a uma conta. `owner_id`
+mantém o nome e passa a referenciar `tenants.id`; `created_by`, `requested_by` e
+`audit_logs.user_id` continuam referenciando o usuário autor. Papéis admin,
+operator e viewer valem dentro da conta. `is_platform_admin` é uma permissão
+separada, usada apenas para administrar a plataforma e configurar instâncias.
+
+A migration 0007 cria uma conta interna por usuário existente com o mesmo UUID
+(`tenants.id = users.id`), sem reescrever donos operacionais. Admins existentes
+viram platform admins; usuários novos de uma conta nunca herdam essa permissão.
+Contas de clientes são externas. Auditoria e eventos carregam a conta, com
+eventos de sistema sem dono visíveis apenas a platform admins. Login, refresh
+e acesso autenticado recusam contas suspensas; a suspensão pausa bots ativos,
+e a reativação mantém os bots pausados até decisão do cliente.
+
+O produto se chama Nina Bot; repositório, serviços Railway e emissor JWT não
+mudam. A plataforma gera instâncias Evolution para clientes; nomes livres
+continuam permitidos a platform admins para preservar os telefones da Nina.
+
+---
+
+## ADR-028 — Freio anti-ban da conta escopado por tenant
+**Data:** 2026-10-14 · **Status:** aceita · **Decisor:** usuário (fase S1)
+
+Intervalo, rajada e tetos da conta contam apenas envios dos seus bots de produção,
+mais envios sem bot cujo WhatsApp ID corresponde a um grupo da conta. Bots de
+teste seguem com escopo próprio. A contagem continua uma oferta por slot, mesmo
+com múltiplos grupos; limites por grupo, cupons e deduplicação permanecem iguais.
+Nenhum limite de `core/safety.py` foi alterado.
+
+Para a operação da Nina, com os bots sob a mesma conta e os grupos legados
+cadastrados, o resultado é o mesmo de antes. Testes comparam os cenários do freio
+anterior e verificam que o teto e o último envio de uma conta não afetam outra.
+Antes do deploy, o dono deve conferir essa condição nos dados de produção.
+
+O recado do Instagram respeita o mesmo escopo de intervalo e vira opt-in por bot.
+Todos os bots existentes recebem `content.recado_instagram=true` na migração;
+novos bots recebem false. Os novos recados registram bot e grupo, mantendo
+mensagem, horário de silêncio e intervalo de quatro horas.

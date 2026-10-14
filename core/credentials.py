@@ -10,6 +10,7 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from core.tenant_context import event_tenant_id
 from core.crypto import decrypt, encrypt, fingerprint
 from core import db
 from core.models import Event, Platform, PlatformAccount, PlatformCredential
@@ -149,6 +150,7 @@ def mark_account_credentials_invalid(
             session.add(
                 Event(
                     bot_id=bot_id,
+                    tenant_id=event_tenant_id(session, bot_id, "platform_account", str(account_id)),
                     entity_type="platform_account",
                     entity_id=str(account_id),
                     level="error",

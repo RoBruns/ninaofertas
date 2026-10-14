@@ -36,6 +36,7 @@ def list_audit_logs(
     statement = (
         select(AuditLog, User.email.label("user_email"), User.name.label("user_name"))
         .outerjoin(User, AuditLog.user_id == User.id)
+        .where(AuditLog.tenant_id == _admin.tenant_id)
     )
     if entity_type is not None:
         statement = statement.where(AuditLog.entity_type == entity_type)

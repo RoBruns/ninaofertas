@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session
 
 from core.channels import CANAIS
 from core.db import normalize_database_url
-from core.models import Bot, ExpenseCategory, Niche, Platform, User
+from core.models import Tenant, Bot, ExpenseCategory, Niche, Platform, User
 from core.settings import settings
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -133,7 +133,10 @@ def _admin(session: Session, email: str, password: str) -> User:
     if user is not None:
         return user
     password_hash = PasswordHasher(type=Type.ID).hash(password)
-    user = User(email=email, password_hash=password_hash, name="Administrador", role="admin")
+    tenant = Tenant(name="Administrador", is_internal=True)
+    session.add(tenant)
+    session.flush()
+    user = User(tenant_id=tenant.id, is_platform_admin=True, email=email, password_hash=password_hash, name="Administrador", role="admin")
     session.add(user)
     session.flush()
     return user
@@ -141,7 +144,7 @@ def _admin(session: Session, email: str, password: str) -> User:
 
 def _upsert_owner_rows(session: Session, user: User) -> dict[str, Niche]:
     for slug, name in EXPENSE_CATEGORIES:
-        statement = insert(ExpenseCategory).values(owner_id=user.id, slug=slug, name=name)
+        statement = insert(ExpenseCategory).values(owner_id=user.tenant_id, slug=slug, name=name)
         session.execute(
             statement.on_conflict_do_update(
                 index_elements=[ExpenseCategory.owner_id, ExpenseCategory.slug],
@@ -149,7 +152,7 @@ def _upsert_owner_rows(session: Session, user: User) -> dict[str, Niche]:
             )
         )
     for slug, name in NICHES:
-        statement = insert(Niche).values(owner_id=user.id, slug=slug, name=name)
+        statement = insert(Niche).values(owner_id=user.tenant_id, slug=slug, name=name)
         session.execute(
             statement.on_conflict_do_update(
                 index_elements=[Niche.owner_id, Niche.slug], set_={"name": statement.excluded.name}
@@ -158,7 +161,7 @@ def _upsert_owner_rows(session: Session, user: User) -> dict[str, Niche]:
     session.flush()
     return {
         niche.slug: niche
-        for niche in session.scalars(select(Niche).where(Niche.owner_id == user.id)).all()
+        for niche in session.scalars(select(Niche).where(Niche.owner_id == user.tenant_id)).all()
     }
 
 
@@ -166,13 +169,19 @@ def _upsert_bots(session: Session, user: User, niches: dict[str, Niche]) -> None
     for slug, channel in CANAIS.items():
         config = json.loads((ROOT / str(channel["arquivo"])).read_text(encoding="utf-8"))
         niche_slug = "automotivo" if config.get("nicho") == "auto" else str(config["nicho"])
+        bot_settings = _settings_from_config(config)
+        existing = session.scalar(select(Bot).where(Bot.owner_id == user.tenant_id, Bot.slug == slug))
+        bot_settings["content"]["recado_instagram"] = (
+            (existing.settings or {}).get("content", {}).get("recado_instagram", True)
+            if existing else True
+        )
         values = {
-            "owner_id": user.id,
+            "owner_id": user.tenant_id,
             "name": str(channel["nome"]),
             "slug": slug,
             "niche_id": niches[niche_slug].id,
             "status": "paused",
-            "settings": _settings_from_config(config),
+            "settings": bot_settings,
             "message_template": config.get("mensagem_template"),
         }
         statement = insert(Bot).values(**values)

@@ -31,7 +31,7 @@ export const defaultSettings: BotSettings = {
     max_ofertas_por_dia: 80, max_ofertas_globais_por_hora: 8,
     max_ofertas_globais_por_dia: 90,
   },
-  content: { aceitar_cupons: true, aceitar_campanhas: false, max_cupons_por_dia: 2, baseline_ciclos: 5 },
+  content: { recado_instagram: false, aceitar_cupons: true, aceitar_campanhas: false, max_cupons_por_dia: 2, baseline_ciclos: 5 },
   schedule: { check_interval: 60, quiet_hours: { start: '00:00', end: '08:00' } },
 }
 

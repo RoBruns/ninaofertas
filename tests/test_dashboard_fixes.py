@@ -30,7 +30,7 @@ def test_dia_inclusivo_em_brasilia_e_datetime_compativel(client, session_factory
                 "2026-10-14T02:59:59+00:00", "2026-10-14T03:00:00+00:00"]
     with session_factory.begin() as session:
         for index, instant in enumerate(instants):
-            values = {"created_at": datetime.fromisoformat(instant)}
+            values = {"tenant_id": user.tenant_id, "created_at": datetime.fromisoformat(instant)}
             if model is Event:
                 values.update(level="info", type="boundary", message=str(index))
             else:

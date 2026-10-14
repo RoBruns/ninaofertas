@@ -74,7 +74,7 @@ class Detector:
 def _first_admin(session: Session) -> User | None:
     return session.scalar(
         select(User)
-        .where(User.role == "admin", User.is_active.is_(True))
+        .where(User.is_platform_admin.is_(True), User.is_active.is_(True))
         .order_by(User.created_at, User.id)
         .limit(1)
     )
@@ -138,7 +138,7 @@ def detect_bot_offline(session: Session, now: datetime) -> list[AlertCondition]:
             else:
                 conditions.append(
                     AlertCondition(
-                        admin.id,
+                        admin.tenant_id,
                         "bot_offline",
                         "critical",
                         "bot_offline:legacy",
@@ -278,6 +278,8 @@ def detect_group_inaccessible(session: Session, _now: datetime) -> list[AlertCon
 
 
 def _event_owner(session: Session, event: Event) -> UUID | None:
+    if event.tenant_id is not None:
+        return event.tenant_id
     if event.bot_id is not None:
         return session.scalar(select(Bot.owner_id).where(Bot.id == event.bot_id))
     try:
@@ -310,7 +312,7 @@ def detect_recurring_error(session: Session, now: datetime) -> list[AlertConditi
             if admin is None:
                 _missing_owner_event(session, "recurring_error", str(event.id))
                 continue
-            owner_id = admin.id
+            owner_id = admin.tenant_id
         counts[(owner_id, event.type)] += 1
     return [
         AlertCondition(
@@ -456,7 +458,7 @@ def _detect_recent_ml_event(
             if admin is None:
                 _missing_owner_event(session, event_type, str(event.id))
                 continue
-            owner_id = admin.id
+            owner_id = admin.tenant_id
         date_value = (event.detail or {}).get("date")
         try:
             display_date = datetime.fromisoformat(str(date_value)).strftime("%d/%m")
