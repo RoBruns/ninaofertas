@@ -1,5 +1,6 @@
 """Telefones e comandos de descoberta de grupos."""
 
+from datetime import datetime, timezone
 from typing import Annotated
 from uuid import UUID, uuid4
 
@@ -14,7 +15,11 @@ from api.errors import APIError
 from api.ratelimit import client_ip
 from api.schemas.common import PaginatedResponse, PaginationParams, paginate
 from api.schemas.phone import CommandResponse, PhoneCreate, PhoneResponse, PhoneUpdate, QRCodeResponse
-from core.evolution import EvolutionClient, EvolutionUnavailable
+from core.evolution import (
+    EvolutionClient, EvolutionUnavailable, EvolutionAlreadyConnected, EvolutionConflict, EvolutionRejected,
+)
+from core.crypto import encrypt, fingerprint
+from core.config_provider import invalidar_cache
 from core.models import Bot, BotGroup, Command, Group, Phone, User
 
 router = APIRouter(prefix="/phones", tags=["phones"])
@@ -31,12 +36,14 @@ def _owned(session: Session, phone_id: UUID, owner_id: UUID) -> Phone:
 
 def _response(phone: Phone, *, query_status: bool = True) -> PhoneResponse:
     status = EvolutionClient().connection_status(phone.evolution_instance) if query_status else phone.status
-    if status not in {"connected", "disconnected", "banned", "unknown"}:
+    if status not in {"connected", "disconnected", "connecting", "banned", "unknown"}:
         status = "unknown"
     return PhoneResponse(
         id=phone.id,
         label=phone.label,
         number=phone.number,
+        has_instance_token=bool(phone.instance_token_ciphertext),
+        instance_token_fingerprint=phone.instance_token_fingerprint,
         evolution_instance=phone.evolution_instance,
         status=status,
         last_seen_at=phone.last_seen_at,
@@ -93,7 +100,7 @@ def create_phone(
     session: Annotated[Session, Depends(get_db)],
 ) -> PhoneResponse:
     _check_instance(session, admin, payload.model_fields_set, payload.evolution_instance)
-    if session.scalar(select(Phone.id).where(Phone.owner_id == admin.tenant_id, Phone.number == payload.number)):
+    if payload.number and session.scalar(select(Phone.id).where(Phone.owner_id == admin.tenant_id, Phone.number == payload.number)):
         raise APIError(409, "CONFLICT", "Telefone já cadastrado")
     phone = Phone(
         id=uuid4(), owner_id=admin.tenant_id, label=payload.label, number=payload.number,
@@ -119,12 +126,16 @@ def update_phone(
     _check_instance(session, admin, payload.model_fields_set, payload.evolution_instance, phone.id)
     before = _response(phone, query_status=False).model_dump(mode="json")
     changes = payload.model_dump(exclude_unset=True)
-    if changes.get("label", "ok") is None or changes.get("number", "ok") is None:
-        raise APIError(422, "VALIDATION_ERROR", "label e number não aceitam null")
-    if "number" in changes and session.scalar(
+    if changes.get("label", "ok") is None:
+        raise APIError(422, "VALIDATION_ERROR", "label não aceita null")
+    if changes.get("number") and session.scalar(
         select(Phone.id).where(Phone.owner_id == admin.tenant_id, Phone.number == changes["number"], Phone.id != phone.id)
     ):
         raise APIError(409, "CONFLICT", "Telefone já cadastrado")
+    if "evolution_instance" in changes and changes["evolution_instance"] != phone.evolution_instance:
+        phone.instance_token_ciphertext = None
+        phone.instance_token_fingerprint = None
+        phone.instance_token_updated_at = None
     for field, value in changes.items():
         setattr(phone, field, value)
     _flush_phone(session)
@@ -174,6 +185,12 @@ def get_qrcode(
     phone = _owned(session, phone_id, user.tenant_id)
     try:
         code, expires_at = EvolutionClient().qrcode(phone.evolution_instance)
+    except EvolutionAlreadyConnected as exc:
+        try:
+            _mark_connected(session, phone)
+        except EvolutionUnavailable as unavailable:
+            raise APIError(503, "SERVICE_UNAVAILABLE", str(unavailable)) from unavailable
+        raise APIError(409, "ALREADY_CONNECTED", "WhatsApp já conectado") from exc
     except EvolutionUnavailable as exc:
         raise APIError(503, "SERVICE_UNAVAILABLE", str(exc)) from exc
     return QRCodeResponse(qrcode_base64=code, expires_at=expires_at)
@@ -203,6 +220,62 @@ def sync_groups(
     return CommandResponse(command_id=command.id)
 
 
+def _store_token(session: Session, phone: Phone, token: str, admin: User, request: Request) -> None:
+    previous = phone.instance_token_fingerprint
+    phone.instance_token_ciphertext = encrypt(token)
+    phone.instance_token_fingerprint = fingerprint(token)
+    phone.instance_token_updated_at = datetime.now(timezone.utc)
+    # A chave genérica fingerprint evita a redação de campos contendo "token".
+    record_audit(session, admin, "phone", str(phone.id), "sync_instance_token",
+                 {"fingerprint": previous}, {"fingerprint": phone.instance_token_fingerprint},
+                 client_ip(request))
+
+
+def _mark_connected(session: Session, phone: Phone) -> None:
+    phone.status = "connected"
+    phone.last_seen_at = datetime.now(timezone.utc)
+    if not phone.number and phone.evolution_instance:
+        phone.number = EvolutionClient().instance_number(phone.evolution_instance)
+    _flush_phone(session)
+    session.commit()
+    invalidar_cache()
+
+
+@router.get("/{phone_id}/status", response_model=PhoneResponse)
+def phone_status(phone_id: UUID, user: Annotated[User, Depends(get_current_user)],
+                 session: Annotated[Session, Depends(get_db)]) -> PhoneResponse:
+    phone = _owned(session, phone_id, user.tenant_id)
+    try:
+        phone.status = EvolutionClient().connection_status(phone.evolution_instance, strict=True)
+        if phone.status == "connected":
+            _mark_connected(session, phone)
+        response = _response(phone, query_status=False)
+    except EvolutionUnavailable as exc:
+        raise APIError(503, "SERVICE_UNAVAILABLE", str(exc)) from exc
+    return response
+
+
+@router.post("/{phone_id}/instance/token/sync", response_model=PhoneResponse,
+             dependencies=[Depends(limit_authenticated_write)])
+def sync_instance_token(phone_id: UUID, request: Request, admin: AdminUser,
+                        session: Annotated[Session, Depends(get_db)]) -> PhoneResponse:
+    phone = session.scalar(select(Phone).where(Phone.id == phone_id, Phone.owner_id == admin.tenant_id).with_for_update())
+    if phone is None:
+        raise APIError(404, "NOT_FOUND", "Telefone não encontrado")
+    if not phone.evolution_instance:
+        raise APIError(409, "NO_INSTANCE", "Telefone sem instância Evolution")
+    try:
+        token = EvolutionClient().fetch_instance_token(phone.evolution_instance)
+        if not token:
+            raise APIError(404, "NOT_FOUND", "Instância ou token não encontrado na Evolution")
+        _store_token(session, phone, token, admin, request)
+        session.commit()
+        invalidar_cache()
+    except EvolutionUnavailable as exc:
+        raise APIError(503, "SERVICE_UNAVAILABLE", str(exc)) from exc
+    return _response(phone, query_status=False)
+
+
 @router.post("/{phone_id}/instance", response_model=QRCodeResponse,
              dependencies=[Depends(limit_authenticated_write)])
 def connect_instance(phone_id: UUID, request: Request, admin: AdminUser,
@@ -211,21 +284,48 @@ def connect_instance(phone_id: UUID, request: Request, admin: AdminUser,
     if phone is None:
         raise APIError(404, "NOT_FOUND", "Telefone não encontrado")
     evolution = EvolutionClient()
+    code = None
     try:
-        if phone.evolution_instance:
-            code, expires_at = evolution.qrcode(phone.evolution_instance)
-        else:
+        if not phone.evolution_instance:
+            # Verifique a cifra antes de criar um recurso externo.
+            encrypt("")
             instance = f"nb-{str(admin.tenant_id)[:8]}-{str(phone.id)[:8]}"
-            code, expires_at = evolution.create_instance(instance)
             phone.evolution_instance = instance
             _flush_phone(session)
+            try:
+                # A API persiste o token antes da consulta adicional de QR.
+                created = evolution.create_instance(instance, defer_qr=True)
+            except EvolutionConflict:
+                # Uma tentativa anterior pode ter criado a instância e perdido a resposta.
+                token = evolution.fetch_instance_token(instance)
+                if not token:
+                    raise APIError(409, "CONFLICT", "Nome de instância já utilizado") from None
+            else:
+                token = created.token
+                code, expires_at = created.qrcode_base64, created.expires_at
+            _store_token(session, phone, token, admin, request)
             record_audit(session, admin, "phone", str(phone.id), "create_instance", None,
                          {"evolution_instance": instance}, client_ip(request))
-            session.commit()
-            # O provedor pode criar sem QR pronto. Preservar a instância permite
-            # que a próxima tentativa consulte o QR, sem criar outra instância.
-            if code is None:
-                code, expires_at = evolution.qrcode(instance)
+        elif not phone.instance_token_ciphertext:
+            token = evolution.fetch_instance_token(phone.evolution_instance)
+            if not token:
+                raise APIError(404, "NOT_FOUND", "Instância ou token não encontrado na Evolution")
+            _store_token(session, phone, token, admin, request)
+        # Preserve nome e token mesmo se o QR ainda não estiver disponível.
+        session.commit()
+        invalidar_cache()
+        if code is None:
+            code, expires_at = evolution.qrcode(phone.evolution_instance)
+    except EvolutionAlreadyConnected as exc:
+        try:
+            _mark_connected(session, phone)
+        except EvolutionUnavailable as unavailable:
+            raise APIError(503, "SERVICE_UNAVAILABLE", str(unavailable)) from unavailable
+        raise APIError(409, "ALREADY_CONNECTED", "WhatsApp já conectado") from exc
+    except EvolutionRejected as exc:
+        session.rollback()
+        raise APIError(400, "EVOLUTION_REJECTED", str(exc)) from exc
     except EvolutionUnavailable as exc:
+        session.rollback()
         raise APIError(503, "SERVICE_UNAVAILABLE", str(exc)) from exc
     return QRCodeResponse(qrcode_base64=code, expires_at=expires_at)

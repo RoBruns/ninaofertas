@@ -74,6 +74,15 @@ mais dados e mais rotas.
 7. Teste de isolamento por rota: duas contas, cada rota de leitura e escrita chamada com
    o id de um recurso da outra conta deve dar 404.
 
+### S1b — Token da instância e conexão pelo dashboard (2026-10-14)
+
+Implementada na branch `feat/saas-s1b`: migration 0008, token cifrado por
+telefone, sincronização administrativa do token existente, QR com renovação
+automática e estado de conexão. Número pode ficar vazio até a conexão, quando
+é preenchido pelo `ownerJid`. Gerenciamento usa a chave geral; envio usa o token
+da instância, com fallback para a chave geral quando ausente ou após 401 (uma
+tentativa). ADR-029 registra a decisão; validação consta em `ROADMAP.md`.
+
 ### S2 — Painel da plataforma e terreno da cobrança
 
 - `plans` (código, nome, preço `NUMERIC(14,2)`, periodicidade, limites em JSON: bots,

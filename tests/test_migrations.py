@@ -349,3 +349,38 @@ def test_0007_backfill_entidades_auditoria_settings_malformados_e_constraints(po
     for table, columns in (("expenses", ["source", "external_id"]), ("sales", ["platform_id", "external_id"])):
         assert any(c["column_names"] == columns for c in inspect(engine).get_unique_constraints(table))
     command.upgrade(config, "0007")
+
+
+def test_0008_phone_token_upgrade_downgrade(postgres_schema) -> None:
+    _, engine = postgres_schema
+    config = _config()
+    command.upgrade(config, "0007")
+    phone_id, tenant_id = uuid.uuid4(), uuid.uuid4()
+    with engine.begin() as connection:
+        connection.execute(text("INSERT INTO tenants (id, name) VALUES (:id, 'Teste')"), {"id": tenant_id})
+        connection.execute(text("INSERT INTO phones (id, owner_id, label, number) VALUES (:id, :owner, 'Teste', '5511999999999')"), {"id": phone_id, "owner": tenant_id})
+    for _ in range(2):
+        command.upgrade(config, "0008_phone_instance_token")
+        columns = {column["name"]: column for column in inspect(engine).get_columns("phones")}
+        assert columns["instance_token_ciphertext"]["nullable"]
+        assert columns["instance_token_fingerprint"]["nullable"]
+        assert columns["instance_token_updated_at"]["type"].timezone
+        assert columns["number"]["nullable"]
+        with engine.connect() as connection:
+            assert connection.execute(text("SELECT number, instance_token_ciphertext FROM phones WHERE id=:id"), {"id": phone_id}).one() == ("5511999999999", None)
+        command.downgrade(config, "0007")
+        columns = {column["name"]: column for column in inspect(engine).get_columns("phones")}
+        assert "instance_token_ciphertext" not in columns and not columns["number"]["nullable"]
+    command.upgrade(config, "head")
+
+def test_0008_downgrade_preserva_telefone_sem_numero(postgres_schema) -> None:
+    _, engine = postgres_schema
+    config = _config()
+    command.upgrade(config, "head")
+    phone_id, tenant_id = uuid.uuid4(), uuid.uuid4()
+    with engine.begin() as connection:
+        connection.execute(text("INSERT INTO tenants (id, name) VALUES (:id, 'Teste')"), {"id": tenant_id})
+        connection.execute(text("INSERT INTO phones (id, owner_id, label) VALUES (:id, :owner, 'Aguardando QR')"), {"id": phone_id, "owner": tenant_id})
+    command.downgrade(config, "0007")
+    with engine.connect() as connection:
+        assert connection.scalar(text("SELECT number FROM phones WHERE id=:id"), {"id": phone_id}) == f"pending-{phone_id}"

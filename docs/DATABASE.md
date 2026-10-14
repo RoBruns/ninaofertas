@@ -167,15 +167,27 @@ phones (
   id                 UUID PK DEFAULT gen_random_uuid(),
   owner_id           UUID NOT NULL REFERENCES tenants(id),
   label              TEXT NOT NULL,          -- "Chip principal"
-  number             TEXT NOT NULL,          -- E.164: 558531791835
+  number             TEXT,                   -- E.164; null até conectar o WhatsApp
   evolution_instance TEXT,                   -- instância na evolution-api
-  status             TEXT NOT NULL DEFAULT 'unknown',  -- connected | disconnected | banned | unknown
+  instance_token_ciphertext BYTEA,           -- segredo cifrado com CREDENTIALS_KEY
+  instance_token_fingerprint TEXT,           -- 16 primeiros bytes do SHA-256 em hex
+  instance_token_updated_at TIMESTAMPTZ,
+  status             TEXT NOT NULL DEFAULT 'unknown',  -- connected | connecting | disconnected | banned | unknown
   last_seen_at       TIMESTAMPTZ,
   created_at         TIMESTAMPTZ NOT NULL DEFAULT now(),
   UNIQUE (owner_id, number)
 )
 ```
 Resolve P3: o `"558531791835"` literal em `whatsapp.py` passa a ser esta linha.
+
+Migration **0008_phone_instance_token** (pai `0007`) adiciona as três colunas
+nullable e permite número null; o índice único de instância continua o mesmo.
+Token usa AES-GCM, nonce aleatório e a mesma chave de `platform_credentials`.
+No downgrade, as colunas de token são removidas e números ainda null viram
+`pending-<UUID do telefone>` para preservar essas linhas no contrato anterior
+NOT NULL; esse marcador deve ser substituído pelo número antes de operar a
+versão anterior. Telefones existentes com número e instância são preservados;
+sem token, o worker continua enviando com a chave geral (ADR-029).
 
 ```sql
 niches (

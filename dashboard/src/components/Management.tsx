@@ -33,7 +33,7 @@ export function Modal({ title, children, onClose, size }: { title: string; child
 }
 
 const statusLabels: Record<string, string> = {
-  active: 'Ativo', paused: 'Pausado', disabled: 'Desativado', valid: 'Válida', invalid: 'Inválida', expired: 'Expirada', expiring: 'Expirando', unknown: 'Desconhecido', connected: 'Conectado', disconnected: 'Desconectado', banned: 'Banido', error: 'Erro', ok: 'OK', success: 'Sucesso', failed: 'Falhou', running: 'Em execução', open: 'Aberto', acknowledged: 'Reconhecido', resolved: 'Resolvido', archived: 'Arquivado', completed: 'Concluída', admin: 'Administrador', operator: 'Operador', viewer: 'Leitor',
+  active: 'Ativo', paused: 'Pausado', disabled: 'Desativado', valid: 'Válida', invalid: 'Inválida', expired: 'Expirada', expiring: 'Expirando', unknown: 'Desconhecido', connecting: 'Aguardando leitura do QR', connected: 'Conectado', disconnected: 'Desconectado', banned: 'Banido', error: 'Erro', ok: 'OK', success: 'Sucesso', failed: 'Falhou', running: 'Em execução', open: 'Aberto', acknowledged: 'Reconhecido', resolved: 'Resolvido', archived: 'Arquivado', completed: 'Concluída', admin: 'Administrador', operator: 'Operador', viewer: 'Leitor',
 }
 export function StatusBadge({ value }: { value: string }) { return <span className={`status-badge status-${value}`}>{statusLabels[value] ?? value.replaceAll('_', ' ')}</span> }
 

@@ -64,55 +64,60 @@ def enviar_mensagem(texto: str, imagem: str | None = None, grupo: str | None = N
         )
         return False
 
-    headers = {"apikey": settings.evolution_api_key, "Content-Type": "application/json"}
+    from core.config_provider import bot_runtime_atual, registrar_evento_runtime
+
+    runtime = bot_runtime_atual()
+    token = runtime.instance_token if runtime else None
+    headers = {"apikey": token or settings.evolution_api_key, "Content-Type": "application/json"}
+    url = f"{settings.evolution_api_url}/message/sendText/{instancia}"
+    payload = {"number": destino, "text": texto}
+    if imagem:
+        media = _media_payload(imagem)
+        if media:
+            url = f"{settings.evolution_api_url}/message/sendMedia/{instancia}"
+            payload = {"number": destino, "mediatype": "image", "media": media, "caption": texto}
+            if not str(imagem).startswith("http"):
+                jpeg = Path(imagem).suffix.lower() in {".jpg", ".jpeg"}
+                payload["mimetype"] = "image/jpeg" if jpeg else "image/png"
+                payload["fileName"] = "foto.jpg" if jpeg else "cupom.png"
+        else:
+            logger.warning("Imagem rejeitada (URL/path não permitido); enviando só texto.")
     try:
         with httpx.Client(timeout=25.0) as client:
-            if imagem:
-                media = _media_payload(imagem)
-                if media:
-                    url = f"{settings.evolution_api_url}/message/sendMedia/{instancia}"
-                    payload = {
-                        "number": destino,
-                        "mediatype": "image",
-                        "media": media,
-                        "caption": texto,
-                    }
-                    if not str(imagem).startswith("http"):
-                        if Path(imagem).suffix.lower() in {".jpg", ".jpeg"}:
-                            payload["mimetype"] = "image/jpeg"
-                            payload["fileName"] = "foto.jpg"
-                        else:
-                            payload["mimetype"] = "image/png"
-                            payload["fileName"] = "cupom.png"
-                    response = client.post(url, json=payload, headers=headers)
-                    if response.status_code >= 400:
-                        logger.error(
-                            f"evolution-api retornou erro {response.status_code}: "
-                            f"{safe_log_text(response.text, 300)}"
-                        )
-                        return False
-                    return True
-                logger.warning("Imagem rejeitada (URL/path não permitido); enviando só texto.")
-
-            url = f"{settings.evolution_api_url}/message/sendText/{instancia}"
-            response = client.post(
-                url,
-                json={"number": destino, "text": texto},
-                headers=headers,
-            )
+            response = client.post(url, json=payload, headers=headers)
+            if response.status_code == 401 and token:
+                # O guard rejeita a chave antes de enviar. Apenas 401 permite retry.
+                registrar_evento_runtime(
+                    "evolution_instance_token_rejected",
+                    "Token da instância rejeitado; envio tentado com chave geral",
+                    level="warning",
+                )
+                logger.warning("Token da instância rejeitado; envio tentado com chave geral")
+                headers["apikey"] = settings.evolution_api_key
+                response = client.post(url, json=payload, headers=headers)
         if response.status_code >= 400:
+            # O corpo explica a falha (número inválido, sessão caída); as chaves saem dele.
             logger.error(
                 f"evolution-api retornou erro {response.status_code}: "
-                f"{safe_log_text(response.text, 300)}"
+                f"{_sem_chaves(response.text, token, settings.evolution_api_key)}"
             )
             return False
         return True
     except httpx.RequestError as exc:
         logger.error(
             f"Falha ao conectar na evolution-api ({settings.evolution_api_url}): "
-            f"{safe_log_text(exc)}"
+            f"{_sem_chaves(exc, token, settings.evolution_api_key)}"
         )
         return False
+
+
+def _sem_chaves(texto: object, *chaves: str | None) -> str:
+    """Texto para log sem o token da instância nem a chave geral."""
+    saida = str(texto)
+    for chave in chaves:
+        if chave:
+            saida = saida.replace(chave, "[REDACTED]")
+    return safe_log_text(saida, 300)
 
 
 def _media_payload(imagem: str) -> str | None:

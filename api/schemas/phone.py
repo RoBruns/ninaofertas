@@ -6,7 +6,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field, field_validator
 
-PhoneState = Literal["connected", "disconnected", "banned", "unknown"]
+PhoneState = Literal["connected", "disconnected", "connecting", "banned", "unknown"]
 
 
 def normalize_e164(value: str) -> str:
@@ -20,16 +20,16 @@ def normalize_e164(value: str) -> str:
 
 class PhoneCreate(BaseModel):
     label: str = Field(min_length=1, max_length=200)
-    number: str
-    evolution_instance: str | None = Field(default=None, max_length=200)
+    number: str | None = None
+    evolution_instance: str | None = Field(default=None, pattern=r"^[A-Za-z0-9._-]{1,64}$")
 
-    _normalize_number = field_validator("number")(normalize_e164)
+    _normalize_number = field_validator("number")(lambda value: normalize_e164(value) if value else None)
 
 
 class PhoneUpdate(BaseModel):
     label: str | None = Field(default=None, min_length=1, max_length=200)
     number: str | None = None
-    evolution_instance: str | None = Field(default=None, max_length=200)
+    evolution_instance: str | None = Field(default=None, pattern=r"^[A-Za-z0-9._-]{1,64}$")
 
     _normalize_number = field_validator("number")(lambda value: normalize_e164(value) if value else value)
 
@@ -37,7 +37,9 @@ class PhoneUpdate(BaseModel):
 class PhoneResponse(BaseModel):
     id: UUID
     label: str
-    number: str
+    number: str | None
+    has_instance_token: bool
+    instance_token_fingerprint: str | None
     evolution_instance: str | None
     status: PhoneState
     last_seen_at: datetime | None

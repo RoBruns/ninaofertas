@@ -24,6 +24,7 @@ export function onSessionExpired(handler: (() => void) | null) {
 }
 
 export class ApiError extends Error {
+  readonly code: string | null
   readonly status: number
   readonly fields: Readonly<Record<string, string>>
   readonly details: unknown
@@ -34,6 +35,8 @@ export class ApiError extends Error {
     this.status = status
     this.fields = fields
     this.details = details
+    const code = asRecord(asRecord(details)?.error)?.code
+    this.code = typeof code === 'string' ? code : null
   }
 }
 

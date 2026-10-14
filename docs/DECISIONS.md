@@ -515,3 +515,33 @@ O recado do Instagram respeita o mesmo escopo de intervalo e vira opt-in por bot
 Todos os bots existentes recebem `content.recado_instagram=true` na migração;
 novos bots recebem false. Os novos recados registram bot e grupo, mantendo
 mensagem, horário de silêncio e intervalo de quatro horas.
+
+---
+
+## ADR-029 — Token por instância Evolution com fallback de envio
+**Data:** 2026-10-14 · **Status:** aceita · **Decisor:** dono (fase S1b)
+
+Cada telefone tem uma instância própria. O dashboard cria a instância sem
+informar token; o servidor gera o segredo. A API guarda esse token cifrado com
+AES-GCM e `CREDENTIALS_KEY`, junto de fingerprint e data da gravação. Só status
+e fingerprint são expostos; token, ciphertext e corpos contendo segredo nunca
+entram em resposta pública, log, evento ou auditoria.
+
+Gerenciamento (criar, consultar, QR, estado e grupos) usa `EVOLUTION_API_KEY`.
+Envio usa o token da instância. Sem token, usa a chave geral para preservar a
+Nina durante a transição; 401 do token permite uma única tentativa com a chave
+geral e emite `evolution_instance_token_rejected` com nível warning e tenant.
+O guard rejeita 401 antes do envio; nenhum outro erro permite repetir a mensagem.
+
+O telefone é bloqueado para conexão e o nome é reservado e flushed no banco
+antes da chamada externa. Falha de criação reverte a reserva; conflito de nome
+no provedor recupera token de uma tentativa anterior. Nome e token são commitados
+antes da consulta adicional de QR, preservando o vínculo se o QR falhar. Nomes
+livres de platform admin aceitam só letras ASCII, números, ponto, hífen e
+underscore, até 64 caracteres. Alterar nome limpa o token da instância anterior.
+
+Número pode ser null até conectar; ao conectar, a API preenche pelo `ownerJid`
+se ainda ausente. O dashboard acompanha o estado a cada 3 s, renova QR a cada
+30 s ou na expiração e fecha o painel quando conectado. O contrato aceita hash
+string de v2 e objeto apikey antigo. A migration 0008 depende de 0007; nenhum
+limite anti-ban ou algoritmo de deduplicação é alterado.

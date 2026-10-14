@@ -119,6 +119,18 @@ instância da Evolution e ao menos um grupo ativo; bots ativos incompletos são
 ignorados e geram o evento `bot_not_runnable`. A API já recusa ativar um bot sem
 telefone com instância, grupo e conta com credencial.
 
+**Token por instância (ADR-029, S1b).** O runtime decifra
+`phones.instance_token_ciphertext` com `CREDENTIALS_KEY` e mantém o token só em
+memória, excluído do repr do dataclass. `sendText` e `sendMedia` usam esse token
+no header `apikey`; telefone sem token usa `EVOLUTION_API_KEY`, preservando a
+operação da Nina até sincronizar pelo dashboard. Se o token receber **401**, o
+worker registra `warning` `evolution_instance_token_rejected` com `tenant_id` e
+tenta uma única vez com a chave geral. O guard rejeita antes do envio, então esse
+retry não duplica mensagens. 404, 500 e qualquer outro erro não permitem retry.
+Nenhum corpo de resposta de envio vai para o log, pois pode ecoar a chave.
+Criação, consulta de instância, QR, estado e grupos continuam usando a chave
+geral. Falha de decifração usa a chave geral e avisa sem incluir o segredo.
+
 Cada ciclo busca e publica só as plataformas em que o bot tem conta ativa com
 credencial não invalidada (`platforms_with_usable_credentials`): sem conta, o
 link sairia sem comissão. A falta é avisada no log quando muda.

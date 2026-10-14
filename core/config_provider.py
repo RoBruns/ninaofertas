@@ -7,7 +7,7 @@ import threading
 import time
 from contextlib import contextmanager
 from contextvars import ContextVar
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from uuid import UUID
 
 from loguru import logger
@@ -17,6 +17,7 @@ from sqlalchemy.exc import DBAPIError, OperationalError, ProgrammingError, SQLAl
 
 from core import db
 from core.bot_settings import BotSettings
+from core.crypto import decrypt
 from core.models import Bot, BotGroup, BotPlatformAccount, Event, Group, Niche, Phone, Tenant
 
 
@@ -33,6 +34,7 @@ class BotRuntime:
     settings: BotSettings
     account_ids: tuple[UUID, ...]
     is_test: bool = False
+    instance_token: str | None = field(default=None, repr=False)
 
 
 _cache: list[BotRuntime] | None = None
@@ -151,14 +153,14 @@ def _carregar() -> list[BotRuntime]:
     runtimes: list[BotRuntime] = []
     with db.get_session() as session:
         rows = session.execute(
-            select(Bot, Niche.slug, Phone.number, Phone.evolution_instance)
+            select(Bot, Niche.slug, Phone.number, Phone.evolution_instance, Phone.instance_token_ciphertext)
             .join(Tenant, Tenant.id == Bot.owner_id)
             .outerjoin(Niche, Niche.id == Bot.niche_id)
             .outerjoin(Phone, Phone.id == Bot.phone_id)
             .where(Bot.status == "active", Bot.archived_at.is_(None), Tenant.status == "active")
             .order_by(Bot.slug)
         ).all()
-        for bot, niche_slug, phone_number, evolution_instance in rows:
+        for bot, niche_slug, phone_number, evolution_instance, token_ciphertext in rows:
             group_ids = tuple(
                 session.scalars(
                     select(Group.whatsapp_id)
@@ -197,6 +199,12 @@ def _carregar() -> list[BotRuntime]:
             except ValidationError as exc:
                 invalidos.append((bot, exc))
                 continue
+            instance_token = None
+            if token_ciphertext:
+                try:
+                    instance_token = decrypt(token_ciphertext)
+                except Exception:
+                    logger.warning("Token da instância não pôde ser decifrado; envio usará chave geral")
             runtimes.append(
                 BotRuntime(
                     id=bot.id,
@@ -207,6 +215,7 @@ def _carregar() -> list[BotRuntime]:
                     niche_slug=niche_slug,
                     phone_number=phone_number,
                     evolution_instance=evolution_instance,
+                    instance_token=instance_token,
                     group_ids=group_ids,
                     settings=bot_settings,
                     account_ids=account_ids,
