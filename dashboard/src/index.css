@@ -658,3 +658,20 @@ td a:hover { text-decoration: underline; }
 .worker-alert { display: flex; align-items: center; gap: .65rem; margin: 1rem 1.5rem 0; padding: .85rem 1rem; border: 1px solid var(--amber); border-radius: var(--r-panel); background: var(--amber-soft); color: var(--amber-ink); }
 .worker-alert svg { width: 20px; height: 20px; flex: none; }
 .worker-unknown { border-color: var(--line); background: var(--surface-2); color: var(--muted); }
+.drawer-backdrop { display: flex; align-items: stretch; justify-content: flex-end; padding: 0; }
+.modal.drawer-modal { width: min(600px, 100%); max-height: 100dvh; height: 100dvh; border-radius: 0; }
+.platform-kpis { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.platform-kpis > .kpi-card { border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+.platform-kpis > .kpi-card:nth-child(2n) { border-right: 1px solid var(--line); }
+.platform-kpis > .kpi-card:nth-child(3n) { border-right: 0; }
+.platform-kpis > .kpi-card:nth-last-child(-n + 3) { border-bottom: 0; }
+.platform-tabs { margin: 1.5rem 0; }
+.subscription-history ol { list-style: none; padding: 0; }
+.subscription-history li { border-top: 1px solid var(--line); padding: 1rem 0; }
+.subscription-history small { display: block; color: var(--muted); margin: .35rem 0; }
+@media (max-width: 700px) {
+  .platform-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .platform-kpis > .kpi-card:nth-child(n) { border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+  .platform-kpis > .kpi-card:nth-child(2n) { border-right: 0; }
+  .platform-kpis > .kpi-card:nth-last-child(-n + 2) { border-bottom: 0; }
+}

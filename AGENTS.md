@@ -72,7 +72,8 @@ nina-worker (APScheduler) ──────────────── nina-
 | `worker/dedup.py`, `worker/commands.py`, `worker/telemetry.py`, `worker/whatsapp.py` | dedup por grupo, comandos do dashboard, runs/eventos, Evolution |
 | `core/platforms/` | scrapers Shopee/ML, `affiliate.py` (links de afiliado, `link_rastreado`) |
 | `core/sales_sync.py`, `core/importers/` | importação de vendas (Shopee: API `conversionReport`; ML: JSON do painel `/afiliados/dashboard`) |
-| `core/models.py`, `core/repositories.py`, `migrations/` | modelo de dados, tenants e consultas (Alembic 0001–0008); `owner_id` aponta para tenants |
+| `core/models.py`, `core/repositories.py`, `migrations/` | modelo de dados, tenants e consultas (Alembic 0001–0009); `owner_id` aponta para tenants |
+| `core/billing.py`, `core/billing_store.py` | métricas SaaS puras e escrita única de assinaturas com livro-razão (S2, ADR-030); sem bloqueio operacional |
 | `core/credentials.py`, `core/crypto.py` | segredos cifrados (`CREDENTIALS_KEY`), status de credencial |
 | `core/relogio.py` | hora de Brasília independente do fuso do container; silêncio noturno |
 | `core/alerts.py`, `core/metrics.py` | detectores de alerta, métricas (ROI, ROAS, lucro) |
@@ -174,7 +175,7 @@ nina-worker (APScheduler) ──────────────── nina-
 | Pergunta | Arquivo |
 |---|---|
 | Estado das fases e o que falta | `docs/ROADMAP.md` (fonte de verdade do progresso) |
-| Por que foi decidido assim | `docs/DECISIONS.md` (ADR-001 a ADR-029; ADR-023 a cargo do dono) |
+| Por que foi decidido assim | `docs/DECISIONS.md` (ADR-001 a ADR-030; ADR-023 a cargo do dono) |
 | Rotas e contratos | `docs/API.md`, `openapi.json` |
 | Tabelas e fórmulas | `docs/DATABASE.md` |
 | Worker ↔ API | `docs/BOT_INTEGRATION.md` |

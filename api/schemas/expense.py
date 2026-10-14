@@ -17,6 +17,8 @@ def _decimal_input(value: object) -> object:
         parsed = Decimal(value)  # type: ignore[arg-type]
     except (ArithmeticError, TypeError, ValueError):
         raise ValueError("amount deve ser uma string decimal válida") from None
+    if not parsed.is_finite():
+        raise ValueError("amount deve ser uma string decimal finita")
     if parsed < 0:
         raise ValueError("amount deve ser >= 0")
     return parsed

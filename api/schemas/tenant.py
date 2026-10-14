@@ -1,12 +1,14 @@
 """Contratos do painel da plataforma."""
 
 from datetime import datetime
+from decimal import Decimal
 from typing import Literal
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from api.schemas.user import _normalize_email
+from api.schemas.billing import PlanResponse, SubscriptionResponse
 
 
 class TenantResponse(BaseModel):
@@ -19,6 +21,10 @@ class TenantResponse(BaseModel):
     users_count: int = 0
     active_bots_count: int = 0
     successful_sends_30d: int = 0
+    plan: PlanResponse | None = None
+    subscription: SubscriptionResponse | None = None
+    mrr: Decimal = Decimal("0.00")
+    usage: dict[str, int] = Field(default_factory=dict)
 
 
 class TenantCreate(BaseModel):
@@ -27,6 +33,8 @@ class TenantCreate(BaseModel):
     admin_email: str
     admin_name: str = Field(min_length=1, max_length=200)
     admin_password: str = Field(min_length=8, max_length=1024)
+    plan_code: str = Field(default="beta", min_length=1, max_length=80)
+    status: Literal["trialing", "active", "comp"] = "trialing"
     _email = field_validator("admin_email")(_normalize_email)
 
 

@@ -83,7 +83,7 @@ automática e estado de conexão. Número pode ficar vazio até a conexão, quan
 da instância, com fallback para a chave geral quando ausente ou após 401 (uma
 tentativa). ADR-029 registra a decisão; validação consta em `ROADMAP.md`.
 
-### S2 — Painel da plataforma e terreno da cobrança
+### S2 — Painel da plataforma e terreno da cobrança — feita (2026-10-14)
 
 - `plans` (código, nome, preço `NUMERIC(14,2)`, periodicidade, limites em JSON: bots,
   telefones, grupos) com um plano `beta` gratuito.
@@ -92,17 +92,26 @@ tentativa). ADR-029 registra a decisão; validação consta em `ROADMAP.md`.
   `provider_ref` vazios até existir gateway.
 - `subscription_events`: histórico (criada, trocou de plano, cancelou, reativou). É dele
   que saem MRR e churn, sem depender do estado atual.
-- Painel da plataforma (só `is_platform_admin`): contas, plano, status, uso (bots, envios
-  e vendas no mês), novos clientes, cancelamentos, churn mensal (cancelados no mês ÷
-  pagantes no início do mês), MRR, clientes pagantes. Contas internas ficam fora das
-  contas.
-- Criar conta de cliente pelo painel: conta + primeiro usuário admin com senha provisória.
+- Painel da plataforma (só `is_platform_admin`): contas, plano, status, preço contratado,
+  uso/limites de bots, telefones e grupos, envios em 30 dias, seis indicadores do mês e
+  gráfico de MRR/pagantes dos últimos 12 meses. Cadastro e edição de planos, painel lateral
+  de assinatura com histórico. Contas internas aparecem identificadas, sem assinatura.
+- Criar conta pelo painel: conta + primeiro admin + assinatura no plano escolhido;
+  padrão `beta`/`trialing` por 14 dias, também aceita `active` e `comp`.
 - Limites do plano exibidos com o uso; **não bloqueiam** ainda.
+- Migration `0009_billing` (pai `0008_phone_instance_token`), sem backfill de assinaturas;
+  primeira edição de cliente antigo cria o contrato. Histórico só admite inserção.
+- Cobrança em BRL, dinheiro como string decimal. MRR/churn vêm do histórico por
+  `core/billing.py`, sem reescrever as regras puras (ADR-030). Churn conta quem pagava
+  na abertura e deixou de pagar no fechamento; reativação no mesmo mês elimina o churn.
+- Mudanças do catálogo preservam preços contratados. Troca de plano usa preço/intervalo
+  do destino, exceto se informados explicitamente. Nenhuma integração com o worker.
 
 ### S3 — Depois (não está nesta obra)
 
 - Gateway de cobrança (Asaas ou Mercado Pago para Pix/boleto; Stripe se for cartão
-  internacional) com webhook atualizando `subscriptions`.
+  internacional) com webhook chamando `core.billing_store.change_subscription`,
+  preservando o mesmo livro-razão. `provider`/`provider_ref` seguem nulos até lá.
 - Cadastro pelo próprio cliente, teste grátis, bloqueio por limite de plano e por falta
   de pagamento (pausar bots, não apagar).
 - Custo do filtro de público por conta (contar chamadas por conta).

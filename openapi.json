@@ -12168,6 +12168,668 @@
     ]
    }
   },
+  "/api/platform/plans": {
+   "get": {
+    "tags": [
+     "platform"
+    ],
+    "summary": "List Plans",
+    "operationId": "list_plans_api_platform_plans_get",
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "items": {
+          "$ref": "#/components/schemas/PlanResponse"
+         },
+         "type": "array",
+         "title": "Response List Plans Api Platform Plans Get"
+        }
+       }
+      }
+     },
+     "401": {
+      "description": "Não autenticado",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "403": {
+      "description": "Sem permissão",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "404": {
+      "description": "Não encontrado",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "409": {
+      "description": "Conflito (ex.: entidade em uso)",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Dados inválidos",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "429": {
+      "description": "Limite de requisições",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "500": {
+      "description": "Erro interno",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     }
+    },
+    "security": [
+     {
+      "HTTPBearer": []
+     }
+    ]
+   },
+   "post": {
+    "tags": [
+     "platform"
+    ],
+    "summary": "Create Plan",
+    "operationId": "create_plan_api_platform_plans_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/PlanCreate"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "201": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/PlanResponse"
+        }
+       }
+      }
+     },
+     "401": {
+      "description": "Não autenticado",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "403": {
+      "description": "Sem permissão",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "404": {
+      "description": "Não encontrado",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "409": {
+      "description": "Conflito (ex.: entidade em uso)",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Dados inválidos",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "429": {
+      "description": "Limite de requisições",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "500": {
+      "description": "Erro interno",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     }
+    },
+    "security": [
+     {
+      "HTTPBearer": []
+     }
+    ]
+   }
+  },
+  "/api/platform/plans/{plan_id}": {
+   "patch": {
+    "tags": [
+     "platform"
+    ],
+    "summary": "Update Plan",
+    "operationId": "update_plan_api_platform_plans__plan_id__patch",
+    "security": [
+     {
+      "HTTPBearer": []
+     }
+    ],
+    "parameters": [
+     {
+      "name": "plan_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "format": "uuid",
+       "title": "Plan Id"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/PlanUpdate"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/PlanResponse"
+        }
+       }
+      }
+     },
+     "401": {
+      "description": "Não autenticado",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "403": {
+      "description": "Sem permissão",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "404": {
+      "description": "Não encontrado",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "409": {
+      "description": "Conflito (ex.: entidade em uso)",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Dados inválidos",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "429": {
+      "description": "Limite de requisições",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "500": {
+      "description": "Erro interno",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/platform/tenants/{tenant_id}/subscription": {
+   "patch": {
+    "tags": [
+     "platform"
+    ],
+    "summary": "Update Subscription",
+    "operationId": "update_subscription_api_platform_tenants__tenant_id__subscription_patch",
+    "security": [
+     {
+      "HTTPBearer": []
+     }
+    ],
+    "parameters": [
+     {
+      "name": "tenant_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "format": "uuid",
+       "title": "Tenant Id"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/SubscriptionUpdate"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/SubscriptionResponse"
+        }
+       }
+      }
+     },
+     "401": {
+      "description": "Não autenticado",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "403": {
+      "description": "Sem permissão",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "404": {
+      "description": "Não encontrado",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "409": {
+      "description": "Conflito (ex.: entidade em uso)",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Dados inválidos",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "429": {
+      "description": "Limite de requisições",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "500": {
+      "description": "Erro interno",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/platform/tenants/{tenant_id}/subscription/events": {
+   "get": {
+    "tags": [
+     "platform"
+    ],
+    "summary": "Subscription Events",
+    "operationId": "subscription_events_api_platform_tenants__tenant_id__subscription_events_get",
+    "security": [
+     {
+      "HTTPBearer": []
+     }
+    ],
+    "parameters": [
+     {
+      "name": "tenant_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "format": "uuid",
+       "title": "Tenant Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "array",
+         "items": {
+          "$ref": "#/components/schemas/SubscriptionEventResponse"
+         },
+         "title": "Response Subscription Events Api Platform Tenants  Tenant Id  Subscription Events Get"
+        }
+       }
+      }
+     },
+     "401": {
+      "description": "Não autenticado",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "403": {
+      "description": "Sem permissão",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "404": {
+      "description": "Não encontrado",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "409": {
+      "description": "Conflito (ex.: entidade em uso)",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Dados inválidos",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "429": {
+      "description": "Limite de requisições",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "500": {
+      "description": "Erro interno",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/platform/metrics": {
+   "get": {
+    "tags": [
+     "platform"
+    ],
+    "summary": "Billing Metrics",
+    "operationId": "billing_metrics_api_platform_metrics_get",
+    "security": [
+     {
+      "HTTPBearer": []
+     }
+    ],
+    "parameters": [
+     {
+      "name": "months",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "type": "integer",
+       "maximum": 120,
+       "minimum": 1,
+       "default": 12,
+       "title": "Months"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/BillingMetricsResponse"
+        }
+       }
+      }
+     },
+     "401": {
+      "description": "Não autenticado",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "403": {
+      "description": "Sem permissão",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "404": {
+      "description": "Não encontrado",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "409": {
+      "description": "Conflito (ex.: entidade em uso)",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Dados inválidos",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "429": {
+      "description": "Limite de requisições",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "500": {
+      "description": "Erro interno",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
   "/api/platform/tenants/{tenant_id}": {
    "patch": {
     "tags": [
@@ -12918,6 +13580,81 @@
      "detail"
     ],
     "title": "AutomationRunResponse"
+   },
+   "BillingMetricsResponse": {
+    "properties": {
+     "months": {
+      "items": {
+       "$ref": "#/components/schemas/MonthlyBillingMetrics"
+      },
+      "type": "array",
+      "title": "Months"
+     },
+     "summary": {
+      "$ref": "#/components/schemas/BillingSummary"
+     }
+    },
+    "type": "object",
+    "required": [
+     "months",
+     "summary"
+    ],
+    "title": "BillingMetricsResponse"
+   },
+   "BillingSummary": {
+    "properties": {
+     "mrr": {
+      "type": "string",
+      "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+      "title": "Mrr"
+     },
+     "paying": {
+      "type": "integer",
+      "title": "Paying"
+     },
+     "new_tenants": {
+      "type": "integer",
+      "title": "New Tenants"
+     },
+     "churned": {
+      "type": "integer",
+      "title": "Churned"
+     },
+     "churn_rate": {
+      "anyOf": [
+       {
+        "type": "string",
+        "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Churn Rate"
+     },
+     "arpa": {
+      "anyOf": [
+       {
+        "type": "string",
+        "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Arpa"
+     }
+    },
+    "type": "object",
+    "required": [
+     "mrr",
+     "paying",
+     "new_tenants",
+     "churned",
+     "churn_rate",
+     "arpa"
+    ],
+    "title": "BillingSummary"
    },
    "Body_import_expenses_api_expenses_import_post": {
     "properties": {
@@ -15839,6 +16576,89 @@
     ],
     "title": "MoneyKPI"
    },
+   "MonthlyBillingMetrics": {
+    "properties": {
+     "mes": {
+      "type": "string",
+      "format": "date",
+      "title": "Mes"
+     },
+     "mrr": {
+      "type": "string",
+      "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+      "title": "Mrr"
+     },
+     "paying_start": {
+      "type": "integer",
+      "title": "Paying Start"
+     },
+     "paying_end": {
+      "type": "integer",
+      "title": "Paying End"
+     },
+     "new_tenants": {
+      "type": "integer",
+      "title": "New Tenants"
+     },
+     "new_paying": {
+      "type": "integer",
+      "title": "New Paying"
+     },
+     "churned": {
+      "type": "integer",
+      "title": "Churned"
+     },
+     "churn_rate": {
+      "anyOf": [
+       {
+        "type": "string",
+        "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Churn Rate"
+     },
+     "expansion_mrr": {
+      "type": "string",
+      "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+      "title": "Expansion Mrr"
+     },
+     "contraction_mrr": {
+      "type": "string",
+      "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+      "title": "Contraction Mrr"
+     },
+     "arpa": {
+      "anyOf": [
+       {
+        "type": "string",
+        "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Arpa"
+     }
+    },
+    "type": "object",
+    "required": [
+     "mes",
+     "mrr",
+     "paying_start",
+     "paying_end",
+     "new_tenants",
+     "new_paying",
+     "churned",
+     "churn_rate",
+     "expansion_mrr",
+     "contraction_mrr",
+     "arpa"
+    ],
+    "title": "MonthlyBillingMetrics"
+   },
    "NicheCreate": {
     "properties": {
      "slug": {
@@ -16690,6 +17510,188 @@
     "type": "object",
     "title": "PhoneUpdate"
    },
+   "PlanCreate": {
+    "properties": {
+     "code": {
+      "type": "string",
+      "maxLength": 80,
+      "pattern": "^[a-z0-9][a-z0-9_-]*$",
+      "title": "Code"
+     },
+     "name": {
+      "type": "string",
+      "maxLength": 200,
+      "minLength": 1,
+      "title": "Name"
+     },
+     "price": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "string",
+        "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+       }
+      ],
+      "title": "Price",
+      "default": "0.00",
+      "decimal_places": 2,
+      "ge": "0",
+      "max_digits": 14
+     },
+     "currency": {
+      "type": "string",
+      "const": "BRL",
+      "title": "Currency",
+      "default": "BRL"
+     },
+     "interval": {
+      "type": "string",
+      "enum": [
+       "month",
+       "year"
+      ],
+      "title": "Interval",
+      "default": "month"
+     },
+     "limits": {
+      "$ref": "#/components/schemas/PlanLimits"
+     },
+     "is_active": {
+      "type": "boolean",
+      "title": "Is Active",
+      "default": true
+     }
+    },
+    "additionalProperties": false,
+    "type": "object",
+    "required": [
+     "code",
+     "name"
+    ],
+    "title": "PlanCreate"
+   },
+   "PlanLimits": {
+    "properties": {
+     "max_bots": {
+      "type": "integer",
+      "minimum": 0.0,
+      "title": "Max Bots"
+     },
+     "max_phones": {
+      "type": "integer",
+      "minimum": 0.0,
+      "title": "Max Phones"
+     },
+     "max_groups": {
+      "type": "integer",
+      "minimum": 0.0,
+      "title": "Max Groups"
+     }
+    },
+    "additionalProperties": false,
+    "type": "object",
+    "title": "PlanLimits"
+   },
+   "PlanResponse": {
+    "properties": {
+     "id": {
+      "type": "string",
+      "format": "uuid",
+      "title": "Id"
+     },
+     "code": {
+      "type": "string",
+      "title": "Code"
+     },
+     "name": {
+      "type": "string",
+      "title": "Name"
+     },
+     "price": {
+      "type": "string",
+      "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+      "title": "Price"
+     },
+     "currency": {
+      "type": "string",
+      "title": "Currency"
+     },
+     "interval": {
+      "type": "string",
+      "enum": [
+       "month",
+       "year"
+      ],
+      "title": "Interval"
+     },
+     "limits": {
+      "additionalProperties": {
+       "type": "integer"
+      },
+      "type": "object",
+      "title": "Limits"
+     },
+     "is_active": {
+      "type": "boolean",
+      "title": "Is Active"
+     },
+     "created_at": {
+      "type": "string",
+      "format": "date-time",
+      "title": "Created At"
+     }
+    },
+    "type": "object",
+    "required": [
+     "id",
+     "code",
+     "name",
+     "price",
+     "currency",
+     "interval",
+     "limits",
+     "is_active",
+     "created_at"
+    ],
+    "title": "PlanResponse"
+   },
+   "PlanUpdate": {
+    "properties": {
+     "name": {
+      "type": "string",
+      "maxLength": 200,
+      "minLength": 1,
+      "title": "Name"
+     },
+     "price": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "string",
+        "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+       }
+      ],
+      "title": "Price",
+      "decimal_places": 2,
+      "ge": "0",
+      "max_digits": 14
+     },
+     "limits": {
+      "$ref": "#/components/schemas/PlanLimits"
+     },
+     "is_active": {
+      "type": "boolean",
+      "title": "Is Active"
+     }
+    },
+    "additionalProperties": false,
+    "type": "object",
+    "title": "PlanUpdate"
+   },
    "PlatformResponse": {
     "properties": {
      "id": {
@@ -17136,6 +18138,329 @@
     "type": "object",
     "title": "Schedule"
    },
+   "SubscriptionEventResponse": {
+    "properties": {
+     "id": {
+      "type": "integer",
+      "title": "Id"
+     },
+     "tenant_id": {
+      "type": "string",
+      "format": "uuid",
+      "title": "Tenant Id"
+     },
+     "subscription_id": {
+      "type": "string",
+      "format": "uuid",
+      "title": "Subscription Id"
+     },
+     "type": {
+      "type": "string",
+      "enum": [
+       "created",
+       "plan_changed",
+       "price_changed",
+       "status_changed",
+       "canceled",
+       "reactivated"
+      ],
+      "title": "Type"
+     },
+     "status_before": {
+      "anyOf": [
+       {
+        "type": "string",
+        "enum": [
+         "trialing",
+         "active",
+         "past_due",
+         "canceled",
+         "comp"
+        ]
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Status Before"
+     },
+     "status_after": {
+      "type": "string",
+      "enum": [
+       "trialing",
+       "active",
+       "past_due",
+       "canceled",
+       "comp"
+      ],
+      "title": "Status After"
+     },
+     "mrr_before": {
+      "type": "string",
+      "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+      "title": "Mrr Before"
+     },
+     "mrr_after": {
+      "type": "string",
+      "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+      "title": "Mrr After"
+     },
+     "occurred_at": {
+      "type": "string",
+      "format": "date-time",
+      "title": "Occurred At"
+     },
+     "created_by": {
+      "anyOf": [
+       {
+        "type": "string",
+        "format": "uuid"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Created By"
+     },
+     "note": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Note"
+     }
+    },
+    "type": "object",
+    "required": [
+     "id",
+     "tenant_id",
+     "subscription_id",
+     "type",
+     "status_before",
+     "status_after",
+     "mrr_before",
+     "mrr_after",
+     "occurred_at",
+     "created_by",
+     "note"
+    ],
+    "title": "SubscriptionEventResponse"
+   },
+   "SubscriptionResponse": {
+    "properties": {
+     "id": {
+      "type": "string",
+      "format": "uuid",
+      "title": "Id"
+     },
+     "tenant_id": {
+      "type": "string",
+      "format": "uuid",
+      "title": "Tenant Id"
+     },
+     "plan_id": {
+      "type": "string",
+      "format": "uuid",
+      "title": "Plan Id"
+     },
+     "status": {
+      "type": "string",
+      "enum": [
+       "trialing",
+       "active",
+       "past_due",
+       "canceled",
+       "comp"
+      ],
+      "title": "Status"
+     },
+     "price": {
+      "type": "string",
+      "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+      "title": "Price"
+     },
+     "interval": {
+      "type": "string",
+      "enum": [
+       "month",
+       "year"
+      ],
+      "title": "Interval"
+     },
+     "started_at": {
+      "type": "string",
+      "format": "date-time",
+      "title": "Started At"
+     },
+     "current_period_start": {
+      "type": "string",
+      "format": "date-time",
+      "title": "Current Period Start"
+     },
+     "current_period_end": {
+      "anyOf": [
+       {
+        "type": "string",
+        "format": "date-time"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Current Period End"
+     },
+     "trial_ends_at": {
+      "anyOf": [
+       {
+        "type": "string",
+        "format": "date-time"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Trial Ends At"
+     },
+     "canceled_at": {
+      "anyOf": [
+       {
+        "type": "string",
+        "format": "date-time"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Canceled At"
+     },
+     "cancel_reason": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Cancel Reason"
+     },
+     "created_at": {
+      "type": "string",
+      "format": "date-time",
+      "title": "Created At"
+     },
+     "updated_at": {
+      "type": "string",
+      "format": "date-time",
+      "title": "Updated At"
+     }
+    },
+    "type": "object",
+    "required": [
+     "id",
+     "tenant_id",
+     "plan_id",
+     "status",
+     "price",
+     "interval",
+     "started_at",
+     "current_period_start",
+     "current_period_end",
+     "trial_ends_at",
+     "canceled_at",
+     "cancel_reason",
+     "created_at",
+     "updated_at"
+    ],
+    "title": "SubscriptionResponse"
+   },
+   "SubscriptionUpdate": {
+    "properties": {
+     "plan_code": {
+      "type": "string",
+      "maxLength": 80,
+      "minLength": 1,
+      "title": "Plan Code"
+     },
+     "status": {
+      "type": "string",
+      "enum": [
+       "trialing",
+       "active",
+       "past_due",
+       "canceled",
+       "comp"
+      ],
+      "title": "Status"
+     },
+     "price": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "string",
+        "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+       }
+      ],
+      "title": "Price",
+      "decimal_places": 2,
+      "ge": "0",
+      "max_digits": 14
+     },
+     "interval": {
+      "type": "string",
+      "enum": [
+       "month",
+       "year"
+      ],
+      "title": "Interval"
+     },
+     "current_period_end": {
+      "anyOf": [
+       {
+        "type": "string",
+        "format": "date-time"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Current Period End"
+     },
+     "cancel_reason": {
+      "anyOf": [
+       {
+        "type": "string",
+        "maxLength": 2000
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Cancel Reason"
+     },
+     "note": {
+      "anyOf": [
+       {
+        "type": "string",
+        "maxLength": 2000
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Note"
+     }
+    },
+    "additionalProperties": false,
+    "type": "object",
+    "title": "SubscriptionUpdate"
+   },
    "SystemStatusResponse": {
     "properties": {
      "bots": {
@@ -17195,6 +18520,23 @@
       "maxLength": 1024,
       "minLength": 8,
       "title": "Admin Password"
+     },
+     "plan_code": {
+      "type": "string",
+      "maxLength": 80,
+      "minLength": 1,
+      "title": "Plan Code",
+      "default": "beta"
+     },
+     "status": {
+      "type": "string",
+      "enum": [
+       "trialing",
+       "active",
+       "comp"
+      ],
+      "title": "Status",
+      "default": "trialing"
      }
     },
     "additionalProperties": false,
@@ -17273,6 +18615,39 @@
       "type": "integer",
       "title": "Successful Sends 30D",
       "default": 0
+     },
+     "plan": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/PlanResponse"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "subscription": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/SubscriptionResponse"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "mrr": {
+      "type": "string",
+      "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+      "title": "Mrr",
+      "default": "0.00"
+     },
+     "usage": {
+      "additionalProperties": {
+       "type": "integer"
+      },
+      "type": "object",
+      "title": "Usage"
      }
     },
     "type": "object",

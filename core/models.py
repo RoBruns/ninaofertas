@@ -72,6 +72,67 @@ class User(Base):
     created_at: Mapped[datetime] = mapped_column(TIMESTAMPTZ, server_default=text("now()"))
 
 
+class Plan(Base):
+    __tablename__ = "plans"
+    __table_args__ = (
+        CheckConstraint("interval IN ('month', 'year')", name="ck_plans_interval"),
+        CheckConstraint("price >= 0", name="ck_plans_price"),
+    )
+    id: Mapped[PythonUUID] = mapped_column(UUID_TYPE, primary_key=True, server_default=text("gen_random_uuid()"))
+    code: Mapped[str] = mapped_column(Text, unique=True)
+    name: Mapped[str] = mapped_column(Text)
+    price: Mapped[Decimal] = mapped_column(MONEY, server_default=text("0"))
+    currency: Mapped[str] = mapped_column(Text, server_default=text("'BRL'"))
+    interval: Mapped[str] = mapped_column(Text)
+    limits: Mapped[dict[str, int]] = mapped_column(JSON_TYPE, server_default=text("'{}'::jsonb"))
+    is_active: Mapped[bool] = mapped_column(Boolean, server_default=text("true"))
+    created_at: Mapped[datetime] = mapped_column(TIMESTAMPTZ, server_default=text("now()"))
+
+
+class Subscription(Base):
+    __tablename__ = "subscriptions"
+    __table_args__ = (
+        CheckConstraint("status IN ('trialing', 'active', 'past_due', 'canceled', 'comp')", name="ck_subscriptions_status"),
+        CheckConstraint("interval IN ('month', 'year')", name="ck_subscriptions_interval"),
+        CheckConstraint("price >= 0", name="ck_subscriptions_price"),
+    )
+    id: Mapped[PythonUUID] = mapped_column(UUID_TYPE, primary_key=True, server_default=text("gen_random_uuid()"))
+    tenant_id: Mapped[PythonUUID] = mapped_column(UUID_TYPE, ForeignKey("tenants.id"), unique=True)
+    plan_id: Mapped[PythonUUID] = mapped_column(UUID_TYPE, ForeignKey("plans.id"))
+    status: Mapped[str] = mapped_column(Text)
+    price: Mapped[Decimal] = mapped_column(MONEY)
+    interval: Mapped[str] = mapped_column(Text)
+    started_at: Mapped[datetime] = mapped_column(TIMESTAMPTZ)
+    current_period_start: Mapped[datetime] = mapped_column(TIMESTAMPTZ)
+    current_period_end: Mapped[datetime | None] = mapped_column(TIMESTAMPTZ)
+    trial_ends_at: Mapped[datetime | None] = mapped_column(TIMESTAMPTZ)
+    canceled_at: Mapped[datetime | None] = mapped_column(TIMESTAMPTZ)
+    cancel_reason: Mapped[str | None] = mapped_column(Text)
+    provider: Mapped[str | None] = mapped_column(Text)
+    provider_ref: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(TIMESTAMPTZ, server_default=text("now()"))
+    updated_at: Mapped[datetime] = mapped_column(TIMESTAMPTZ, server_default=text("now()"))
+
+
+class SubscriptionEvent(Base):
+    __tablename__ = "subscription_events"
+    __table_args__ = (
+        Index("ix_subscription_events_tenant_occurred", "tenant_id", "occurred_at"),
+        CheckConstraint("type IN ('created', 'plan_changed', 'price_changed', 'status_changed', 'canceled', 'reactivated')", name="ck_subscription_events_type"),
+    )
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    tenant_id: Mapped[PythonUUID] = mapped_column(UUID_TYPE, ForeignKey("tenants.id"))
+    subscription_id: Mapped[PythonUUID] = mapped_column(UUID_TYPE, ForeignKey("subscriptions.id"))
+    type: Mapped[str] = mapped_column(Text)
+    status_before: Mapped[str | None] = mapped_column(Text)
+    status_after: Mapped[str] = mapped_column(Text)
+    mrr_before: Mapped[Decimal] = mapped_column(MONEY)
+    mrr_after: Mapped[Decimal] = mapped_column(MONEY)
+    occurred_at: Mapped[datetime] = mapped_column(TIMESTAMPTZ)
+    created_by: Mapped[PythonUUID | None] = mapped_column(UUID_TYPE, ForeignKey("users.id"))
+    note: Mapped[str | None] = mapped_column(Text)
+
+
 class AuditLog(Base):
     tenant_id: Mapped[PythonUUID | None] = mapped_column(UUID_TYPE, ForeignKey("tenants.id"))
     __tablename__ = "audit_logs"

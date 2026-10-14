@@ -108,6 +108,17 @@ LIST_ROUTES = {
 
 # Exclusões específicas, sem prefixos que escondam novas rotas.
 EXCLUDED_ROUTES = {
+    **{
+        (method, path): "Cobrança global; usuário comum recebe 403 no teste de permissões"
+        for method, path in (
+            ("GET", "/api/platform/plans"),
+            ("POST", "/api/platform/plans"),
+            ("PATCH", "/api/platform/plans/{plan_id}"),
+            ("PATCH", "/api/platform/tenants/{tenant_id}/subscription"),
+            ("GET", "/api/platform/tenants/{tenant_id}/subscription/events"),
+            ("GET", "/api/platform/metrics"),
+        )
+    },
     ("GET", "/api/health"): "Saúde pública sem dados operacionais",
     ("POST", "/api/internal/heartbeat"): "Autenticação própria do worker",
     ("POST", "/api/auth/login"): "Identidade; suspensão testada separadamente",
@@ -437,6 +448,12 @@ def test_platform_permissoes_e_suspensao(client, session_factory, operations):
     (a, ids, _), (b, _, _) = operations
     headers = auth_header(create_access_token(str(b.id), session_version=b.session_version))
     for method, path, body in (
+        ("GET", "/api/platform/plans", None),
+        ("POST", "/api/platform/plans", {"code": "novo", "name": "Novo"}),
+        ("PATCH", f"/api/platform/plans/{uuid4()}", {"price": "100.00"}),
+        ("PATCH", f"/api/platform/tenants/{a.tenant_id}/subscription", {"status": "active"}),
+        ("GET", f"/api/platform/tenants/{a.tenant_id}/subscription/events", None),
+        ("GET", "/api/platform/metrics", None),
         ("GET", "/api/platform/tenants", None),
         (
             "POST",

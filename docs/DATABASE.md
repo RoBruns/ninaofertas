@@ -550,3 +550,47 @@ O backfill da auditoria usa o autor e, sem autor, `after.owner_id` existente em
 `tenants`. Eventos usam o bot ou o dono da conta de afiliado (`platform_account`/
 `account`), grupo ou telefone indicado pela entidade. UUID inválido ou inexistente
 permanece sem dono; ações novas da plataforma registram a conta afetada.
+
+## Cobrança manual e métricas SaaS (migration 0009_billing, ADR-030)
+
+Todas as datas abaixo são `TIMESTAMPTZ`, dinheiro é `NUMERIC(14,2)` e ids de plano
+e assinatura são UUIDs. A migration depende de `0008_phone_instance_token`, insere
+`beta` (Beta, BRL 0, mensal, sem limites) e não cria contratos retroativos para
+contas existentes. O downgrade remove as três tabelas, índice e função do trigger.
+
+| Tabela | Campos e constraints |
+|---|---|
+| `plans` | `id`, `code TEXT UNIQUE`, `name`, `price DEFAULT 0 CHECK >= 0`, `currency DEFAULT 'BRL'`, `interval CHECK month/year`, `limits JSONB DEFAULT '{}'`, `is_active DEFAULT true`, `created_at` |
+| `subscriptions` | `id`, `tenant_id UNIQUE FK tenants`, `plan_id FK plans`, `status CHECK trialing/active/past_due/canceled/comp`, `price CHECK >= 0`, `interval CHECK month/year`, `started_at`, `current_period_start`, `current_period_end NULL`, `trial_ends_at NULL`, `canceled_at NULL`, `cancel_reason NULL`, `provider NULL`, `provider_ref NULL`, `created_at`, `updated_at` |
+| `subscription_events` | `id BIGSERIAL`, `tenant_id FK tenants`, `subscription_id FK subscriptions`, `type CHECK created/plan_changed/price_changed/status_changed/canceled/reactivated`, `status_before NULL`, `status_after`, `mrr_before`, `mrr_after`, `occurred_at`, `created_by FK users NULL`, `note NULL` |
+
+Índice `ix_subscription_events_tenant_occurred (tenant_id, occurred_at)`. Trigger
+`subscription_events_insert_only` e função `billing_events_insert_only` recusam
+edição/exclusão. A aplicação escreve contratos exclusivamente por
+`core/billing_store.py::change_subscription`, sob lock da conta, confirmando evento
+e auditoria na mesma transação. Contas internas são recusadas; o gateway futuro
+usará a mesma função. Cancelamento exige motivo; trial inicial dura 14 dias.
+
+`limits` aceita `max_bots`, `max_phones`, `max_groups`, inteiros não negativos.
+Chave ausente significa ilimitado, zero significa limite zero (só exibição na S2).
+O uso conta recursos cadastrados, inclusive bots de teste e arquivados; não impõe
+restrições. Preço do catálogo nunca atualiza contratos automaticamente. Troca de
+plano adota preço/intervalo do destino, salvo override explícito. API aceita BRL.
+
+| Métrica SaaS | Regra oficial (`core/billing.py`) |
+|---|---|
+| MRR individual | `price` mensal ou `price / 12` anual, arredondado a centavos (ROUND_HALF_UP), só em `active` ou `past_due`; demais status = 0 |
+| Pagante no instante | Último evento com `occurred_at <= instante` tem `mrr_after > 0`; empate por id |
+| `mrr`, `paying_start`, `paying_end` | Soma e contagens nos estados de abertura/fechamento do mês |
+| `new_tenants` | Contas externas criadas no mês |
+| `new_paying` | Não pagava na abertura e paga no fechamento |
+| `churned` | Pagava na abertura e não paga no fechamento, inclusive plano gratuito |
+| `churn_rate` | `churned / paying_start`, quatro casas; null sem pagantes na abertura |
+| `expansion_mrr`, `contraction_mrr` | Variações positivas/negativas absolutas entre abertura/fechamento só de quem continuou pagante |
+| ARPA | `mrr / paying_end`, centavos; null sem pagantes no fechamento |
+
+Mês civil de Brasília: abertura exclui eventos à meia-noite do dia 1; fechamento
+exclui a meia-noite do mês seguinte. Mês corrente fecha em agora, inclusivo.
+Eventos futuros são ignorados; todo histórico anterior à janela é carregado para
+reconstruir a abertura. Contas internas ficam fora de todas as métricas. Cancelar
+e reativar no mesmo mês não é churn; assinar e cancelar no mesmo mês também não.

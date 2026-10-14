@@ -545,3 +545,38 @@ se ainda ausente. O dashboard acompanha o estado a cada 3 s, renova QR a cada
 30 s ou na expiração e fecha o painel quando conectado. O contrato aceita hash
 string de v2 e objeto apikey antigo. A migration 0008 depende de 0007; nenhum
 limite anti-ban ou algoritmo de deduplicação é alterado.
+
+---
+
+## ADR-030 — Cobrança manual por livro-razão de eventos
+**Data:** 2026-10-14 · **Status:** aceita · **Decisor:** dono (fase S2)
+
+A plataforma registra planos e assinaturas manualmente, sem gateway, restrição
+de uso, pausa automática ou mudança no worker. Cada conta externa pode ter uma
+assinatura; contas internas não têm assinatura e ficam fora de todas as métricas
+de SaaS. O catálogo começa com o plano mensal gratuito `beta`.
+
+Toda criação ou alteração passa por `core.billing_store.change_subscription`.
+O lock da conta serializa alterações, inclusive a criação inicial. Assinatura,
+evento de MRR e auditoria são confirmados na mesma transação. O livro-razão
+`subscription_events` só admite inserção (trigger recusa UPDATE e DELETE);
+eventos no mesmo instante são ordenados por id. Não existe histórico financeiro
+retroativo fabricado para contas anteriores à S2: a primeira edição cria o contrato
+e seu evento naquele instante. A migration não cria assinaturas para contas existentes.
+
+O preço contratado é independente do catálogo. Trocar o preço do plano não muda
+assinaturas; trocar de plano adota preço e periodicidade do destino, salvo valores
+explícitos. Plano inativo não aceita novos contratos nem migrações para ele; contratos
+existentes continuam editáveis. BRL é a moeda suportada nesta fase, evitando somar
+moedas distintas no MRR. Limites são informativos; ausência da chave significa ilimitado.
+
+`core/billing.py` permanece a definição oficial: MRR mensal/anual só para `active`
+e `past_due`; pagantes são reconstruídos pelo último evento no instante analisado.
+Churn compara pagantes da abertura e do fechamento do mês em Brasília, incluindo
+rebaixamentos para gratuito; cancelar e reativar no mesmo mês não é churn.
+Expansão e contração só contam quem permaneceu pagante; denominadores zero
+retornam null. O frontend apenas apresenta as métricas e usa números para desenhar
+o gráfico, preservando strings decimais em valores, formulários e tooltips.
+
+Na S3, webhooks do gateway chamarão a mesma função transacional. Cadastro público,
+pagamentos e bloqueios por inadimplência ou limites ficam para essa fase.

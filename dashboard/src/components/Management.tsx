@@ -7,7 +7,7 @@ export function Field({ label, error, children, className = '' }: { label: strin
   return <label className={`field ${className}`}><span>{label}</span>{children}{error && <small className="field-error">{error}</small>}</label>
 }
 
-export function Modal({ title, children, onClose, size }: { title: string; children: ReactNode; onClose: () => void; size?: 'wide' }) {
+export function Modal({ title, children, onClose, size }: { title: string; children: ReactNode; onClose: () => void; size?: 'wide' | 'drawer' }) {
   const dialog = useRef<HTMLElement>(null), previous = useRef<HTMLElement | null>(null)
   useEffect(() => {
     previous.current = document.activeElement as HTMLElement
@@ -29,10 +29,11 @@ export function Modal({ title, children, onClose, size }: { title: string; child
     const { body, actions } = splitActions(children)
     content = <><div className="modal-body">{body}</div>{actions}</>
   }
-  return createPortal(<div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose() }}><section ref={dialog} className={`modal${size === 'wide' ? ' wide-modal' : ''}`} role="dialog" aria-modal="true" aria-label={title}><header><h2>{title}</h2><button className="icon-button" type="button" onClick={onClose} aria-label="Fechar"><X /></button></header>{content}</section></div>, document.body)
+  return createPortal(<div className={`modal-backdrop${size === 'drawer' ? ' drawer-backdrop' : ''}`} role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose() }}><section ref={dialog} className={`modal${size === 'wide' ? ' wide-modal' : size === 'drawer' ? ' drawer-modal' : ''}`} role="dialog" aria-modal="true" aria-label={title}><header><h2>{title}</h2><button className="icon-button" type="button" onClick={onClose} aria-label="Fechar"><X /></button></header>{content}</section></div>, document.body)
 }
 
 const statusLabels: Record<string, string> = {
+  trialing: 'Em teste', past_due: 'Em atraso', canceled: 'Cancelada', comp: 'Cortesia', suspended: 'Suspensa',
   active: 'Ativo', paused: 'Pausado', disabled: 'Desativado', valid: 'Válida', invalid: 'Inválida', expired: 'Expirada', expiring: 'Expirando', unknown: 'Desconhecido', connecting: 'Aguardando leitura do QR', connected: 'Conectado', disconnected: 'Desconectado', banned: 'Banido', error: 'Erro', ok: 'OK', success: 'Sucesso', failed: 'Falhou', running: 'Em execução', open: 'Aberto', acknowledged: 'Reconhecido', resolved: 'Resolvido', archived: 'Arquivado', completed: 'Concluída', admin: 'Administrador', operator: 'Operador', viewer: 'Leitor',
 }
 export function StatusBadge({ value }: { value: string }) { return <span className={`status-badge status-${value}`}>{statusLabels[value] ?? value.replaceAll('_', ' ')}</span> }

@@ -648,3 +648,38 @@ Dashboard: lint passou, **19 arquivos / 74 testes passaram**, build concluído.
 OpenAPI conferido contra o app e tipos regenerados. Não houve chamada à Evolution
 real, envio de WhatsApp ou acesso a produção; sincronizar o telefone existente
 da Nina fica como ação operacional após integrar e publicar pelo dono.
+
+## Nina Bot SaaS — fase S2 (2026-10-14)
+
+Implementada em `feat/saas`, sem commit, push ou deploy.
+
+1. Feito: migration `0009_billing`, pai `0008_phone_instance_token`, planos,
+   assinaturas e eventos com constraints e índice, seed beta, downgrade completo.
+   Contas existentes não ganham contratos retroativos. Trigger protege o livro-razão.
+2. Feito: módulo puro `core/billing.py` preservado. `billing_store` converte linhas
+   em dataclasses e centraliza escrita sob lock, evento e MRR antes/depois.
+3. Feito: catálogo de planos, criação de assinatura com cliente, listagem com
+   plano/uso, PATCH auditado, histórico e métricas mensais/resumo. Todas as rotas
+   cobertas pela matriz de permissão da plataforma. BRL e strings decimais.
+4. Feito: indicadores, gráfico combinado de 12 meses, tabela de contas com uso,
+   painel de assinatura/histórico, catálogo e formulários de planos. Tipos gerados.
+   Testes de componente cobrem indicadores, churn null, interna, cancelamento e planos.
+5. Feito: ADR-030, SAAS, DATABASE, API e contexto dos agentes atualizados. Gateway,
+   webhooks e bloqueios por pagamento/limites ficam para S3.
+
+Regressão adicional: o validador monetário compartilhado agora recusa NaN/infinito
+com 422, evitando erro 500. Nenhuma regra do módulo puro de billing foi alterada.
+Worker, freio, segurança e fluxo de envio não foram modificados.
+
+Verificação final em `ninaofertas_test`: **407 testes backend passaram** (139,04 s),
+`ruff check .` sem erros. Dashboard: lint sem erros, **19 arquivos / 77 testes
+passaram**, build concluído. OpenAPI comparado ao app e tipos regenerados.
+Migration coberta por upgrade/downgrade/upgrade, inclusive com evento persistido;
+trigger recusa UPDATE e DELETE. Regressões cobrem recarga de contrato em sessão
+reutilizada, rollback, histórico independente do contrato atual, permissões,
+atualização do histórico na UI e ausência de bloqueio/pausa por cobrança ou limite.
+
+A suíte usou `--basetemp=.tmp/s2-final -o cache_dir=.tmp/s2-cache`. Os 264 warnings
+do backend são da configuração existente do Alembic (`path_separator`); Vite
+avisa sobre chunk acima de 500 kB. Sem validação visual em navegador, acesso a
+produção, chamada à Evolution real, envio WhatsApp, commit, push ou deploy.

@@ -121,6 +121,32 @@ def test_upgrade_head_em_schema_vazio_e_downgrade_base(postgres_schema) -> None:
     assert "users" not in inspect(engine).get_table_names()
 
 
+def test_0009_billing_upgrade_downgrade_upgrade(postgres_schema) -> None:
+    from sqlalchemy.exc import DBAPIError
+
+    _, engine = postgres_schema
+    config = _config()
+    command.upgrade(config, "0008_phone_instance_token")
+    with engine.begin() as connection:
+        connection.execute(text("INSERT INTO tenants (name, is_internal) VALUES ('Interna', true), ('Externa', false)"))
+    for _ in range(2):
+        command.upgrade(config, "0009_billing")
+        with engine.begin() as connection:
+            assert connection.execute(text("SELECT code, name, price, currency, interval, limits, is_active FROM plans")).one() == ("beta", "Beta", 0, "BRL", "month", {}, True)
+            assert connection.scalar(text("SELECT count(*) FROM subscriptions")) == 0
+            connection.execute(text("INSERT INTO subscriptions (tenant_id, plan_id, status, price, interval, started_at, current_period_start) SELECT t.id, p.id, 'trialing', 0, 'month', now(), now() FROM tenants t CROSS JOIN plans p WHERE NOT t.is_internal"))
+            connection.execute(text("INSERT INTO subscription_events (tenant_id, subscription_id, type, status_after, mrr_before, mrr_after, occurred_at) SELECT tenant_id, id, 'created', status, 0, 0, now() FROM subscriptions"))
+        assert any(index["column_names"] == ["tenant_id", "occurred_at"] for index in inspect(engine).get_indexes("subscription_events"))
+        for statement in ("UPDATE subscription_events SET note = 'alterado'", "DELETE FROM subscription_events"):
+            with pytest.raises(DBAPIError), engine.begin() as connection:
+                connection.execute(text(statement))
+        command.downgrade(config, "0008_phone_instance_token")
+        assert not {"plans", "subscriptions", "subscription_events"} & set(inspect(engine).get_table_names())
+        with engine.connect() as connection:
+            assert connection.scalar(text("SELECT count(*) FROM tenants")) == 2
+    command.upgrade(config, "head")
+
+
 def test_0005_aplica_e_reverte_somente_em_users(postgres_schema) -> None:
     _, engine = postgres_schema
     config = _config()

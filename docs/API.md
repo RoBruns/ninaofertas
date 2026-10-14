@@ -407,3 +407,40 @@ GET    /r/{code}   → 302 para a URL afiliada, gravando clicks
 ```
 Sem auth (é link público de grupo). Só faz lookup, grava clique e redireciona —
 qualquer trabalho extra vira latência entre o clique e a loja.
+
+## Plataforma — planos, assinaturas e SaaS (S2)
+
+Todas as rotas abaixo exigem `is_platform_admin` (admin comum recebe 403), prefixo
+`/api/platform`. Dinheiro e taxas decimais são strings no JSON. As escritas são
+auditadas; assinaturas nunca mudam permissões, acesso ou envio nesta fase.
+
+| Método | Rota | Contrato |
+|---|---|---|
+| GET | `/plans` | Lista planos, inclusive inativos |
+| POST | `/plans` | `code`, `name`, `price` (padrão `"0.00"`), `currency` (`BRL`), `interval` (`month`/`year`), `limits`, `is_active`; 201, código duplicado → 409 |
+| PATCH | `/plans/{plan_id}` | `name`, `price`, `limits`, `is_active`; preço não altera assinaturas existentes |
+| POST | `/tenants` | Contrato S1 + `plan_code` (beta), `status` (`trialing` padrão, `active` ou `comp`); conta, admin e assinatura atômicos; trial de 14 dias |
+| GET | `/tenants` | Campos S1 + `plan`, `subscription`, `mrr`, `usage: {bots, phones, groups}`; assinatura inclui preço/status, intervalo e `trial_ends_at`; plano inclui limites |
+| PATCH | `/tenants/{tenant_id}/subscription` | Campos opcionais `plan_code`, `status`, `price`, `interval`, `current_period_end` (datetime com fuso ou null), `cancel_reason`, `note`; retorna assinatura |
+| GET | `/tenants/{tenant_id}/subscription/events` | Eventos do mais recente ao mais antigo (instante, id); MRR anterior/posterior, status anterior/posterior, tipo, autor e nota |
+| GET | `/metrics?months=12` | `months` (1–120): série mensal; `summary`: MRR, pagantes, novos, churn e ARPA do mês atual |
+
+Limites aceitam somente `max_bots`, `max_phones`, `max_groups` inteiros >= 0.
+`limits` substitui o objeto inteiro; omitir chave libera esse limite. Nulos e
+valores monetários negativos/não finitos são recusados. Envie preços como strings
+decimais com até duas casas. Contas internas retornam plano/assinatura null e MRR
+zero na listagem; editar assinatura ou consultar seu histórico retorna 409.
+Conta/plano inexistente retorna 404. Plano inativo não admite novo contrato nem
+troca para ele; contratos existentes continuam editáveis.
+
+Cancelar exige motivo não vazio. Reativar limpa motivo/data de cancelamento.
+Entrar em trial abre 14 dias; sair limpa `trial_ends_at`. Trocar plano adota preço
+e periodicidade do destino, salvo valores explícitos. Conta externa anterior à S2
+sem assinatura pode receber o primeiro contrato pelo PATCH, sem histórico retroativo.
+
+Série mensal: `mes` (dia 1), `mrr`, `paying_start`, `paying_end`, `new_tenants`,
+`new_paying`, `churned`, `churn_rate`, `expansion_mrr`, `contraction_mrr`, `arpa`.
+Resumo: `mrr`, `paying`, `new_tenants`, `churned`, `churn_rate`, `arpa`.
+Fuso de Brasília, excluindo internas; churn e expansão comparam abertura e
+fechamento reconstruídos dos eventos (ADR-030). Cancelar e reativar no mesmo mês
+não conta como churn. Taxa e ARPA são null sem denominador, exibidos como “—”.
