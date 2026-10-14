@@ -69,7 +69,7 @@ def health_response(db_ok: bool, last_seen: datetime | None) -> HealthResponse:
 
 class HeartbeatRequest(BaseModel):
     worker_id: str = Field(min_length=1, max_length=100)
-    bots_running: list[UUID] = Field(default_factory=list, max_length=100)
+    bots_running: list[UUID] = Field(default_factory=list, max_length=1000)
 
 
 @router.get("/health", response_model=HealthResponse)

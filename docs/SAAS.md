@@ -31,7 +31,7 @@ são dele (cifradas com a mesma `CREDENTIALS_KEY`, acesso só pelo dono).
 
 O que continua compartilhado, de propósito: o worker (um só, percorre os bots de todos),
 o servidor Evolution (uma instância por telefone), o catálogo de ofertas capturadas
-(`ofertas`; deduplicação e freio por grupo continuam por grupo) e as chaves do filtro de
+(`ofertas`; deduplicação e freio por grupo são isolados por conta, ADR-028) e as chaves do filtro de
 público por IA (`TYPESAFE_API_KEY`, `ANTHROPIC_API_KEY`), pagas pela plataforma.
 
 ## Modelo: conta (tenant) acima do usuário
@@ -102,6 +102,9 @@ mais dados e mais rotas.
 
 ## Riscos que crescem com o primeiro cliente
 
+- **E-mail global como login**: o e-mail é único no sistema. A mensagem "e-mail já
+  cadastrado" revela sua existência, inclusive em outra conta. Risco aceito pelo dono;
+  alteração desse comportamento está fora da S1c.
 - **Backup do `nina-db`**: hoje não existe. Com dados de cliente, perder o banco deixa de
   ser problema só nosso. Resolver antes ou junto da S2.
 - **IP compartilhado nas fontes**: as buscas do cliente no Mercado Livre e na Shopee

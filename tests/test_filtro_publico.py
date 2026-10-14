@@ -105,7 +105,7 @@ def test_fluxo_processar_oferta(monkeypatch, session_factory, p):
         assert resultado == ("pulou" if p == 0.12 else "enviou")
         if p == 0.12:
             assert repositories.ja_conhecida(session, monitor._salvar_oferta(session, oferta).id,
-                                            grupo=runtime.group_ids[0])
+                                            grupo=runtime.group_ids[0], tenant_id=runtime.owner_id)
             assert monitor._processar_oferta(session, oferta, {"publico_alvo": "mulheres"}) == "pulou"
     avaliar.assert_called_once()
     assert freio.call_count == (0 if p == 0.12 else 1)

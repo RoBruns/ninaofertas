@@ -194,10 +194,12 @@ def import_sales(
     for row in rows:
         values = _sale_values(row, user.tenant_id, platform.id)
         sale = session.scalar(
-            select(Sale).where(Sale.platform_id == platform.id, Sale.external_id == row.external_id)
+            select(Sale).where(
+                Sale.owner_id == user.tenant_id,
+                Sale.platform_id == platform.id,
+                Sale.external_id == row.external_id,
+            )
         )
-        if sale is not None and sale.owner_id != user.tenant_id:
-            raise APIError(409, "CONFLICT", "Venda já pertence a outro usuário")
         if sale is None:
             session.add(Sale(id=uuid4(), imported_at=now, **values))
             imported += 1

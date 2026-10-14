@@ -10,11 +10,12 @@ from uuid import UUID
 import httpx
 from sqlalchemy import select
 from sqlalchemy.exc import DBAPIError, ProgrammingError
+from sqlalchemy.orm import Session
 
 from core.tenant_context import event_tenant_id
 from core import db
 from core.config_provider import invalidar_cache
-from core.models import Bot, Command, Event, Group, Phone
+from core.models import Bot, Command, Event, Group, Phone, PlatformAccount, Tenant, User
 from core.sales_sync import sync_account
 from core.settings import settings
 from worker.logger import logger
@@ -34,7 +35,11 @@ def bot_esta_ativo(bot_id: UUID) -> bool:
     """Falha aberta para nao derrubar um ciclo quando o banco oscilar."""
     try:
         with db.get_session() as session:
-            status = session.scalar(select(Bot.status).where(Bot.id == bot_id, Bot.archived_at.is_(None)))
+            status = session.scalar(
+                select(Bot.status)
+                .join(Tenant, Tenant.id == Bot.owner_id)
+                .where(Bot.id == bot_id, Bot.archived_at.is_(None), Tenant.status == "active")
+            )
         return status == "active"
     except Exception as exc:
         logger.debug(f"Nao foi possivel confirmar status do bot {bot_id}: {exc}")
@@ -107,6 +112,8 @@ def _sync_groups(session, command: Command) -> str:
 
 
 def _executar(session, command: Command) -> str:
+    if _conta_suspensa(session, command):
+        raise ValueError("conta suspensa")
     if command.type in {"pause", "resume"}:
         bot = session.get(Bot, command.bot_id)
         if bot is None:
@@ -136,6 +143,31 @@ def _executar(session, command: Command) -> str:
     raise ValueError(f"Comando desconhecido: {command.type}")
 
 
+def _conta_suspensa(session: Session, command: Command) -> bool:
+    """Verifica autoria e entidade, inclusive comandos sem bot (vendas/grupos)."""
+    owners: set[UUID | None] = set()
+    if command.requested_by:
+        owners.add(session.scalar(select(User.tenant_id).where(User.id == command.requested_by)))
+    if command.bot_id:
+        owners.add(session.scalar(select(Bot.owner_id).where(Bot.id == command.bot_id)))
+    for key, model in (("account_id", PlatformAccount), ("phone_id", Phone)):
+        raw_id = (command.payload or {}).get(key)
+        if raw_id:
+            try:
+                entity_id = UUID(str(raw_id))
+            except ValueError:
+                continue
+            owners.add(session.scalar(select(model.owner_id).where(model.id == entity_id)))
+    return (
+        session.scalar(
+            select(Tenant.id)
+            .where(Tenant.id.in_(owners - {None}), Tenant.status == "suspended")
+            .limit(1)
+        )
+        is not None
+    )
+
+
 def _marcar_falha(command_id: int, exc: Exception) -> None:
     try:
         with db.get_session() as session:
@@ -143,13 +175,17 @@ def _marcar_falha(command_id: int, exc: Exception) -> None:
             if command is not None:
                 command.status = "failed"
                 command.finished_at = datetime.now(timezone.utc)
-                if command.type == "commission_import":
+                if str(exc) == "conta suspensa":
+                    command.result = "conta suspensa"
+                elif command.type == "commission_import":
                     account_id = str((command.payload or {}).get("account_id") or "")
                     command.result = "Falha na sincronizacao de vendas"
                     session.add(
                         Event(
                             entity_type="platform_account",
-                            tenant_id=event_tenant_id(session, entity_type="platform_account", entity_id=account_id),
+                            tenant_id=event_tenant_id(
+                                session, entity_type="platform_account", entity_id=account_id
+                            ),
                             entity_id=account_id or None,
                             level="error",
                             type="commission_import_failed",
@@ -177,6 +213,11 @@ def drenar_comandos(limit: int = 10) -> None:
                 )
                 if command is None:
                     return
+                if _conta_suspensa(session, command):
+                    command.status = "failed"
+                    command.result = "conta suspensa"
+                    command.finished_at = datetime.now(timezone.utc)
+                    continue
                 command.status = "running"
                 command.picked_at = datetime.now(timezone.utc)
                 command_id = command.id

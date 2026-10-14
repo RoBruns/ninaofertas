@@ -1,4 +1,5 @@
 """Recado periódico: segue a vó no Instagram (foto + link)."""
+
 from __future__ import annotations
 
 import time
@@ -6,7 +7,15 @@ import time
 from core import db, relogio, repositories
 from core.settings import BASE_DIR
 from worker import whatsapp
-from worker.channels import bot_atual, grupo_db_id, canais_ativos, grupo_whatsapp, load_filtros, nome_canal, usar_canal
+from worker.channels import (
+    bot_atual,
+    grupo_db_id,
+    canais_ativos,
+    grupo_whatsapp,
+    load_filtros,
+    nome_canal,
+    usar_canal,
+)
 from worker.logger import logger
 
 SKU = "promo:instagram"
@@ -49,16 +58,18 @@ def _enviar_canal() -> None:
         return
 
     with db.get_session() as session:
-        decorridos = repositories.minutos_desde_ultimo_sku(session, SKU, grupo=grupo)
+        decorridos = repositories.minutos_desde_ultimo_sku(
+            session, SKU, grupo=grupo, tenant_id=runtime.owner_id
+        )
         if decorridos is not None and decorridos < INTERVALO_HORAS * 60:
             falta = INTERVALO_HORAS * 60 - decorridos
-            logger.debug(
-                f"[{nome_canal()}] recado Instagram: ainda faltam ~{falta:.0f} min"
-            )
+            logger.debug(f"[{nome_canal()}] recado Instagram: ainda faltam ~{falta:.0f} min")
             return
 
         desde_qualquer = repositories.minutos_desde_ultimo_envio(
-            session, **({"escopo_bot_id": runtime.id} if runtime.is_test else {"tenant_id": runtime.owner_id, "excluir_bots_teste": True})
+            session,
+            tenant_id=runtime.owner_id,
+            **({"escopo_bot_id": runtime.id} if runtime.is_test else {"excluir_bots_teste": True}),
         )
         if desde_qualquer is not None and desde_qualquer < 3:
             logger.info(f"[{nome_canal()}] recado Instagram adiado: acabou de sair oferta")

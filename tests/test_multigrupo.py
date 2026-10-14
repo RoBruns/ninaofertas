@@ -110,9 +110,9 @@ def test_freio_conta_uma_vez_por_oferta_e_nao_por_grupo(
     assert len(enviados) == 2
     with session_factory() as session:
         desde = relogio.agora_banco() - timedelta(hours=1)
-        assert repositories.contar_envios_desde(session, desde) == 1
+        assert repositories.contar_envios_desde(session, desde, tenant_id=runtime.owner_id) == 1
         for grupo in runtime.group_ids:
-            assert repositories.contar_envios_desde(session, desde, grupo=grupo) == 1
+            assert repositories.contar_envios_desde(session, desde, grupo=grupo, tenant_id=runtime.owner_id) == 1
 
     # O intervalo entre ofertas (5 min) barra a próxima oferta, não a 2ª mensagem.
     with config_provider.usar_bot_runtime(runtime):

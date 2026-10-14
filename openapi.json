@@ -15199,7 +15199,7 @@
        "format": "uuid"
       },
       "type": "array",
-      "maxItems": 100,
+      "maxItems": 1000,
       "title": "Bots Running"
      }
     },

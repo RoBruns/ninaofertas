@@ -130,14 +130,14 @@ nina-worker (APScheduler) ──────────────── nina-
   Cada bot só publica plataformas em que tem credencial **não invalidada**.
 - **Freio anti-ban** conta **1 por oferta**, mesmo que ela vá para vários grupos
   (ADR-021): intervalo entre ofertas, rajada, teto por hora/dia, tetos da conta.
-  Intervalo, rajada e tetos da conta são escopados por tenant (ADR-028), incluindo
+  Intervalo, rajada, tetos da conta/grupo e deduplicação são escopados por tenant (ADR-028), incluindo
   envios com `bot_id NULL` em grupos da conta. Os limites de segurança não mudam.
   `max_ofertas_por_dia = 0` desliga só o teto diário (ADR-018).
 - **Bots de teste**: `is_test=true`; configuração copiável é settings + template,
   sempre preservando attribution própria. Importação guarda backup e arquiva o teste
   (`disabled`, `archived_at`), sem apagar histórico. Os controles globais do freio
   contam produção da mesma conta (incluindo bot_id NULL dos seus grupos) ou só o próprio teste; os controles por
-  grupo e a deduplicação continuam compartilhados. Métricas de envios/cliques/vendas
+  grupo e a deduplicação continuam compartilhados entre bots da mesma conta. Métricas de envios/cliques/vendas
   omitem testes salvo filtro explícito por bot_id. ADR-023 a cargo do dono.
 - **Nunca envia oferta sem link de afiliado** (`affiliate.link_rastreado`). ML: link
   `meli.la` via createLink com cookie da conta + etiqueta do bot (`attribution.ml_tag`).

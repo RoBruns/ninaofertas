@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from ipaddress import ip_address
 from typing import Any
+from uuid import UUID
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
@@ -64,10 +65,14 @@ def record_audit(
     before: dict[str, Any] | None,
     after: dict[str, Any] | None,
     ip: str | None,
+    *,
+    tenant_id: UUID | None = None,
 ) -> AuditLog:
     values: dict[str, Any] = {
         "user_id": user.id if user is not None else None,
-        "tenant_id": user.tenant_id if user is not None else None,
+        "tenant_id": tenant_id
+        if tenant_id is not None
+        else (user.tenant_id if user is not None else None),
         "entity_type": entity_type,
         "entity_id": str(entity_id),
         "action": action,

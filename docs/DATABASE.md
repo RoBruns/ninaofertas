@@ -47,7 +47,9 @@ Evolução aditiva apenas (colunas novas, sempre nullable):
 Migration **0007_tenants** cria uma conta interna por usuário existente, com
 `tenants.id = users.id` e nome `coalesce(users.name, users.email)`. Nenhum dono
 operacional é reescrito: as constraints descobertas pelo inspector passam a
-referenciar `tenants.id`. Admins existentes recebem `is_platform_admin=true`.
+referenciar `tenants.id`. Só o usuário de `ADMIN_EMAIL` recebe
+`is_platform_admin=true` (comparação sem distinguir maiúsculas); sem correspondência,
+é promovido o admin ativo mais antigo. A migration promove no máximo um usuário.
 O downgrade restaura as FKs, remove os campos e os índices novos; contas novas
 sem usuário de UUID igual recebem um usuário inativo representativo para manter
 as FKs antigas e preservar seus dados no retorno ao schema anterior.
@@ -312,12 +314,12 @@ expenses (
   notes        TEXT,
   created_by   UUID REFERENCES users(id),
   created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
-  UNIQUE (source, external_id)                     -- reimportar não duplica
+  UNIQUE (owner_id, source, external_id)           -- reimportar na mesma conta não duplica
 )
 CREATE INDEX ON expenses (owner_id, incurred_on DESC);
 ```
 
-`source` + `external_id` únicos é o que permite plugar o importador do Meta Ads
+`owner_id` + `source` + `external_id` únicos é o que permite plugar o importador do Meta Ads
 depois sem duplicar o que foi lançado à mão. A entrada manual é a de hoje; o
 importador é fase 11.
 
@@ -355,7 +357,7 @@ sales (
   source         TEXT NOT NULL,                   -- api | csv_import | manual
   raw            JSONB,
   imported_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
-  UNIQUE (platform_id, external_id)
+  UNIQUE (owner_id, platform_id, external_id)
 )
 CREATE INDEX ON sales (owner_id, ordered_at DESC);
 CREATE INDEX ON sales (bot_id, ordered_at DESC);
@@ -522,4 +524,17 @@ Migration 0007 cria `uq_phones_evolution_instance`, UNIQUE parcial em
 `phones.evolution_instance WHERE evolution_instance IS NOT NULL`, e
 `ix_events_tenant_created (tenant_id, created_at DESC)`. Em todos os bots
 existentes, define `settings.content.recado_instagram=true`; novos bots usam
-false. Demais settings, nomes, grupos e limites ficam preservados.
+false. `content` inválido (null, array ou escalar) é normalizado para objeto antes
+de adicionar a flag. Demais settings, nomes, grupos e limites ficam preservados.
+
+Na mesma 0007, `uq_expenses_source_external` passa a cobrir
+`(owner_id, source, external_id)` e `uq_sales_platform_external` passa a cobrir
+`(owner_id, platform_id, external_id)`: duas contas podem ter o mesmo id externo.
+O downgrade restaura as chaves globais anteriores; se já houver duplicatas entre
+contas, o Postgres recusa a reversão sem apagar dados. É necessário resolver essas
+duplicatas antes de reverter.
+
+O backfill da auditoria usa o autor e, sem autor, `after.owner_id` existente em
+`tenants`. Eventos usam o bot ou o dono da conta de afiliado (`platform_account`/
+`account`), grupo ou telefone indicado pela entidade. UUID inválido ou inexistente
+permanece sem dono; ações novas da plataforma registram a conta afetada.

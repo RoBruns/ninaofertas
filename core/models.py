@@ -282,7 +282,7 @@ class Expense(Base):
     __tablename__ = "expenses"
     __table_args__ = (
         CheckConstraint("amount >= 0", name="ck_expenses_amount_nonnegative"),
-        UniqueConstraint("source", "external_id"),
+        UniqueConstraint("owner_id", "source", "external_id", name="uq_expenses_source_external"),
         Index("ix_expenses_owner_incurred_on", "owner_id", text("incurred_on DESC")),
     )
     id: Mapped[PythonUUID] = mapped_column(
@@ -360,7 +360,7 @@ class Click(Base):
 class Sale(Base):
     __tablename__ = "sales"
     __table_args__ = (
-        UniqueConstraint("platform_id", "external_id"),
+        UniqueConstraint("owner_id", "platform_id", "external_id", name="uq_sales_platform_external"),
         Index("ix_sales_owner_ordered_at", "owner_id", text("ordered_at DESC")),
         Index("ix_sales_bot_ordered_at", "bot_id", text("ordered_at DESC")),
     )

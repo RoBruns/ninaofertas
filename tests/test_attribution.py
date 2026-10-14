@@ -16,7 +16,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from core import db
 from core.bot_settings import BotSettings
-from core.config_provider import usar_bot_runtime
+from core.config_provider import BotRuntime, usar_bot_runtime
 from core.importers.shopee import parse_attribution_sub_ids, parse_conversion_report
 from core.models import (
     Bot,
@@ -39,8 +39,15 @@ from worker import monitor
 def _runtime(bot_id: UUID | None = None, ml_tag: str | None = None):
     settings = safe_settings()
     settings["attribution"] = {"ml_tag": ml_tag}
-    return SimpleNamespace(
+    return BotRuntime(
         id=bot_id or uuid4(),
+        owner_id=uuid4(),
+        slug="atribuicao",
+        nome="Atribuição",
+        niche_slug=None,
+        phone_number=None,
+        evolution_instance=None,
+        group_ids=("grupo@g.us",),
         account_ids=(uuid4(),),
         settings=BotSettings.model_validate(settings),
     )
@@ -194,11 +201,12 @@ def test_falha_shopee_mantem_offerlink_emite_evento_e_envio_continua(
         "registrar_envio",
         lambda *_args, **kwargs: stored.append(kwargs),
     )
-    result = monitor._processar_oferta(
-        object(),
-        OfertaCapturada(nome="Oferta", preco=10, loja="Shopee", url=offer_link),
-        {},
-    )
+    with usar_bot_runtime(runtime):
+        result = monitor._processar_oferta(
+            object(),
+            OfertaCapturada(nome="Oferta", preco=10, loja="Shopee", url=offer_link),
+            {},
+        )
     assert result == "enviou"
     assert sent == [offer_link]
     assert stored[0]["sub_id"] == "shopee:b1a2b3c4d-g5d6e7f80"

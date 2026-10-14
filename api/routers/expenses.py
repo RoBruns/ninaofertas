@@ -123,7 +123,9 @@ def create_expense(
 ) -> ExpenseResponse:
     values = payload.model_dump()
     _validate_refs(session, user.tenant_id, values)
-    expense = Expense(id=uuid4(), owner_id=user.tenant_id, created_by=user.id, source="manual", **values)
+    expense = Expense(
+        id=uuid4(), owner_id=user.tenant_id, created_by=user.id, source="manual", **values
+    )
     session.add(expense)
     session.flush()
     response = _response(expense)
@@ -320,7 +322,9 @@ def import_expenses(
     for _line, payload, external_id in rows:
         if external_id and session.scalar(
             select(Expense.id).where(
-                Expense.source == "csv_import", Expense.external_id == external_id
+                Expense.owner_id == user.tenant_id,
+                Expense.source == "csv_import",
+                Expense.external_id == external_id,
             )
         ):
             skipped += 1

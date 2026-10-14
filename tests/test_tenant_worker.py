@@ -104,15 +104,15 @@ def test_uma_conta_mesmo_resultado_do_freio_anterior(session_factory, operations
         {"max_ofertas_por_dia": 0},
     ]
     with session_factory() as session:
-        for settings in scenarios:
-            with config_provider.usar_bot_runtime(None):
-                before = monitor._freio_anti_ban(session, settings, ra.group_ids[0])
+        # Resultados caracterizados antes da S1c para uma única conta.
+        expected = [True, False, True, False, False, True, False, True, False, False, True]
+        for settings, before in zip(scenarios, expected, strict=True):
             with config_provider.usar_bot_runtime(ra):
                 after = monitor._freio_anti_ban(session, settings, ra.group_ids[0])
-            assert before == after
+            assert before == after[0]
         # Teste mantém escopo próprio; os envios legados da conta não entram.
         assert (
-            repositories.contar_envios_desde(session, now - timedelta(hours=1), escopo_bot_id=ra.id)
+            repositories.contar_envios_desde(session, now - timedelta(hours=1), escopo_bot_id=ra.id, tenant_id=ra.owner_id)
             == 1
         )
 

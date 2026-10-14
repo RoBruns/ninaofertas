@@ -16,7 +16,8 @@ from api.ratelimit import client_ip
 from api.schemas.tenant import TenantCreate, TenantResponse, TenantUpdate
 from api.security import hash_password
 from core import relogio
-from core.models import Bot, Envio, Group, Tenant, User
+from core.repositories import escopo_envios_conta
+from core.models import Bot, Envio, Tenant, User
 
 router = APIRouter(prefix="/platform", tags=["platform"])
 PlatformAdmin = Annotated[User, Depends(require_platform_admin)]
@@ -31,11 +32,7 @@ def _response(session: Session, tenant: Tenant) -> TenantResponse:
         select(func.count(Envio.id)).where(
             Envio.status == "sucesso",
             Envio.enviado_em >= relogio.agora_banco() - timedelta(days=30),
-            (Envio.bot_id.in_(select(Bot.id).where(Bot.owner_id == tenant.id)))
-            | (
-                Envio.bot_id.is_(None)
-                & Envio.grupo.in_(select(Group.whatsapp_id).where(Group.owner_id == tenant.id))
-            ),
+            escopo_envios_conta(tenant_id=tenant.id),
         )
     )
     return TenantResponse.model_validate(tenant).model_copy(
@@ -97,6 +94,7 @@ def create_tenant(
             None,
             response.model_dump(mode="json"),
             client_ip(request),
+            tenant_id=tenant.id,
         )
         session.commit()
     except IntegrityError as exc:
@@ -140,6 +138,7 @@ def update_tenant(
                 {"status": "active"},
                 {"status": "paused"},
                 client_ip(request),
+                tenant_id=tenant.id,
             )
     session.flush()
     response = _response(session, tenant)
@@ -152,6 +151,7 @@ def update_tenant(
         before,
         response.model_dump(mode="json"),
         client_ip(request),
+        tenant_id=tenant.id,
     )
     session.commit()
     return response

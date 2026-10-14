@@ -288,3 +288,64 @@ def test_0007_settings_planos_revertem_sem_content_vazio(postgres_schema) -> Non
     with engine.connect() as connection:
         assert connection.scalar(text("SELECT settings FROM bots")) == original
     command.upgrade(config, "0007")
+
+
+@pytest.mark.parametrize("admin_email", ["DONO@test.com", "sem-match@test.com", None])
+def test_0007_promove_apenas_email_configurado_ou_admin_ativo_mais_antigo(postgres_schema, monkeypatch, admin_email):
+    _, engine = postgres_schema
+    config = _config()
+    command.upgrade(config, "0006")
+    if admin_email is None:
+        monkeypatch.delenv("ADMIN_EMAIL", raising=False)
+    else:
+        monkeypatch.setenv("ADMIN_EMAIL", admin_email)
+    with engine.begin() as connection:
+        connection.execute(text("""INSERT INTO users (email, password_hash, role, is_active, created_at) VALUES
+            ('inativo@test.com', 'x', 'admin', false, '2020-01-01'),
+            ('viewer@test.com', 'x', 'viewer', true, '2020-01-01'),
+            ('antigo@test.com', 'x', 'admin', true, '2021-01-01'),
+            ('dono@test.com', 'x', 'admin', true, '2022-01-01'),
+            ('novo@test.com', 'x', 'admin', true, '2023-01-01')"""))
+    for _ in range(2):
+        command.upgrade(config, "0007")
+        with engine.connect() as connection:
+            promoted = connection.execute(text("SELECT email FROM users WHERE is_platform_admin")).scalars().all()
+            assert promoted == (["dono@test.com"] if admin_email == "DONO@test.com" else ["antigo@test.com"])
+        command.downgrade(config, "0006")
+
+
+def test_0007_backfill_entidades_auditoria_settings_malformados_e_constraints(postgres_schema, monkeypatch):
+    import json
+
+    _, engine = postgres_schema
+    config = _config()
+    command.upgrade(config, "0006")
+    owner, phone, group, account = (uuid.uuid4() for _ in range(4))
+    unknown = uuid.uuid4()
+    malformed = [None, [], "texto", 42, False]
+    with engine.begin() as connection:
+        connection.execute(text("INSERT INTO users (id, email, password_hash, role) VALUES (:id, 'dono@test.com', 'x', 'admin')"), {"id": owner})
+        connection.execute(text("INSERT INTO platforms (slug, name) VALUES ('ml', 'ML')"))
+        platform = connection.scalar(text("SELECT id FROM platforms"))
+        connection.execute(text("INSERT INTO phones (id, owner_id, label, number) VALUES (:id, :owner, 'Telefone', '551100000000')"), {"id": phone, "owner": owner})
+        connection.execute(text("INSERT INTO groups (id, owner_id, phone_id, whatsapp_id) VALUES (:id, :owner, :phone, 'grupo@g.us')"), {"id": group, "owner": owner, "phone": phone})
+        connection.execute(text("INSERT INTO platform_accounts (id, owner_id, platform_id, label) VALUES (:id, :owner, :platform, 'Conta')"), {"id": account, "owner": owner, "platform": platform})
+        for kind, entity_id in (("phone", phone), ("group", group), ("platform_account", account), ("account", account), ("group", unknown), ("phone", "inválido")):
+            connection.execute(text("INSERT INTO events (entity_type, entity_id, level, type, message) VALUES (:kind, :id, 'info', 'teste', 'teste')"), {"kind": kind, "id": str(entity_id)})
+        for value in (str(owner), str(unknown), "inválido"):
+            connection.execute(text("INSERT INTO audit_logs (entity_type, entity_id, action, after) VALUES ('sale_import', 'teste', 'sync_success', cast(:after AS jsonb))"), {"after": json.dumps({"owner_id": value})})
+        for index, content in enumerate(malformed):
+            connection.execute(text("INSERT INTO bots (owner_id, name, slug, settings) VALUES (:owner, 'Bot', :slug, cast(:settings AS jsonb))"), {"owner": owner, "slug": f"bot-{index}", "settings": json.dumps({"content": content, "filters": {"preco_minimo": 77}})})
+    command.upgrade(config, "0007")
+    with engine.connect() as connection:
+        assert connection.execute(text("SELECT tenant_id FROM events ORDER BY id")).scalars().all() == [owner] * 4 + [None, None]
+        assert connection.execute(text("SELECT tenant_id FROM audit_logs ORDER BY id")).scalars().all() == [owner, None, None]
+        for row in connection.execute(text("SELECT settings FROM bots")).scalars():
+            assert row == {"content": {"recado_instagram": True}, "filters": {"preco_minimo": 77}}
+    for table, columns in (("expenses", ["owner_id", "source", "external_id"]), ("sales", ["owner_id", "platform_id", "external_id"])):
+        unique = inspect(engine).get_unique_constraints(table)
+        assert any(c["column_names"] == columns for c in unique)
+    command.downgrade(config, "0006")
+    for table, columns in (("expenses", ["source", "external_id"]), ("sales", ["platform_id", "external_id"])):
+        assert any(c["column_names"] == columns for c in inspect(engine).get_unique_constraints(table))
+    command.upgrade(config, "0007")

@@ -536,7 +536,7 @@ novos sucessos; despesas, que só têm data, continuam comparadas por dia.
 
 ## Nina Bot SaaS — fase S1 (2026-10-14)
 
-Branch `feat/saas`, sem commit, push ou deploy; revisão e commit pelo Claude.
+Branch `feat/saas`; S1 commitada em `8ed9b00`, sem push ou deploy nesta tarefa.
 
 - Implementado: migration 0007_tenants, backfill com UUIDs preservados, FKs de
   dono para conta, auditoria/eventos escopados, índice único de instância e
@@ -570,3 +570,38 @@ concluído. OpenAPI conferido contra o app e tipos regenerados. A suíte usou
 `--basetemp=.tmp/s1-complete -o cache_dir=.tmp/s1-cache` devido às restrições da
 sandbox no TEMP e cache padrão; warnings restantes são da configuração do Alembic.
 Testes de Evolution usam HTTP simulado, e os testes não enviam WhatsApp real.
+
+### S1c — Correções da auditoria de isolamento (2026-10-14)
+
+- Implementado (1): helper único para escopo dos envios por conta; todas as consultas
+  por grupo/deduplicação e o painel da plataforma o usam. `tenant_id` obrigatório,
+  freio sem runtime bloqueado, testes e produção compartilham controles por grupo
+  dentro da conta. JIDs iguais entre contas não misturam linhas com bot/grupo.
+- Implementado (2–3): 0007 promove só `ADMIN_EMAIL` ou o admin ativo mais antigo;
+  seed garante a permissão do e-mail configurado. Admin comum não pode alterar
+  acesso nem remover platform admin da mesma conta.
+- Implementado (4): chaves externas de despesas e vendas únicas por conta na 0007,
+  com downgrade. CSV e sync usam essa chave; linha inválida do sync é isolada em
+  savepoint, pulada e registrada como warning da conta sem abortar o lote.
+- Implementado (5–6): suspensão respeitada por sync automático, drenagem de comandos
+  (failed / "conta suspensa") e todos os detectores de alerta. Auditoria das ações
+  da plataforma e da pausa de bots pertence à conta afetada.
+- Implementado (7–8): backfill de auditoria por `after.owner_id` e de eventos pelas
+  entidades, sem cast inseguro de UUID; `content` malformado normalizado na 0007.
+  Heartbeat aceita até 1000 bots, com regressão de 101.
+- Documentado: risco aceito de existência do e-mail no login global (SAAS), constraints
+  por conta (DATABASE) e ampliação do escopo no ADR-028, sem ADR novo.
+
+Sem commit, push, migration nova ou alterações nos arquivos reservados à S1b.
+`core/safety.py` e os valores do freio permanecem preservados.
+
+Validação final em `ninaofertas_test`: **357 testes backend passaram** (198,49 s),
+Ruff sem erros; dashboard lint sem erros, **19 arquivos / 70 testes passaram** e
+build concluído. OpenAPI regenerado (heartbeat com `maxItems=1000`) e tipos gerados
+conferidos, sem mudança de conteúdo nos tipos. A suíte usou
+`--basetemp=.tmp/s1c-verified -o cache_dir=.tmp/s1c-cache`; os 215 warnings são da
+configuração existente do Alembic (`path_separator`). Testes cobrem os oito itens,
+upgrade/downgrade da 0007 e o comportamento anterior do freio para uma conta só.
+Fixtures antigas de dedup agora usam Postgres e todas fornecem conta/runtime;
+as regras e as expectativas de envio/reenvio continuam preservadas.
+Não houve consulta de produção, envio real de WhatsApp ou chamada real à Evolution.

@@ -373,7 +373,7 @@ produção. Decisão: no freio anti-ban, os controles da conta (intervalo entre
 ofertas, rajada, `max_ofertas_globais_por_hora` e `max_ofertas_globais_por_dia`)
 ignoram envios de bots de teste quando avaliam um bot de produção, e um bot de
 teste é avaliado só contra os próprios envios. Os controles por grupo continuam
-contando todos os envios do grupo.
+contando todos os envios do grupo dentro da mesma conta (escopo explicitado no ADR-028).
 
 **Consequência:** um bot de teste no mesmo número soma mensagens ao volume real
 do chip, fora do teto global. O risco fica limitado pelos tetos do próprio bot de
@@ -470,12 +470,18 @@ operator e viewer valem dentro da conta. `is_platform_admin` é uma permissão
 separada, usada apenas para administrar a plataforma e configurar instâncias.
 
 A migration 0007 cria uma conta interna por usuário existente com o mesmo UUID
-(`tenants.id = users.id`), sem reescrever donos operacionais. Admins existentes
-viram platform admins; usuários novos de uma conta nunca herdam essa permissão.
+(`tenants.id = users.id`), sem reescrever donos operacionais. Só o usuário de
+`ADMIN_EMAIL` (sem distinguir maiúsculas) vira platform admin; sem correspondência,
+é escolhido o admin ativo mais antigo (`created_at`, UUID como desempate). A
+migração promove no máximo um usuário; o seed garante o de `ADMIN_EMAIL`.
+Usuários novos de uma conta nunca herdam essa permissão. Um admin comum não pode
+trocar e-mail, senha, papel ou atividade de um platform admin, nem removê-lo.
 Contas de clientes são externas. Auditoria e eventos carregam a conta, com
 eventos de sistema sem dono visíveis apenas a platform admins. Login, refresh
 e acesso autenticado recusam contas suspensas; a suspensão pausa bots ativos,
-e a reativação mantém os bots pausados até decisão do cliente.
+e a reativação mantém os bots pausados até decisão do cliente. Comandos pendentes,
+sincronização de vendas e detectores de alerta também respeitam a suspensão.
+Ações da plataforma ficam na auditoria da conta afetada, com o usuário autor.
 
 O produto se chama Nina Bot; repositório, serviços Railway e emissor JWT não
 mudam. A plataforma gera instâncias Evolution para clientes; nomes livres
@@ -483,18 +489,26 @@ continuam permitidos a platform admins para preservar os telefones da Nina.
 
 ---
 
-## ADR-028 — Freio anti-ban da conta escopado por tenant
+## ADR-028 — Freio anti-ban e deduplicação escopados por tenant
 **Data:** 2026-10-14 · **Status:** aceita · **Decisor:** usuário (fase S1)
 
 Intervalo, rajada e tetos da conta contam apenas envios dos seus bots de produção,
-mais envios sem bot cujo WhatsApp ID corresponde a um grupo da conta. Bots de
-teste seguem com escopo próprio. A contagem continua uma oferta por slot, mesmo
-com múltiplos grupos; limites por grupo, cupons e deduplicação permanecem iguais.
+mais envios sem bot vinculados a grupos da conta. Quando o histórico não tem
+`group_id`, o WhatsApp ID do grupo é usado como fallback, preservando os envios
+legados. Um `group_id` conhecido distingue contas mesmo com JID igual.
+Bots de teste seguem com escopo próprio nos controles globais. A contagem continua
+uma oferta por slot, mesmo com múltiplos grupos. Tetos por grupo, cupons,
+deduplicação, histórico de SKU/nome/preço e ordem de envio também exigem a conta,
+e são compartilhados entre os bots de produção e teste **dessa conta**. Se dois
+clientes publicarem no mesmo grupo físico, cada um tem seu próprio teto.
+Consultas sem `tenant_id` falham; o freio sem runtime bloqueia com
+"sem bot em execução". A contagem no painel da plataforma usa o mesmo helper.
 Nenhum limite de `core/safety.py` foi alterado.
 
 Para a operação da Nina, com os bots sob a mesma conta e os grupos legados
 cadastrados, o resultado é o mesmo de antes. Testes comparam os cenários do freio
-anterior e verificam que o teto e o último envio de uma conta não afetam outra.
+anterior e verificam que o teto, a deduplicação e o último envio de uma conta não
+afetam outra, inclusive com o mesmo JID.
 Antes do deploy, o dono deve conferir essa condição nos dados de produção.
 
 O recado do Instagram respeita o mesmo escopo de intervalo e vira opt-in por bot.

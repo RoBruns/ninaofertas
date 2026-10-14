@@ -3,11 +3,13 @@
 Evita reenviar a mesma oferta (mesmo SKU, ou nome praticamente igual).
 Só reenvia se o preço caiu o suficiente desde o último envio com sucesso.
 """
+
 from __future__ import annotations
 
 import re
 import unicodedata
 from difflib import SequenceMatcher
+from uuid import UUID
 
 from sqlalchemy.orm import Session
 
@@ -52,12 +54,13 @@ def deve_enviar(
     preco_atual: float,
     queda_minima_pct: float,
     *,
+    tenant_id: UUID,
     nome: str = "",
     sku: str | None = None,
     loja: str | None = None,
     grupo: str | None = None,
 ) -> tuple[bool, str]:
-    envio_anterior = repositories.ultimo_envio(session, oferta_id, grupo=grupo)
+    envio_anterior = repositories.ultimo_envio(session, oferta_id, grupo=grupo, tenant_id=tenant_id)
 
     if envio_anterior is None:
         # `visto` da baseline não pode travar envio (restart/Postgres vazio no Railway).
@@ -65,7 +68,7 @@ def deve_enviar(
 
         # Mesmo SKU já foi enviado em outra linha de oferta.
         if sku and repositories.sku_ja_enviado(
-            session, sku, loja, exceto_oferta_id=oferta_id, grupo=grupo
+            session, sku, loja, exceto_oferta_id=oferta_id, grupo=grupo, tenant_id=tenant_id
         ):
             return False, "SKU já enviado anteriormente (duplicata)"
 
@@ -73,10 +76,12 @@ def deve_enviar(
         nome_norm = normalizar_nome(nome)
         if nome_norm:
             for outro_nome, outro_preco in repositories.nomes_precos_enviados_recentes(
-                session, dias=30, grupo=grupo
+                session, dias=30, grupo=grupo, tenant_id=tenant_id
             ):
                 outro_norm = normalizar_nome(outro_nome)
-                if _nomes_parecidos(nome_norm, outro_norm) and _precos_parecidos(preco_atual, outro_preco):
+                if _nomes_parecidos(nome_norm, outro_norm) and _precos_parecidos(
+                    preco_atual, outro_preco
+                ):
                     return False, "oferta igual/parecida já enviada"
 
         return True, "oferta nova (apareceu depois do baseline)"
@@ -95,4 +100,7 @@ def deve_enviar(
             f"(R${preco_anterior_envio:.2f} -> R${preco_atual:.2f})"
         )
 
-    return False, f"já enviada e queda de {queda_pct:.1f}% é menor que o mínimo de {queda_minima_pct}%"
+    return (
+        False,
+        f"já enviada e queda de {queda_pct:.1f}% é menor que o mínimo de {queda_minima_pct}%",
+    )

@@ -224,7 +224,7 @@ def test_freio_scope(session_factory, control, sender_test):
         assert not _freio_anti_ban(session, {"max_ofertas_por_hora": 1}, "grupo")[0]
         assert not _freio_anti_ban(session, {"max_ofertas_por_dia": 1}, "grupo")[0]
         assert (
-            repositories.contar_envios_desde(session, relogio.agora_banco() - timedelta(hours=1))
+            repositories.contar_envios_desde(session, relogio.agora_banco() - timedelta(hours=1), tenant_id=runtime.owner_id)
             == 1
         )
     own = replace(runtime, id=sender_id, is_test=sender_test)
@@ -430,7 +430,7 @@ def test_legacy_sends_and_coupon_group_protection(session_factory):
     with session_factory() as session, config_provider.usar_bot_runtime(runtime):
         assert (
             repositories.contar_envios_desde(
-                session, relogio.inicio_do_dia_banco(), excluir_bots_teste=True
+                session, relogio.inicio_do_dia_banco(), excluir_bots_teste=True, tenant_id=runtime.owner_id
             )
             == 1
         )

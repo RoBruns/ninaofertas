@@ -12,6 +12,7 @@ import json
 import time
 from contextlib import nullcontext
 from typing import Any, Callable
+from uuid import UUID
 
 from sqlalchemy.orm import Session
 
@@ -43,10 +44,20 @@ _silencio_avisado: set[str] = set()
 _avisos_publico: dict[str, float] = {}
 
 
+def _tenant_id_atual() -> UUID:
+    runtime = bot_runtime_atual()
+    if runtime is None:
+        raise ValueError("sem bot em execução")
+    return runtime.owner_id
+
+
 def _motivo_publico(oferta: OfertaCapturada, filtros: dict) -> str:
     publico = filtros.get("publico_alvo", "")
     if not publico.strip() or (oferta.categoria or "").lower() in {
-        "cupom", "campanha", "promocao", "promoção"
+        "cupom",
+        "campanha",
+        "promocao",
+        "promoção",
     }:
         return ""
     classificador = filtros.get("classificador_publico", "jev")
@@ -73,7 +84,10 @@ def _avaliar_publico(
     if not motivo:
         return True, None
     probabilidade = relevancia.avaliar_publico(
-        oferta.nome, oferta.loja, oferta.preco, filtros["publico_alvo"],
+        oferta.nome,
+        oferta.loja,
+        oferta.preco,
+        filtros["publico_alvo"],
         filtros.get("classificador_publico", "jev"),
     )
     runtime = bot_atual()
@@ -95,8 +109,13 @@ def _avaliar_publico(
         for grupo in grupos:
             with _contexto_do_grupo(runtime, grupo):
                 repositories.registrar_visto(
-                    session, oferta_db.id, oferta.preco, grupo=grupo,
-                    bot_id=runtime.id if runtime else None, group_id=grupo_db_id(), motivo=motivo,
+                    session,
+                    oferta_db.id,
+                    oferta.preco,
+                    grupo=grupo,
+                    bot_id=runtime.id if runtime else None,
+                    group_id=grupo_db_id(),
+                    motivo=motivo,
                 )
         return False, probabilidade
     return True, probabilidade
@@ -140,10 +159,12 @@ def _ordenar_envio(
             loja: iter(
                 sorted(
                     [
-                        o for o in produtos
+                        o
+                        for o in produtos
                         if o.loja == loja and (o.categoria or "").lower() not in categorias_conteudo
                     ],
-                    key=pontuar, reverse=True,
+                    key=pontuar,
+                    reverse=True,
                 )
             )
             for loja in {o.loja for o in produtos}
@@ -183,7 +204,7 @@ def _baseline_oferta(session, oferta: OfertaCapturada, filtros: dict) -> bool:
 
     oferta_db = _salvar_oferta(session, oferta)
     grupo = grupo_whatsapp()
-    if repositories.ja_conhecida(session, oferta_db.id, grupo=grupo):
+    if repositories.ja_conhecida(session, oferta_db.id, grupo=grupo, tenant_id=_tenant_id_atual()):
         return False
     runtime = bot_atual()
     repositories.registrar_visto(
@@ -204,8 +225,13 @@ def _freio_anti_ban(
     from datetime import timedelta
 
     runtime = bot_runtime_atual()
-    teste = runtime is not None and runtime.is_test
-    escopo = {"escopo_bot_id": runtime.id} if teste else {"excluir_bots_teste": True, "tenant_id": runtime.owner_id if runtime else None}
+    if runtime is None:
+        return False, "freio: sem bot em execução"
+    teste = runtime.is_test
+    escopo = {
+        "tenant_id": runtime.owner_id,
+        **({"escopo_bot_id": runtime.id} if teste else {"excluir_bots_teste": True}),
+    }
     limite = "no bot de teste" if teste else "na conta"
     decorridos_conta = repositories.minutos_desde_ultimo_envio(session, **escopo)
 
@@ -229,9 +255,9 @@ def _freio_anti_ban(
             )
 
     max_hora_grupo = filtros.get("max_ofertas_por_hora")
-    if max_hora_grupo and repositories.contar_envios_ultima_hora(session, grupo=grupo) >= int(
-        max_hora_grupo
-    ):
+    if max_hora_grupo and repositories.contar_envios_ultima_hora(
+        session, grupo=grupo, tenant_id=_tenant_id_atual()
+    ) >= int(max_hora_grupo):
         return False, f"freio: limite {max_hora_grupo}/hora neste grupo"
 
     max_hora_global = filtros.get("max_ofertas_globais_por_hora")
@@ -242,7 +268,7 @@ def _freio_anti_ban(
 
     max_dia_grupo = filtros.get("max_ofertas_por_dia")
     if max_dia_grupo not in (None, 0, "0") and repositories.contar_envios_hoje(
-        session, grupo=grupo
+        session, grupo=grupo, tenant_id=_tenant_id_atual()
     ) >= int(max_dia_grupo):
         return False, f"freio: limite {max_dia_grupo}/dia neste grupo"
 
@@ -254,7 +280,10 @@ def _freio_anti_ban(
 
     if oferta and (oferta.categoria or "").lower() == "cupom":
         max_cupom = int(filtros.get("max_cupons_por_dia") or 2)
-        if repositories.contar_cupons_hoje(session, grupo=grupo) >= max_cupom:
+        if (
+            repositories.contar_cupons_hoje(session, grupo=grupo, tenant_id=_tenant_id_atual())
+            >= max_cupom
+        ):
             return False, f"freio: já foram {max_cupom} cupons hoje neste grupo"
 
     return True, ""
@@ -347,18 +376,28 @@ def _processar_oferta(session, oferta: OfertaCapturada, filtros: dict) -> str:
         sku=oferta.sku,
         loja=oferta.loja,
         grupo=grupo,
+        tenant_id=_tenant_id_atual(),
     )
     if not pode_enviar:
         if "duplicata" in motivo_dedup or "igual/parecida" in motivo_dedup:
-            if not repositories.ja_conhecida(session, oferta_db.id, grupo=grupo):
-                repositories.registrar_visto(session, oferta_db.id, oferta.preco, grupo=grupo)
+            if not repositories.ja_conhecida(
+                session, oferta_db.id, grupo=grupo, tenant_id=_tenant_id_atual()
+            ):
+                repositories.registrar_visto(
+                    session, oferta_db.id, oferta.preco, grupo=grupo, bot_id=bot_atual().id
+                )
         logger.debug(f"Pulando '{oferta.nome[:60]}': {motivo_dedup}")
         return "pulou"
 
     motivo_publico = _motivo_publico(oferta, filtros)
     runtime = bot_atual()
     if motivo_publico and repositories.rejeitada_pelo_publico(
-        session, oferta_db.id, grupo, motivo_publico, runtime.id if runtime else None
+        session,
+        oferta_db.id,
+        grupo,
+        motivo_publico,
+        runtime.id if runtime else None,
+        tenant_id=_tenant_id_atual(),
     ):
         return "pulou"
     publico_ok, probabilidade = _avaliar_publico(session, oferta_db, oferta, filtros, (grupo,))
@@ -372,7 +411,8 @@ def _processar_oferta(session, oferta: OfertaCapturada, filtros: dict) -> str:
 
     publico_log = (
         f" (p={probabilidade:.2f} {filtros.get('classificador_publico', 'jev')})"
-        if probabilidade is not None else ""
+        if probabilidade is not None
+        else ""
     )
     logger.info(f"[{nome_canal()}] Oferta NOVA{publico_log}: {oferta.nome}")
     logger.info(f"Motivo: {motivo_dedup}")
@@ -421,13 +461,18 @@ def _grupos_candidatos(
             sku=oferta.sku,
             loja=oferta.loja,
             grupo=grupo,
+            tenant_id=_tenant_id_atual(),
         )
         if pode_enviar:
             candidatos.append(grupo)
             continue
         if "duplicata" in motivo or "igual/parecida" in motivo:
-            if not repositories.ja_conhecida(session, oferta_db.id, grupo=grupo):
-                repositories.registrar_visto(session, oferta_db.id, oferta.preco, grupo=grupo)
+            if not repositories.ja_conhecida(
+                session, oferta_db.id, grupo=grupo, tenant_id=_tenant_id_atual()
+            ):
+                repositories.registrar_visto(
+                    session, oferta_db.id, oferta.preco, grupo=grupo, bot_id=bot_atual().id
+                )
         logger.debug(f"[{nome_canal()}] Pulando '{oferta.nome[:60]}' em {grupo}: {motivo}")
     return tuple(candidatos)
 
@@ -498,8 +543,13 @@ def _executar_ciclo() -> tuple[int, int, bool]:
     ofertas_enviadas = 0
     with db.get_session() as session:
         # Restart no Railway zera a memória; se o grupo já blipou, não marca o catálogo de novo.
-        if not (runtime and runtime.is_test) and feitos < baseline_alvo and all(
-            repositories.grupo_ja_enviou(session, grupo) for grupo in grupos
+        if (
+            not (runtime and runtime.is_test)
+            and feitos < baseline_alvo
+            and all(
+                repositories.grupo_ja_enviou(session, grupo, tenant_id=_tenant_id_atual())
+                for grupo in grupos
+            )
         ):
             feitos = baseline_alvo
             if runtime is None:
@@ -547,7 +597,9 @@ def _executar_ciclo() -> tuple[int, int, bool]:
                         puladas += 1
                         continue
                     oferta_db = _salvar_oferta(session, oferta)
-                    grupos_ordenados = repositories.ordenar_grupos_por_ultimo_envio(session, grupos)
+                    grupos_ordenados = repositories.ordenar_grupos_por_ultimo_envio(
+                        session, grupos, tenant_id=_tenant_id_atual()
+                    )
                     candidatos = _grupos_candidatos(session, oferta_db, oferta, grupos_ordenados)
                 except Exception as e:
                     logger.error(f"Erro ao processar oferta '{oferta.nome[:60]}': {e}")
@@ -559,10 +611,15 @@ def _executar_ciclo() -> tuple[int, int, bool]:
                 motivo_publico = _motivo_publico(oferta, filtros)
                 if motivo_publico:
                     candidatos = tuple(
-                        grupo for grupo in candidatos
+                        grupo
+                        for grupo in candidatos
                         if not repositories.rejeitada_pelo_publico(
-                            session, oferta_db.id, grupo, motivo_publico,
+                            session,
+                            oferta_db.id,
+                            grupo,
+                            motivo_publico,
                             runtime.id if runtime else None,
+                            tenant_id=_tenant_id_atual(),
                         )
                     )
                 if not candidatos:
@@ -580,7 +637,8 @@ def _executar_ciclo() -> tuple[int, int, bool]:
                     break
                 publico_log = (
                     f" (p={probabilidade:.2f} {filtros.get('classificador_publico', 'jev')})"
-                    if probabilidade is not None else ""
+                    if probabilidade is not None
+                    else ""
                 )
                 logger.info(f"[{nome_canal()}] Oferta NOVA{publico_log}: {oferta.nome}")
                 mensagens_enviadas = 0

@@ -13,6 +13,7 @@ from zoneinfo import ZoneInfo
 
 import httpx
 from sqlalchemy import String, cast, select
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from core.tenant_context import event_tenant_id
@@ -32,6 +33,7 @@ from core.models import (
     PlatformAccount,
     PlatformCredential,
     Sale,
+    Tenant,
 )
 
 ML_DASHBOARD_URL = "https://www.mercadolivre.com.br/afiliados/dashboard"
@@ -56,7 +58,9 @@ def _event(
     session.add(
         Event(
             entity_type="platform_account",
-            tenant_id=event_tenant_id(session, entity_type="platform_account", entity_id=str(account_id)),
+            tenant_id=event_tenant_id(
+                session, entity_type="platform_account", entity_id=str(account_id)
+            ),
             entity_id=str(account_id),
             level="warning",
             type=event_type,
@@ -159,31 +163,54 @@ def _upsert(account_id: UUID, rows: list[SaleImportRow], source: str) -> SyncRes
         now = datetime.now(timezone.utc)
         platform = session.get(Platform, account.platform_id)
         for row in rows:
-            values = _values(row, account, source)
-            if platform is not None and platform.slug == "shopee":
-                bot_id, group_id = _resolve_shopee_attribution(session, account, row)
-                values["bot_id"] = bot_id
-                values["group_id"] = group_id
-            sale = session.scalar(
-                select(Sale).where(
-                    Sale.platform_id == account.platform_id,
-                    Sale.external_id == row.external_id,
-                )
-            )
-            if sale is None:
-                session.add(Sale(id=uuid4(), imported_at=now, **values))
-                imported += 1
-                continue
-            if sale.owner_id != account.owner_id:
-                raise ValueError("Venda já pertence a outro usuário")
-            changed = any(getattr(sale, field) != value for field, value in values.items())
-            if not changed:
+            try:
+                with session.begin_nested():
+                    values = _values(row, account, source)
+                    if platform is not None and platform.slug == "shopee":
+                        bot_id, group_id = _resolve_shopee_attribution(session, account, row)
+                        values["bot_id"] = bot_id
+                        values["group_id"] = group_id
+                    for field, model in (("bot_id", Bot), ("group_id", Group)):
+                        if (
+                            values[field] is not None
+                            and session.scalar(
+                                select(model.id).where(
+                                    model.id == values[field], model.owner_id == account.owner_id
+                                )
+                            )
+                            is None
+                        ):
+                            raise ValueError("Referência da venda não pertence à conta")
+                    sale = session.scalar(
+                        select(Sale).where(
+                            Sale.owner_id == account.owner_id,
+                            Sale.platform_id == account.platform_id,
+                            Sale.external_id == row.external_id,
+                        )
+                    )
+                    changed = sale is None or any(
+                        getattr(sale, field) != value for field, value in values.items()
+                    )
+                    if sale is None:
+                        session.add(Sale(id=uuid4(), imported_at=now, **values))
+                    elif changed:
+                        for field, value in values.items():
+                            setattr(sale, field, value)
+                        sale.imported_at = now
+                    session.flush()
+                if changed:
+                    imported += 1
+                else:
+                    skipped += 1
+            except (SQLAlchemyError, ValueError, TypeError):
                 skipped += 1
-                continue
-            for field, value in values.items():
-                setattr(sale, field, value)
-            sale.imported_at = now
-            imported += 1
+                _event(
+                    session,
+                    account.id,
+                    "sales_sync_row_failed",
+                    "Linha de venda inválida ignorada; sincronização continua",
+                    {"line": row.line},
+                )
     return SyncResult(imported=imported, skipped=skipped)
 
 
@@ -192,6 +219,11 @@ def _load_account(account_id: UUID) -> tuple[str, dict, dict[str, str]]:
         account = session.get(PlatformAccount, account_id)
         if account is None or account.status != "active":
             raise ValueError("Conta de plataforma ativa não encontrada")
+        if (
+            session.scalar(select(Tenant.status).where(Tenant.id == account.owner_id))
+            == "suspended"
+        ):
+            raise ValueError("conta suspensa")
         platform = session.get(Platform, account.platform_id)
         if platform is None:
             raise ValueError("Plataforma da conta não encontrada")
@@ -393,11 +425,16 @@ def _sync_ml(account_id: UUID, credentials: dict[str, str]) -> SyncResult:
                     # O KPI bruto do painel tem outra base (itens/quantidades).
                     # A conciliação financeira compara a comissão, como nas linhas.
                     and row_commission != expected_commission
-                    and session.scalar(select(Event.id).where(
-                        Event.type == "ml_reconciliation_mismatch",
-                        Event.entity_id == str(account_id),
-                        Event.detail["date"].as_string() == day.isoformat(),
-                    ).limit(1)) is None
+                    and session.scalar(
+                        select(Event.id)
+                        .where(
+                            Event.type == "ml_reconciliation_mismatch",
+                            Event.entity_id == str(account_id),
+                            Event.detail["date"].as_string() == day.isoformat(),
+                        )
+                        .limit(1)
+                    )
+                    is None
                 ):
                     _event(
                         session,
@@ -419,8 +456,10 @@ def _sync_ml(account_id: UUID, credentials: dict[str, str]) -> SyncResult:
 
 
 def sync_account(
-    account_id: UUID, *, origin: Literal["sync_manual", "sync_automatic"] = "sync_manual",
-    requested_by: UUID | None = None
+    account_id: UUID,
+    *,
+    origin: Literal["sync_manual", "sync_automatic"] = "sync_manual",
+    requested_by: UUID | None = None,
 ) -> SyncResult:
     platform_slug, config, credentials = _load_account(account_id)
     if platform_slug == "shopee":
@@ -432,15 +471,24 @@ def sync_account(
     if not result.auth_expired:
         with db.get_session() as session:
             account = session.get(PlatformAccount, account_id)
-            session.add(AuditLog(
-                user_id=requested_by if origin == "sync_manual" else None,
-                tenant_id=account.owner_id,
-                entity_type="sale_import",
-                entity_id=str(account.id), action="sync_success",
-                after={"source": origin, "owner_id": str(account.owner_id), "account_id": str(account.id),
-                       "account_label": account.label, "platform_id": account.platform_id,
-                       "imported": result.imported, "skipped": result.skipped},
-            ))
+            session.add(
+                AuditLog(
+                    user_id=requested_by if origin == "sync_manual" else None,
+                    tenant_id=account.owner_id,
+                    entity_type="sale_import",
+                    entity_id=str(account.id),
+                    action="sync_success",
+                    after={
+                        "source": origin,
+                        "owner_id": str(account.owner_id),
+                        "account_id": str(account.id),
+                        "account_label": account.label,
+                        "platform_id": account.platform_id,
+                        "imported": result.imported,
+                        "skipped": result.skipped,
+                    },
+                )
+            )
     return result
 
 
@@ -451,7 +499,9 @@ def sync_all_active_accounts() -> None:
             accounts = session.execute(
                 select(PlatformAccount.id, Platform.capabilities)
                 .join(Platform, Platform.id == PlatformAccount.platform_id)
+                .join(Tenant, Tenant.id == PlatformAccount.owner_id)
                 .where(
+                    Tenant.status == "active",
                     PlatformAccount.status == "active",
                     Platform.is_active.is_(True),
                     Platform.slug.in_(("shopee", "mercadolivre")),

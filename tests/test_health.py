@@ -71,6 +71,18 @@ def test_heartbeat_invalido_nao_altera_health(
     assert stored.worker_id == "worker-valido"
 
 
+def test_heartbeat_aceita_101_bots(client, monkeypatch):
+    monkeypatch.setenv("WORKER_TOKEN", "segredo-de-teste")
+    bots = [uuid4() for _ in range(101)]
+    response = client.post(
+        "/api/internal/heartbeat",
+        json={"worker_id": "worker-grande", "bots_running": [str(bot) for bot in bots]},
+        headers={"X-Worker-Token": "segredo-de-teste"},
+    )
+    assert response.status_code == 204, response.text
+    assert health.get_worker_heartbeat().bots_running == tuple(bots)
+
+
 def test_health_sem_heartbeat_e_sem_runs_retorna_null(client: TestClient) -> None:
     response = client.get("/api/health")
 

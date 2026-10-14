@@ -7,6 +7,7 @@ from uuid import UUID
 
 from sqlalchemy import and_, func, or_, select
 from sqlalchemy.orm import Session
+from sqlalchemy.sql.elements import ColumnElement
 
 from core.models import Bot, Envio, Group, Oferta
 from core import relogio
@@ -46,15 +47,21 @@ def upsert_oferta(session: Session, dados: dict) -> Oferta:
     return oferta
 
 
-def ultimo_envio(session: Session, oferta_id: int, grupo: str | None = None) -> Envio | None:
+def ultimo_envio(
+    session: Session, oferta_id: int, grupo: str | None = None, *, tenant_id: UUID
+) -> Envio | None:
     """Último envio com sucesso no WhatsApp (falha de rede não bloqueia retry)."""
     q = session.query(Envio).filter_by(oferta_id=oferta_id, status="sucesso")
     if grupo:
         q = q.filter_by(grupo=grupo)
-    return q.order_by(Envio.enviado_em.desc()).first()
+    return (
+        q.filter(escopo_envios_conta(tenant_id=tenant_id)).order_by(Envio.enviado_em.desc()).first()
+    )
 
 
-def ja_conhecida(session: Session, oferta_id: int, grupo: str | None = None) -> bool:
+def ja_conhecida(
+    session: Session, oferta_id: int, grupo: str | None = None, *, tenant_id: UUID
+) -> bool:
     """True se a oferta já foi vista no baseline ou enviada com sucesso neste grupo."""
     q = session.query(Envio.id).filter(
         Envio.oferta_id == oferta_id,
@@ -62,7 +69,7 @@ def ja_conhecida(session: Session, oferta_id: int, grupo: str | None = None) -> 
     )
     if grupo:
         q = q.filter(Envio.grupo == grupo)
-    return q.first() is not None
+    return q.filter(escopo_envios_conta(tenant_id=tenant_id)).first() is not None
 
 
 def registrar_visto(
@@ -89,20 +96,30 @@ def registrar_visto(
 
 
 def rejeitada_pelo_publico(
-    session: Session, oferta_id: int, grupo: str, motivo: str, bot_id: UUID | None
+    session: Session,
+    oferta_id: int,
+    grupo: str,
+    motivo: str,
+    bot_id: UUID | None,
+    *,
+    tenant_id: UUID,
 ) -> bool:
     """Só rejeições deste bot e configuração bloqueiam; baseline continua ignorada."""
-    return session.scalar(
-        select(Envio.id)
-        .where(
-            Envio.oferta_id == oferta_id,
-            Envio.grupo == grupo,
-            Envio.status == "visto",
-            Envio.mensagem == motivo,
-            Envio.bot_id == bot_id,
+    return (
+        session.scalar(
+            select(Envio.id)
+            .where(
+                Envio.oferta_id == oferta_id,
+                Envio.grupo == grupo,
+                Envio.status == "visto",
+                Envio.mensagem == motivo,
+                Envio.bot_id == bot_id,
+                escopo_envios_conta(tenant_id=tenant_id),
+            )
+            .limit(1)
         )
-        .limit(1)
-    ) is not None
+        is not None
+    )
 
 
 def registrar_envio(
@@ -132,20 +149,35 @@ def registrar_envio(
     return envio
 
 
-def grupo_ja_enviou(session: Session, grupo: str | None = None) -> bool:
+def grupo_ja_enviou(session: Session, grupo: str | None = None, *, tenant_id: UUID) -> bool:
     """True se este grupo já teve envio de verdade (não só baseline)."""
     q = session.query(Envio.id).filter(Envio.status == "sucesso")
     if grupo:
         q = q.filter(Envio.grupo == grupo)
-    return q.first() is not None
+    return q.filter(escopo_envios_conta(tenant_id=tenant_id)).first() is not None
 
 
-def _escopo_envios(q, escopo_bot_id: UUID | None, excluir_bots_teste: bool, tenant_id: UUID | None = None):
-    if tenant_id is not None:
-        q = q.filter(or_(
-            Envio.bot_id.in_(select(Bot.id).where(Bot.owner_id == tenant_id)),
-            and_(Envio.bot_id.is_(None), Envio.grupo.in_(select(Group.whatsapp_id).where(Group.owner_id == tenant_id))),
-        ))
+def escopo_envios_conta(*, tenant_id: UUID) -> ColumnElement[bool]:
+    """Dono pelo bot; sem bot, pelo grupo. JID é fallback do histórico legado."""
+    if tenant_id is None:
+        raise ValueError("tenant_id é obrigatório")
+    return or_(
+        Envio.bot_id.in_(select(Bot.id).where(Bot.owner_id == tenant_id)),
+        and_(
+            Envio.bot_id.is_(None),
+            or_(
+                Envio.group_id.in_(select(Group.id).where(Group.owner_id == tenant_id)),
+                and_(
+                    Envio.group_id.is_(None),
+                    Envio.grupo.in_(select(Group.whatsapp_id).where(Group.owner_id == tenant_id)),
+                ),
+            ),
+        ),
+    )
+
+
+def _escopo_envios(q, escopo_bot_id: UUID | None, excluir_bots_teste: bool, *, tenant_id: UUID):
+    q = q.filter(escopo_envios_conta(tenant_id=tenant_id))
     if escopo_bot_id is not None:
         q = q.filter(Envio.bot_id == escopo_bot_id)
     if excluir_bots_teste:
@@ -165,7 +197,7 @@ def contar_envios_desde(
     *,
     escopo_bot_id: UUID | None = None,
     excluir_bots_teste: bool = False,
-    tenant_id: UUID | None = None,
+    tenant_id: UUID,
 ) -> int:
     # Na conta, uma oferta disparada para varios grupos consome um unico slot
     # do freio anti-ban. Por grupo continua sendo uma linha por oferta.
@@ -175,20 +207,23 @@ def contar_envios_desde(
     )
     if grupo:
         q = q.filter(Envio.grupo == grupo)
-    return _escopo_envios(q, escopo_bot_id, excluir_bots_teste, tenant_id).scalar() or 0
+    return _escopo_envios(q, escopo_bot_id, excluir_bots_teste, tenant_id=tenant_id).scalar() or 0
 
 
-def ordenar_grupos_por_ultimo_envio(session: Session, grupos: tuple[str, ...]) -> tuple[str, ...]:
+def ordenar_grupos_por_ultimo_envio(
+    session: Session, grupos: tuple[str, ...], *, tenant_id: UUID
+) -> tuple[str, ...]:
     """Prioriza quem esta ha mais tempo sem receber uma mensagem.
 
     Grupos sem envio anterior vao primeiro; o identificador desempata para a
     ordem ser deterministica.
     """
+    escopo = escopo_envios_conta(tenant_id=tenant_id)
     if not grupos:
         return ()
     ultimos = dict(
         session.query(Envio.grupo, func.max(Envio.enviado_em))
-        .filter(Envio.status == "sucesso", Envio.grupo.in_(grupos))
+        .filter(Envio.status == "sucesso", Envio.grupo.in_(grupos), escopo)
         .group_by(Envio.grupo)
         .all()
     )
@@ -199,12 +234,18 @@ def ordenar_grupos_por_ultimo_envio(session: Session, grupos: tuple[str, ...]) -
     )
 
 
-def contar_envios_ultima_hora(session: Session, grupo: str | None = None) -> int:
-    return contar_envios_desde(session, relogio.agora_banco() - timedelta(hours=1), grupo=grupo)
+def contar_envios_ultima_hora(
+    session: Session, grupo: str | None = None, *, tenant_id: UUID
+) -> int:
+    return contar_envios_desde(
+        session, relogio.agora_banco() - timedelta(hours=1), grupo=grupo, tenant_id=tenant_id
+    )
 
 
-def contar_envios_hoje(session: Session, grupo: str | None = None) -> int:
-    return contar_envios_desde(session, relogio.inicio_do_dia_banco(), grupo=grupo)
+def contar_envios_hoje(session: Session, grupo: str | None = None, *, tenant_id: UUID) -> int:
+    return contar_envios_desde(
+        session, relogio.inicio_do_dia_banco(), grupo=grupo, tenant_id=tenant_id
+    )
 
 
 def _minutos_desde(quando: datetime | None) -> float | None:
@@ -222,14 +263,14 @@ def minutos_desde_ultimo_envio(
     *,
     escopo_bot_id: UUID | None = None,
     excluir_bots_teste: bool = False,
-    tenant_id: UUID | None = None,
+    tenant_id: UUID,
 ) -> float | None:
     """Minutos desde o último envio com sucesso. None se nunca enviou."""
     q = session.query(Envio.enviado_em).filter(Envio.status == "sucesso")
     if grupo:
         q = q.filter(Envio.grupo == grupo)
     ultimo = (
-        _escopo_envios(q, escopo_bot_id, excluir_bots_teste, tenant_id)
+        _escopo_envios(q, escopo_bot_id, excluir_bots_teste, tenant_id=tenant_id)
         .order_by(Envio.enviado_em.desc())
         .first()
     )
@@ -238,7 +279,7 @@ def minutos_desde_ultimo_envio(
     return _minutos_desde(ultimo[0])
 
 
-def contar_cupons_hoje(session: Session, grupo: str | None = None) -> int:
+def contar_cupons_hoje(session: Session, grupo: str | None = None, *, tenant_id: UUID) -> int:
     inicio_do_dia = relogio.inicio_do_dia_banco()
     q = (
         session.query(func.count(Envio.id))
@@ -251,10 +292,12 @@ def contar_cupons_hoje(session: Session, grupo: str | None = None) -> int:
     )
     if grupo:
         q = q.filter(Envio.grupo == grupo)
-    return q.scalar() or 0
+    return q.filter(escopo_envios_conta(tenant_id=tenant_id)).scalar() or 0
 
 
-def minutos_desde_ultimo_sku(session: Session, sku: str, grupo: str | None = None) -> float | None:
+def minutos_desde_ultimo_sku(
+    session: Session, sku: str, grupo: str | None = None, *, tenant_id: UUID
+) -> float | None:
     q = (
         session.query(Envio.enviado_em)
         .join(Oferta, Oferta.id == Envio.oferta_id)
@@ -262,7 +305,9 @@ def minutos_desde_ultimo_sku(session: Session, sku: str, grupo: str | None = Non
     )
     if grupo:
         q = q.filter(Envio.grupo == grupo)
-    ultimo = q.order_by(Envio.enviado_em.desc()).first()
+    ultimo = (
+        q.filter(escopo_envios_conta(tenant_id=tenant_id)).order_by(Envio.enviado_em.desc()).first()
+    )
     if not ultimo or not ultimo[0]:
         return None
     return _minutos_desde(ultimo[0])
@@ -274,6 +319,8 @@ def sku_ja_enviado(
     loja: str | None = None,
     exceto_oferta_id: int | None = None,
     grupo: str | None = None,
+    *,
+    tenant_id: UUID,
 ) -> bool:
     """True se algum envio com sucesso já usou este SKU (mesmo produto, outra URL)."""
     q = (
@@ -287,11 +334,11 @@ def sku_ja_enviado(
         q = q.filter(Envio.grupo == grupo)
     if exceto_oferta_id is not None:
         q = q.filter(Oferta.id != exceto_oferta_id)
-    return q.first() is not None
+    return q.filter(escopo_envios_conta(tenant_id=tenant_id)).first() is not None
 
 
 def nomes_precos_enviados_recentes(
-    session: Session, dias: int = 30, grupo: str | None = None
+    session: Session, dias: int = 30, grupo: str | None = None, *, tenant_id: UUID
 ) -> list[tuple[str, float]]:
     """Nome + preço das ofertas já enviadas com sucesso no período."""
     desde = relogio.agora_banco() - timedelta(days=dias)
@@ -302,5 +349,5 @@ def nomes_precos_enviados_recentes(
     )
     if grupo:
         q = q.filter(Envio.grupo == grupo)
-    rows = q.all()
+    rows = q.filter(escopo_envios_conta(tenant_id=tenant_id)).all()
     return [(n or "", float(p) if p is not None else 0.0) for n, p in rows]

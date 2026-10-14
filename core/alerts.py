@@ -13,7 +13,8 @@ from uuid import UUID
 
 from sqlalchemy import delete, func, or_, select, text
 from sqlalchemy.dialects.postgresql import insert
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import InstrumentedAttribute, Session
+from sqlalchemy.sql.elements import ColumnElement
 
 from core import db
 from core.bot_settings import BotSettings
@@ -32,6 +33,7 @@ from core.models import (
     Platform,
     PlatformAccount,
     PlatformCredential,
+    Tenant,
     User,
 )
 from core.settings import settings
@@ -74,7 +76,11 @@ class Detector:
 def _first_admin(session: Session) -> User | None:
     return session.scalar(
         select(User)
-        .where(User.is_platform_admin.is_(True), User.is_active.is_(True))
+        .where(
+            User.is_platform_admin.is_(True),
+            User.is_active.is_(True),
+            _active_owner(User.tenant_id),
+        )
         .order_by(User.created_at, User.id)
         .limit(1)
     )
@@ -93,9 +99,19 @@ def _missing_owner_event(session: Session, detector: str, entity_id: str | None 
     )
 
 
+def _active_owner(owner_column: InstrumentedAttribute[UUID]) -> ColumnElement[bool]:
+    return owner_column.in_(select(Tenant.id).where(Tenant.status == "active"))
+
+
+def _owner_active(session: Session, owner_id: UUID) -> bool:
+    return session.scalar(select(Tenant.status).where(Tenant.id == owner_id)) == "active"
+
+
 def detect_bot_offline(session: Session, now: datetime) -> list[AlertCondition]:
     conditions: list[AlertCondition] = []
-    bots = list(session.scalars(select(Bot).where(Bot.status == "active")))
+    bots = list(
+        session.scalars(select(Bot).where(Bot.status == "active", _active_owner(Bot.owner_id)))
+    )
     for bot in bots:
         try:
             interval = BotSettings.model_validate(bot.settings).schedule.check_interval
@@ -153,7 +169,9 @@ def detect_bot_offline(session: Session, now: datetime) -> list[AlertCondition]:
 
 def detect_automation_failing(session: Session, _now: datetime) -> list[AlertCondition]:
     conditions = []
-    for bot in session.scalars(select(Bot).where(Bot.status == "active")):
+    for bot in session.scalars(
+        select(Bot).where(Bot.status == "active", _active_owner(Bot.owner_id))
+    ):
         statuses = list(
             session.scalars(
                 select(AutomationRun.status)
@@ -185,7 +203,7 @@ def _credential_conditions(
     rows = session.execute(
         select(PlatformCredential, PlatformAccount)
         .join(PlatformAccount, PlatformAccount.id == PlatformCredential.account_id)
-        .where(PlatformAccount.status == "active")
+        .where(PlatformAccount.status == "active", _active_owner(PlatformAccount.owner_id))
     )
     conditions = []
     for credential, account in rows:
@@ -228,7 +246,11 @@ def detect_send_failed(session: Session, now: datetime) -> list[AlertCondition]:
     rows = session.execute(
         select(Group, func.count(Envio.id))
         .join(Envio, Envio.group_id == Group.id)
-        .where(Envio.status == "falha", Envio.enviado_em >= now - timedelta(hours=1))
+        .where(
+            Envio.status == "falha",
+            Envio.enviado_em >= now - timedelta(hours=1),
+            _active_owner(Group.owner_id),
+        )
         .group_by(Group.id)
         .having(func.count(Envio.id) >= SEND_FAILURE_THRESHOLD)
     )
@@ -254,6 +276,8 @@ def detect_group_inaccessible(session: Session, _now: datetime) -> list[AlertCon
         .join(Bot, Bot.id == BotGroup.bot_id)
         .where(
             Bot.status == "active",
+            _active_owner(Bot.owner_id),
+            _active_owner(Group.owner_id),
             BotGroup.is_active.is_(True),
             or_(
                 Group.status == "inaccessible",
@@ -292,6 +316,8 @@ def _event_owner(session: Session, event: Event) -> UUID | None:
         )
     if event.entity_type == "group":
         return session.scalar(select(Group.owner_id).where(Group.id == entity_uuid))
+    if event.entity_type == "phone":
+        return session.scalar(select(Phone.owner_id).where(Phone.id == entity_uuid))
     return None
 
 
@@ -313,7 +339,8 @@ def detect_recurring_error(session: Session, now: datetime) -> list[AlertConditi
                 _missing_owner_event(session, "recurring_error", str(event.id))
                 continue
             owner_id = admin.tenant_id
-        counts[(owner_id, event.type)] += 1
+        if _owner_active(session, owner_id):
+            counts[(owner_id, event.type)] += 1
     return [
         AlertCondition(
             owner_id,
@@ -346,19 +373,22 @@ def detect_bot_not_runnable(session: Session, now: datetime) -> list[AlertCondit
         if event.bot_id is None or event.bot_id in conditions:
             continue
         bot = session.get(Bot, event.bot_id)
-        if bot is None or bot.status != "active":
+        if bot is None or bot.status != "active" or not _owner_active(session, bot.owner_id):
             continue
         phone = session.get(Phone, bot.phone_id) if bot.phone_id else None
-        has_group = session.scalar(
-            select(BotGroup.group_id)
-            .join(Group, Group.id == BotGroup.group_id)
-            .where(
-                BotGroup.bot_id == bot.id,
-                BotGroup.is_active.is_(True),
-                Group.status == "active",
+        has_group = (
+            session.scalar(
+                select(BotGroup.group_id)
+                .join(Group, Group.id == BotGroup.group_id)
+                .where(
+                    BotGroup.bot_id == bot.id,
+                    BotGroup.is_active.is_(True),
+                    Group.status == "active",
+                )
+                .limit(1)
             )
-            .limit(1)
-        ) is not None
+            is not None
+        )
         if phone is not None and phone.number and phone.evolution_instance and has_group:
             continue
         conditions[bot.id] = AlertCondition(
@@ -378,7 +408,11 @@ def detect_sales_sync_stale(session: Session, now: datetime) -> list[AlertCondit
     rows = session.execute(
         select(PlatformAccount, Platform)
         .join(Platform, Platform.id == PlatformAccount.platform_id)
-        .where(PlatformAccount.status == "active", Platform.is_active.is_(True))
+        .where(
+            PlatformAccount.status == "active",
+            Platform.is_active.is_(True),
+            _active_owner(PlatformAccount.owner_id),
+        )
     )
     conditions = []
     for account, platform in rows:
@@ -387,7 +421,8 @@ def detect_sales_sync_stale(session: Session, now: datetime) -> list[AlertCondit
             continue
         latest = session.scalar(
             select(func.max(AuditLog.created_at)).where(
-                AuditLog.entity_type == "sale_import", AuditLog.action == "sync_success",
+                AuditLog.entity_type == "sale_import",
+                AuditLog.action == "sync_success",
                 AuditLog.entity_id == str(account.id),
             )
         )
@@ -415,6 +450,7 @@ def detect_traffic_spend_stale(session: Session, now: datetime) -> list[AlertCon
         .join(ExpenseCategory, ExpenseCategory.id == Expense.category_id)
         .where(
             ExpenseCategory.slug == "trafego",
+            _active_owner(Expense.owner_id),
             Expense.incurred_on >= history_cutoff,
         )
     )
@@ -459,6 +495,8 @@ def _detect_recent_ml_event(
                 _missing_owner_event(session, event_type, str(event.id))
                 continue
             owner_id = admin.tenant_id
+        if not _owner_active(session, owner_id):
+            continue
         date_value = (event.detail or {}).get("date")
         try:
             display_date = datetime.fromisoformat(str(date_value)).strftime("%d/%m")
@@ -468,11 +506,18 @@ def _detect_recent_ml_event(
         if event_type == "ml_reconciliation_mismatch":
             entity_key = f"{entity_key}:{date_value}"
             # Uma conciliação já resolvida não reabre para a mesma data.
-            if session.scalar(select(Alert.id).where(
-                Alert.owner_id == owner_id,
-                Alert.dedup_key == f"{event_type}:{entity_key}",
-                Alert.status == "resolved",
-            ).limit(1)) is not None:
+            if (
+                session.scalar(
+                    select(Alert.id)
+                    .where(
+                        Alert.owner_id == owner_id,
+                        Alert.dedup_key == f"{event_type}:{entity_key}",
+                        Alert.status == "resolved",
+                    )
+                    .limit(1)
+                )
+                is not None
+            ):
                 continue
         conditions.setdefault(
             (owner_id, entity_key),
@@ -559,7 +604,9 @@ def _upsert_conditions(
     active = list(
         session.scalars(
             select(Alert).where(
-                Alert.type.in_(alert_types), Alert.status.in_(ACTIVE_ALERT_STATUSES)
+                Alert.type.in_(alert_types),
+                Alert.status.in_(ACTIVE_ALERT_STATUSES),
+                _active_owner(Alert.owner_id),
             )
         )
     )

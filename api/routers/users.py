@@ -105,6 +105,14 @@ def update_user(
     if user is None or user.tenant_id != admin.tenant_id:
         raise APIError(404, "NOT_FOUND", "Usuário não encontrado")
     changes = payload.model_dump(exclude_unset=True)
+    if (
+        user.is_platform_admin
+        and not admin.is_platform_admin
+        and changes.keys() & {"email", "password", "role", "is_active"}
+    ):
+        raise APIError(
+            403, "FORBIDDEN", "Somente um administrador da plataforma pode alterar este acesso"
+        )
     if user.id == admin.id and (
         ("role" in changes and changes["role"] != admin.role) or changes.get("is_active") is False
     ):
@@ -154,6 +162,10 @@ def delete_user(
     user = session.get(User, user_id)
     if user is None or user.tenant_id != admin.tenant_id:
         raise APIError(404, "NOT_FOUND", "Usuário não encontrado")
+    if user.is_platform_admin and not admin.is_platform_admin:
+        raise APIError(
+            403, "FORBIDDEN", "Somente um administrador da plataforma pode remover este acesso"
+        )
     if user.id == admin.id:
         raise APIError(409, "CONFLICT", "Não é permitido remover o próprio usuário")
     before = _public_dict(user)

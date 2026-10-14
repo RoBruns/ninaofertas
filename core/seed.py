@@ -131,6 +131,7 @@ def _admin(session: Session, email: str, password: str) -> User:
 
     user = session.scalar(select(User).where(User.email == email))
     if user is not None:
+        user.is_platform_admin = True
         return user
     password_hash = PasswordHasher(type=Type.ID).hash(password)
     tenant = Tenant(name="Administrador", is_internal=True)
