@@ -61,6 +61,15 @@ Infraestrutura: `DATABASE_URL`, `CREDENTIALS_KEY`, `EVOLUTION_API_URL`,
 `TZ=<-03>3`. Heartbeat: `API_URL`, `WORKER_TOKEN`, `WORKER_ID`.
 Bots, grupos, instâncias e credenciais de Shopee/ML vêm do dashboard (ADR-020).
 
+`EVOLUTION_API_KEY` é a **chave geral de gerenciamento** do servidor Evolution,
+usada tanto na API quanto no worker para criar/consultar instâncias, obter QR,
+estado e grupos. Envios usam o token específico de cada telefone, cifrado no
+banco com a mesma `CREDENTIALS_KEY` compartilhada por API e worker. Sem token,
+ou após 401 do token, a chave geral mantém o envio (ADR-029).
+Depois de aplicar a migration 0008, o admin da conta pode usar **Sincronizar
+token** no telefone já existente da Nina; não é necessário recriar a instância
+ou reparear o WhatsApp. Nenhuma variável de token deve ir ao frontend.
+
 `TYPESAFE_API_KEY` e `ANTHROPIC_API_KEY` são opcionais e pertencem somente ao
 **nina-worker**: respectivamente Jev (`jev-1.13.0`, chave Bearer da TypeSafe) e
 Claude Haiku (`claude-haiku-5-5`, SDK oficial Anthropic). Não colocar na API, no dashboard ou
@@ -75,7 +84,7 @@ Detalhes do fluxo em [BOT_INTEGRATION.md](BOT_INTEGRATION.md#público-do-grupo-e
 
 ```
 DATABASE_URL          ${{nina-db.DATABASE_URL}}
-CREDENTIALS_KEY       # 32 bytes base64 — cifra platform_credentials
+CREDENTIALS_KEY       # 32 bytes base64 — cifra platform_credentials e tokens de phones
 JWT_SECRET            # 64 bytes aleatórios
 WORKER_TOKEN          # autentica /api/internal/*
 CORS_ORIGINS          https://<dashboard>.up.railway.app

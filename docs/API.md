@@ -23,11 +23,22 @@ aceita alteração de tenant ou dessa permissão nas rotas comuns.
 | `GET /api/platform/tenants` | Platform admin | Lista `{id,name,status,is_internal,created_at,users_count,active_bots_count,successful_sends_30d}` |
 | `POST /api/platform/tenants` | Platform admin | `{name,admin_email,admin_name,admin_password}` → 201; cria conta externa e primeiro admin em transação; email repetido → 409 |
 | `PATCH /api/platform/tenants/{tenant_id}` | Platform admin | `{name?,status?}`; suspender pausa bots ativos e audita; própria conta → 409; reativar não ativa bots |
-| `POST /api/phones/{phone_id}/instance` | Admin da conta | Cria instância `nb-<8 do tenant>-<8 do telefone>`; se existente, busca seu QR; responde `QRCodeResponse`; Evolution indisponível → 503 |
+| `POST /api/phones/{phone_id}/instance` | Admin da conta | Reserva nome `nb-<8 do tenant>-<8 do telefone>` antes de criar; guarda token cifrado e devolve `QRCodeResponse`; recupera token ausente de instância existente; conectado → 409 `ALREADY_CONNECTED`; indisponível → 503 |
+| `POST /api/phones/{phone_id}/instance/token/sync` | Admin da conta | Busca e regrava token da instância; devolve `PhoneResponse`; sem instância → 409 `NO_INSTANCE`; instância/token inexistente → 404; audita só fingerprint |
+| `GET /api/phones/{phone_id}/status` | Usuário da conta | `PhoneResponse` com estado consultado na Evolution; `connecting` significa aguardando leitura do QR; preenche número ausente por `ownerJid` ao conectar; indisponível → 503 |
 
 `PhoneCreate`/`PhoneUpdate` aceitam `evolution_instance` somente de platform
 admin; campo presente, inclusive null, de outro usuário → 403. Instância usada
 por outro telefone → 409. Remover telefone não remove instância na Evolution.
+Nome informado por platform admin aceita apenas `^[A-Za-z0-9._-]{1,64}$`.
+Trocar a instância remove o token anterior. Número é opcional (null) até conectar.
+`PhoneResponse` inclui apenas `has_instance_token` e `instance_token_fingerprint`,
+sem token ou ciphertext. O dashboard consulta estado a cada 3 s e renova QR a
+cada 30 s ou na expiração, com validade padrão de 60 s. QR de WhatsApp conectado
+também retorna 409 `ALREADY_CONNECTED`. Falha de criação desfaz a reserva no banco;
+403 de nome já usado recupera a instância da tentativa anterior. Outros erros de
+criação 4xx retornam 400; falha de rede/servidor retorna 503. Depois da criação,
+nome e token permanecem gravados mesmo se a consulta de QR falhar.
 
 `settings.content.recado_instagram` é bool, padrão false. Migration 0007 liga
 nos bots existentes. Eventos com `tenant_id=NULL` só aparecem a platform admins;
@@ -151,6 +162,9 @@ nunca sai.
 GET    /api/phones                            → [Phone]  (com status da evolution-api)
 POST   /api/phones · PATCH · DELETE
 GET    /api/phones/{id}/qrcode                 → {qrcode_base64, expires_at}
+POST   /api/phones/{id}/instance               → {qrcode_base64, expires_at}
+POST   /api/phones/{id}/instance/token/sync    → Phone
+GET    /api/phones/{id}/status                → Phone
 POST   /api/phones/{id}/sync-groups            → 202 {command_id}   (descoberta)
 
 GET    /api/groups?phone_id=&status=&bot_id=   → [Group]

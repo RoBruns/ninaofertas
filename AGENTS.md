@@ -72,7 +72,7 @@ nina-worker (APScheduler) ──────────────── nina-
 | `worker/dedup.py`, `worker/commands.py`, `worker/telemetry.py`, `worker/whatsapp.py` | dedup por grupo, comandos do dashboard, runs/eventos, Evolution |
 | `core/platforms/` | scrapers Shopee/ML, `affiliate.py` (links de afiliado, `link_rastreado`) |
 | `core/sales_sync.py`, `core/importers/` | importação de vendas (Shopee: API `conversionReport`; ML: JSON do painel `/afiliados/dashboard`) |
-| `core/models.py`, `core/repositories.py`, `migrations/` | modelo de dados, tenants e consultas (Alembic 0001–0007); `owner_id` aponta para tenants |
+| `core/models.py`, `core/repositories.py`, `migrations/` | modelo de dados, tenants e consultas (Alembic 0001–0008); `owner_id` aponta para tenants |
 | `core/credentials.py`, `core/crypto.py` | segredos cifrados (`CREDENTIALS_KEY`), status de credencial |
 | `core/relogio.py` | hora de Brasília independente do fuso do container; silêncio noturno |
 | `core/alerts.py`, `core/metrics.py` | detectores de alerta, métricas (ROI, ROAS, lucro) |
@@ -153,6 +153,9 @@ nina-worker (APScheduler) ──────────────── nina-
 - **Isolamento**: `user.tenant_id` é dono; `user.id` é autoria. `role=admin` vale só
   dentro da conta; `is_platform_admin` controla `/platform`. Instância Evolution
   livre só para platform admin; clientes conectam por `/phones/{id}/instance`.
+- **Token Evolution** (ADR-029): gerenciamento usa `EVOLUTION_API_KEY`; envio usa
+  o token cifrado do telefone. Sem token ou após 401, usa a chave geral (retry só
+  em 401, uma vez). Número pode ser null até conectar, preenchido por `ownerJid`.
 - **Cupom** só entra na mensagem se for código digitável (4–16 letras/números).
 
 ## Convenções
@@ -171,7 +174,7 @@ nina-worker (APScheduler) ──────────────── nina-
 | Pergunta | Arquivo |
 |---|---|
 | Estado das fases e o que falta | `docs/ROADMAP.md` (fonte de verdade do progresso) |
-| Por que foi decidido assim | `docs/DECISIONS.md` (ADR-001 a ADR-028; ADR-023 a cargo do dono) |
+| Por que foi decidido assim | `docs/DECISIONS.md` (ADR-001 a ADR-029; ADR-023 a cargo do dono) |
 | Rotas e contratos | `docs/API.md`, `openapi.json` |
 | Tabelas e fórmulas | `docs/DATABASE.md` |
 | Worker ↔ API | `docs/BOT_INTEGRATION.md` |

@@ -57,6 +57,8 @@ RESOURCE_ROUTES = {
     "/api/phones/{phone_id}/qrcode": {"GET": None},
     "/api/phones/{phone_id}/sync-groups": {"POST": None},
     "/api/phones/{phone_id}/instance": {"POST": None},
+    "/api/phones/{phone_id}/instance/token/sync": {"POST": None},
+    "/api/phones/{phone_id}/status": {"GET": None},
     "/api/groups/{group_id}": {"PATCH": {"name": "Alterado"}, "DELETE": None},
     "/api/bots/{test_bot_id}/import-config": {"POST": "target"},
     "/api/bots/{bot_id}/archive": {"POST": None},
@@ -316,7 +318,10 @@ def test_recursos_e_listagens_isolados(client, session_factory, operations):
             response = client.request(
                 method, path, headers=headers, **({"json": body} if body is not None else {})
             )
-            assert response.status_code in (403, 404), (method, path, response.text)
+            if route.path.startswith("/api/phones/"):
+                assert response.status_code == 404, (method, path, response.text)
+            else:
+                assert response.status_code in (403, 404), (method, path, response.text)
             assert snapshot(session_factory) == before, (method, path)
     for route in routes_from_app():
         if route.path not in LIST_ROUTES:

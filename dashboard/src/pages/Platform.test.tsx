@@ -67,7 +67,7 @@ it('cliente cadastra telefone sem campo de instância e conecta pela rota nova',
   await user.click(await screen.findByRole('button', { name: 'Novo telefone' }))
   expect(screen.queryByLabelText('Instância Evolution')).not.toBeInTheDocument()
   await user.type(screen.getByLabelText('Rótulo'), 'Cliente')
-  await user.type(screen.getByLabelText('Número'), '5511999990000')
+  await user.type(screen.getByLabelText('Número (opcional)'), '5511999990000')
   await user.click(screen.getByRole('button', { name: 'Salvar' }))
   await user.click(await screen.findByRole('button', { name: 'Conectar WhatsApp' }))
   expect(await screen.findByAltText('QR code de Cliente')).toBeInTheDocument()

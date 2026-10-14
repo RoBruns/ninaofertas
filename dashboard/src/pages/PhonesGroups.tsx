@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useState, type FormEvent } from 'react'
+import { useCallback, useEffect, useState, type FormEvent } from 'react'
 import { Pencil, Plus, QrCode, RefreshCw, Trash2 } from 'lucide-react'
+import type { components } from '../api/schema'
 import { api, apiFailure, ApiError } from '../api/client'
 import { errorMessage, type Group, type Phone } from '../api/management'
 import { useAuth } from '../auth/useAuth'
@@ -11,6 +12,55 @@ import { GroupInviteForm } from '../components/GroupInviteForm'
 import { Spinner } from '../components/Spinner'
 import { useToast } from '../components/useToast'
 
+function whatsappError(error: unknown) {
+  return error instanceof ApiError && error.status === 503
+    ? 'Servidor do WhatsApp indisponível, tente de novo'
+    : errorMessage(error)
+}
+
+function ConnectionPanel({ phone, initialQr, onClose, onConnected }: {
+  phone: Phone
+  initialQr: components['schemas']['QRCodeResponse']
+  onClose: () => void
+  onConnected: () => void
+}) {
+  const status = useQuery({
+    queryKey: ['phone-status', phone.id, initialQr.expires_at],
+    gcTime: 0,
+    queryFn: async () => {
+      const result = await api.GET('/api/phones/{phone_id}/status', { params: { path: { phone_id: phone.id } } })
+      if (!result.data) throw apiFailure(result.error, result.response)
+      return result.data
+    },
+    retry: false,
+    refetchInterval: 3000,
+  })
+  const qr = useQuery({
+    queryKey: ['phone-qr', phone.id, initialQr.expires_at],
+    gcTime: 0,
+    initialData: initialQr,
+    staleTime: Infinity,
+    queryFn: async () => {
+      const result = await api.GET('/api/phones/{phone_id}/qrcode', { params: { path: { phone_id: phone.id } } })
+      if (!result.data) throw apiFailure(result.error, result.response)
+      return result.data
+    },
+    retry: false,
+    refetchInterval: (query) => query.state.error ? 30000 : Math.max(1000, Math.min(30000, new Date(query.state.data?.expires_at ?? initialQr.expires_at).getTime() - Date.now())),
+  })
+  useEffect(() => {
+    if (status.data?.status === 'connected' || (qr.error instanceof ApiError && qr.error.code === 'ALREADY_CONNECTED')) onConnected()
+  }, [status.data?.status, qr.error, onConnected])
+  const data = qr.data ?? initialQr
+  const source = data.qrcode_base64.startsWith('data:') ? data.qrcode_base64 : `data:image/png;base64,${data.qrcode_base64}`
+  return <Modal title={`QR code — ${phone.label}`} onClose={onClose}><div className="qr-modal">
+    <img src={source} alt={`QR code de ${phone.label}`} />
+    <p>Aguardando leitura do QR</p>
+    <p>Expira em {new Date(data.expires_at).toLocaleString('pt-BR')}</p>
+    {(status.error || qr.error) && <p role="alert">{whatsappError(status.error || qr.error)}</p>}
+  </div></Modal>
+}
+
 function PhoneForm({ phone, onClose }: { phone?: Phone; onClose: () => void }) {
   const { user } = useAuth()
   const queryClient = useQueryClient()
@@ -20,10 +70,10 @@ function PhoneForm({ phone, onClose }: { phone?: Phone; onClose: () => void }) {
   const [instance, setInstance] = useState(phone?.evolution_instance ?? '')
   const [fields, setFields] = useState<Readonly<Record<string, string>>>({})
   const save = useMutation({ mutationFn: async () => {
-    const result = phone ? await api.PATCH('/api/phones/{phone_id}', { params: { path: { phone_id: phone.id } }, body: { label, number, ...(user?.is_platform_admin ? { evolution_instance: instance || null } : {}) } }) : await api.POST('/api/phones', { body: { label, number, ...(user?.is_platform_admin ? { evolution_instance: instance || null } : {}) } })
+    const result = phone ? await api.PATCH('/api/phones/{phone_id}', { params: { path: { phone_id: phone.id } }, body: { label, number: number || null, ...(user?.is_platform_admin ? { evolution_instance: instance || null } : {}) } }) : await api.POST('/api/phones', { body: { label, number: number || null, ...(user?.is_platform_admin ? { evolution_instance: instance || null } : {}) } })
     if (!result.data) throw apiFailure(result.error, result.response)
   }, onSuccess: async () => { await queryClient.invalidateQueries({ queryKey: ['phones'] }); showToast(phone ? 'Telefone atualizado.' : 'Telefone cadastrado.', 'success'); onClose() }, onError: (error) => { setFields(error instanceof ApiError ? error.fields : {}); showToast(errorMessage(error), 'error') } })
-  return <Modal title={phone ? 'Editar telefone' : 'Novo telefone'} onClose={onClose}><form className="form-grid" onSubmit={(event) => { event.preventDefault(); save.mutate() }}><Field label="Rótulo" error={fields.label}><input required value={label} onChange={(event) => setLabel(event.target.value)} /></Field><Field label="Número" error={fields.number}><input required value={number} onChange={(event) => setNumber(event.target.value)} /></Field>{user?.is_platform_admin && <Field label="Instância Evolution" error={fields.evolution_instance}><input value={instance} onChange={(event) => setInstance(event.target.value)} /></Field>}<div className="form-actions"><button type="button" className="button ghost" onClick={onClose}>Cancelar</button><button className="button primary">Salvar</button></div></form></Modal>
+  return <Modal title={phone ? 'Editar telefone' : 'Novo telefone'} onClose={onClose}><form className="form-grid" onSubmit={(event) => { event.preventDefault(); save.mutate() }}><Field label="Rótulo" error={fields.label}><input required value={label} onChange={(event) => setLabel(event.target.value)} /></Field><Field label="Número (opcional)" error={fields.number}><input value={number} onChange={(event) => setNumber(event.target.value)} /></Field>{user?.is_platform_admin && <Field label="Instância Evolution" error={fields.evolution_instance}><input value={instance} onChange={(event) => setInstance(event.target.value)} /></Field>}<div className="form-actions"><button type="button" className="button ghost" onClick={onClose}>Cancelar</button><button className="button primary">Salvar</button></div></form></Modal>
 }
 
 function GroupForm({ phones, group, onClose }: { phones: Phone[]; group?: Group; onClose: () => void }) {
@@ -54,10 +104,15 @@ export function PhonesGroups() {
   const bots = useQuery({ queryKey: ['bots'], queryFn: async () => { const result = await api.GET('/api/bots', { params: { query: { page: 1, page_size: 200 } } }); if (!result.data) throw apiFailure(result.error, result.response); return result.data.items } })
   const [editingPhone, setEditingPhone] = useState<Phone | 'new' | null>(null)
   const [editingGroup, setEditingGroup] = useState<Group | 'new' | null>(null)
-  const [qr, setQr] = useState<{ label: string; source: string; expires: string } | null>(null)
-  const phoneAction = useMutation({ mutationFn: async ({ phone, operation }: { phone: Phone; operation: 'sync' | 'qr' | 'connect' | 'delete' }) => {
+  const [qr, setQr] = useState<{ phone: Phone; data: components['schemas']['QRCodeResponse'] } | null>(null)
+  const phoneAction = useMutation({ mutationFn: async ({ phone, operation }: { phone: Phone; operation: 'sync' | 'qr' | 'connect' | 'token' | 'delete' }) => {
     if (operation === 'sync') {
       const result = await api.POST('/api/phones/{phone_id}/sync-groups', { params: { path: { phone_id: phone.id } } })
+      if (!result.data) throw apiFailure(result.error, result.response)
+      return { operation, phone, data: '' }
+    }
+    if (operation === 'token') {
+      const result = await api.POST('/api/phones/{phone_id}/instance/token/sync', { params: { path: { phone_id: phone.id } } })
       if (!result.data) throw apiFailure(result.error, result.response)
       return { operation, phone, data: '' }
     }
@@ -71,9 +126,14 @@ export function PhonesGroups() {
     return { operation, phone, data: '' }
   }, onSuccess: async (result) => {
     if (result.operation === 'sync') showToast('Sincronização pedida; os grupos aparecem em alguns minutos.', 'success')
-    if ((result.operation === 'qr' || result.operation === 'connect') && typeof result.data === 'object') setQr({ label: result.phone.label, source: result.data.qrcode_base64.startsWith('data:') ? result.data.qrcode_base64 : `data:image/png;base64,${result.data.qrcode_base64}`, expires: result.data.expires_at })
+    if (result.operation === 'token') showToast('Token da instância sincronizado.', 'success')
+    if ((result.operation === 'qr' || result.operation === 'connect') && typeof result.data === 'object') setQr({ phone: result.phone, data: result.data })
     await Promise.all([queryClient.invalidateQueries({ queryKey: ['phones'] }), queryClient.invalidateQueries({ queryKey: ['groups'] })])
-  }, onError: (error) => showToast(errorMessage(error), 'error') })
+  }, onError: (error) => {
+    if (error instanceof ApiError && error.code === 'ALREADY_CONNECTED') { setQr(null); void queryClient.invalidateQueries({ queryKey: ['phones'] }); showToast('WhatsApp já conectado.', 'success') }
+    else showToast(whatsappError(error), 'error')
+  } })
+  const connected = useCallback(() => { setQr(null); void queryClient.invalidateQueries({ queryKey: ['phones'] }); showToast('WhatsApp conectado.', 'success') }, [queryClient, showToast])
   if (phones.isLoading || groups.isLoading) return <Spinner label="Carregando telefones e grupos" />
-  return <div><div className="page-heading"><div><h1>Telefones e grupos</h1><p>Conexões, grupos descobertos e entrega de mensagens.</p></div>{canEdit && <div className="page-actions"><button className="button ghost" onClick={() => setEditingGroup('new')}>Cadastrar grupo</button><button className="button primary" onClick={() => setEditingPhone('new')}><Plus />Novo telefone</button></div>}</div><section className="panel"><h2>Telefones</h2>{!phones.data?.length ? <EmptyState title="Nenhum telefone" description="Cadastre uma conexão do WhatsApp." /> : <div className="card-list">{phones.data.map((phone) => { const usedBy = (bots.data ?? []).filter((bot) => bot.phone_id === phone.id); return <article className="management-card" key={phone.id}><div className="card-title"><div><h3>{phone.label}</h3><small>{phone.number}</small></div><div className="card-title-actions"><StatusBadge value={phone.status} />{canEdit && <Menu label={`Mais ações de ${phone.label}`} items={[{ label: 'Editar', icon: <Pencil />, onClick: () => setEditingPhone(phone) }, { label: 'Excluir', icon: <Trash2 />, danger: true, confirm: `Excluir o telefone ${phone.label}?`, actionLabel: 'Excluir', onClick: () => phoneAction.mutate({ phone, operation: 'delete' }) }]} />}</div></div><p><strong>Bots que usam este telefone:</strong> {usedBy.length ? usedBy.map((bot) => bot.name).join(', ') : 'nenhum'}</p><div className="card-actions">{canEdit && <button className="button ghost" disabled={phoneAction.isPending} onClick={() => phoneAction.mutate({ phone, operation: 'connect' })}><QrCode />Conectar WhatsApp</button>}<button className="button ghost" onClick={() => phoneAction.mutate({ phone, operation: 'qr' })}><QrCode />Ver QR code</button>{user?.role !== 'viewer' && <button className="button ghost" onClick={() => phoneAction.mutate({ phone, operation: 'sync' })}><RefreshCw />Sincronizar grupos</button>}</div></article> })}</div>}</section><section className="panel"><h2>Grupos</h2>{canEdit && !!phones.data?.length && <GroupInviteForm phones={phones.data} />}{!groups.data?.length ? <EmptyState title="Nenhum grupo" description="Sincronize um telefone ou cadastre um grupo manualmente." /> : <div className="responsive-table"><table><thead><tr><th>Grupo</th><th>Telefone</th><th>Status</th><th>Participantes</th><th>Usado por</th><th>Aviso</th><th>Ações</th></tr></thead><tbody>{groups.data.map((group) => { const usedBy = (bots.data ?? []).filter((bot) => bot.group_ids.includes(group.id)); return <tr className={group.warning ? 'warning-row' : ''} key={group.id}><td data-label="Grupo"><strong>{group.name ?? 'Sem nome'}</strong><small>{group.whatsapp_id}</small></td><td data-label="Telefone">{phones.data?.find((phone) => phone.id === group.phone_id)?.label ?? '—'}</td><td data-label="Status"><StatusBadge value={group.status} /></td><td data-label="Participantes">{group.participants ?? '—'}</td><td data-label="Usado por">{usedBy.length ? usedBy.map((bot) => bot.name).join(', ') : 'Nenhum bot'}</td><td data-label="Aviso">{group.warning ? <div className="group-warning" role="alert">⚠ {group.warning}</div> : '—'}</td><td data-label="Ações">{canEdit && <button className="button ghost" onClick={() => setEditingGroup(group)}>Editar</button>}</td></tr> })}</tbody></table></div>}</section>{editingPhone && <PhoneForm phone={editingPhone === 'new' ? undefined : editingPhone} onClose={() => setEditingPhone(null)} />}{editingGroup && <GroupForm phones={phones.data ?? []} group={editingGroup === 'new' ? undefined : editingGroup} onClose={() => setEditingGroup(null)} />}{qr && <Modal title={`QR code — ${qr.label}`} onClose={() => setQr(null)}><div className="qr-modal"><img src={qr.source} alt={`QR code de ${qr.label}`} /><p>Expira em {new Date(qr.expires).toLocaleString('pt-BR')}</p></div></Modal>}</div>
+  return <div><div className="page-heading"><div><h1>Telefones e grupos</h1><p>Conexões, grupos descobertos e entrega de mensagens.</p></div>{canEdit && <div className="page-actions"><button className="button ghost" onClick={() => setEditingGroup('new')}>Cadastrar grupo</button><button className="button primary" onClick={() => setEditingPhone('new')}><Plus />Novo telefone</button></div>}</div><section className="panel"><h2>Telefones</h2>{!phones.data?.length ? <EmptyState title="Nenhum telefone" description="Cadastre uma conexão do WhatsApp." /> : <div className="card-list">{phones.data.map((phone) => { const usedBy = (bots.data ?? []).filter((bot) => bot.phone_id === phone.id); return <article className="management-card" key={phone.id}><div className="card-title"><div><h3>{phone.label}</h3><small>{phone.number}</small></div><div className="card-title-actions"><StatusBadge value={phone.status} /><span className={`status-badge ${phone.has_instance_token ? 'status-valid' : 'status-unknown'}`}>Token da instância: {phone.has_instance_token ? 'OK' : 'ausente'}</span>{canEdit && <Menu label={`Mais ações de ${phone.label}`} items={[{ label: 'Editar', icon: <Pencil />, onClick: () => setEditingPhone(phone) }, { label: 'Excluir', icon: <Trash2 />, danger: true, confirm: `Excluir o telefone ${phone.label}?`, actionLabel: 'Excluir', onClick: () => phoneAction.mutate({ phone, operation: 'delete' }) }]} />}</div></div><p><strong>Bots que usam este telefone:</strong> {usedBy.length ? usedBy.map((bot) => bot.name).join(', ') : 'nenhum'}</p><div className="card-actions">{canEdit && phone.evolution_instance && !phone.has_instance_token && <button className="button ghost" disabled={phoneAction.isPending} onClick={() => phoneAction.mutate({ phone, operation: 'token' })}>Sincronizar token</button>}{canEdit && <button className="button ghost" disabled={phoneAction.isPending} onClick={() => phoneAction.mutate({ phone, operation: 'connect' })}><QrCode />Conectar WhatsApp</button>}<button className="button ghost" onClick={() => phoneAction.mutate({ phone, operation: 'qr' })}><QrCode />Ver QR code</button>{user?.role !== 'viewer' && <button className="button ghost" onClick={() => phoneAction.mutate({ phone, operation: 'sync' })}><RefreshCw />Sincronizar grupos</button>}</div></article> })}</div>}</section><section className="panel"><h2>Grupos</h2>{canEdit && !!phones.data?.length && <GroupInviteForm phones={phones.data} />}{!groups.data?.length ? <EmptyState title="Nenhum grupo" description="Sincronize um telefone ou cadastre um grupo manualmente." /> : <div className="responsive-table"><table><thead><tr><th>Grupo</th><th>Telefone</th><th>Status</th><th>Participantes</th><th>Usado por</th><th>Aviso</th><th>Ações</th></tr></thead><tbody>{groups.data.map((group) => { const usedBy = (bots.data ?? []).filter((bot) => bot.group_ids.includes(group.id)); return <tr className={group.warning ? 'warning-row' : ''} key={group.id}><td data-label="Grupo"><strong>{group.name ?? 'Sem nome'}</strong><small>{group.whatsapp_id}</small></td><td data-label="Telefone">{phones.data?.find((phone) => phone.id === group.phone_id)?.label ?? '—'}</td><td data-label="Status"><StatusBadge value={group.status} /></td><td data-label="Participantes">{group.participants ?? '—'}</td><td data-label="Usado por">{usedBy.length ? usedBy.map((bot) => bot.name).join(', ') : 'Nenhum bot'}</td><td data-label="Aviso">{group.warning ? <div className="group-warning" role="alert">⚠ {group.warning}</div> : '—'}</td><td data-label="Ações">{canEdit && <button className="button ghost" onClick={() => setEditingGroup(group)}>Editar</button>}</td></tr> })}</tbody></table></div>}</section>{editingPhone && <PhoneForm phone={editingPhone === 'new' ? undefined : editingPhone} onClose={() => setEditingPhone(null)} />}{editingGroup && <GroupForm phones={phones.data ?? []} group={editingGroup === 'new' ? undefined : editingGroup} onClose={() => setEditingGroup(null)} />}{qr && <ConnectionPanel phone={qr.phone} initialQr={qr.data} onClose={() => setQr(null)} onConnected={connected} />}</div>
 }

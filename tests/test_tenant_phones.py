@@ -81,12 +81,13 @@ def test_conectar_cria_v2_persiste_reusa_qr_e_trata_falha(
         session.add(
             Phone(id=phone_id, owner_id=user.tenant_id, label="Cliente", number="551100000001")
         )
+    monkeypatch.setenv("CREDENTIALS_KEY", "eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHg=")
     calls = []
 
     def handle(request):
         calls.append(request)
         if request.method == "POST":
-            return httpx.Response(status, json={"qrcode": {"base64": "QR_TESTE"}})
+            return httpx.Response(status, json={"hash": "TOKEN_TESTE", "qrcode": {"base64": "QR_TESTE"}})
         return httpx.Response(200, json={"base64": "QR_EXISTENTE"})
 
     original_client = httpx.Client
@@ -136,12 +137,13 @@ def test_criacao_sem_qr_preserva_instancia_para_tentar_novamente(
         session.add(
             Phone(id=phone_id, owner_id=user.tenant_id, label="Cliente", number="551100000001")
         )
+    monkeypatch.setenv("CREDENTIALS_KEY", "eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHg=")
     calls = []
 
     def handle(request):
         calls.append(request.method)
         if request.method == "POST":
-            return httpx.Response(201, json={"instance": {"status": "created"}})
+            return httpx.Response(201, json={"hash": "TOKEN_TESTE", "instance": {"status": "created"}})
         if len(calls) == 2:
             return httpx.Response(503)
         return httpx.Response(200, json={"base64": "QR_PRONTO"})

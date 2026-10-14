@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { render, screen } from '@testing-library/react'
+import { act, fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import type { ReactNode } from 'react'
@@ -18,7 +18,7 @@ const bot: Bot = { is_test: false, archived_at: null, test_source_bot_id: null,
   settings: { schema_version: 1, filters: { preco_minimo: 20, preco_maximo: 5000, desconto_minimo: 15, max_vendas: 20, origem_produtos: 'novidades', min_vendas: 100, publico_alvo: '', classificador_publico: 'jev', relevancia_minima: 0.6, max_idade_oferta_horas: 0, uma_loja_por_ciclo: false, ml_ignora_desconto_e_vendas: false, ml_categoria_dispensa_nicho: false }, pacing: { max_ofertas_por_ciclo: 1, intervalo_minutos_entre_ofertas: 5, max_ofertas_por_rajada: 3, janela_rajada_minutos: 15, pausa_entre_rajadas_minutos: 35, max_ofertas_por_hora: 6, max_ofertas_por_dia: 80, max_ofertas_globais_por_hora: 8, max_ofertas_globais_por_dia: 90 }, content: { recado_instagram: false, aceitar_cupons: true, aceitar_campanhas: false, max_cupons_por_dia: 2, baseline_ciclos: 5 }, schedule: { check_interval: 60, quiet_hours: { start: '23:00', end: '07:00' } } },
   last_run_at: null, last_success_at: null, created_at: '2026-09-23T10:00:00Z', updated_at: '2026-09-23T10:00:00Z',
 }
-const phone: Phone = { id: 'phone-1', label: 'Principal', number: '5511999999999', evolution_instance: 'nina', status: 'connected', last_seen_at: null, created_at: '2026-09-23T10:00:00Z' }
+const phone: Phone = { has_instance_token: false, instance_token_fingerprint: null, id: 'phone-1', label: 'Principal', number: '5511999999999', evolution_instance: 'nina', status: 'connected', last_seen_at: null, created_at: '2026-09-23T10:00:00Z' }
 const group: Group = { id: 'group-1', phone_id: 'phone-1', whatsapp_id: '123@g.us', name: 'Promoções', participants: 100, is_announce: true, bot_is_admin: false, status: 'active', discovered_at: null, last_synced_at: null, warning: 'Grupo somente-admins e o bot não é admin: mensagens não serão entregues' }
 
 function json(value: unknown, status = 200) { return new Response(JSON.stringify(value), { status, headers: { 'Content-Type': 'application/json' } }) }
@@ -29,7 +29,64 @@ function Providers({ children }: { children: ReactNode }) {
   return <QueryClientProvider client={queryClient}><ToastProvider><AuthContext.Provider value={auth}>{children}</AuthContext.Provider></ToastProvider></QueryClientProvider>
 }
 
-afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals() })
+afterEach(() => { vi.useRealTimers(); vi.restoreAllMocks(); vi.unstubAllGlobals() })
+
+it.each([10000, 60000])('renova QR automaticamente e fecha ao conectar (validade %i ms)', async (validity) => {
+  vi.useFakeTimers()
+  let connected = false, statusCalls = 0, qrCalls = 0
+  vi.stubGlobal('fetch', vi.fn(async (request: Request) => {
+    const path = new URL(request.url).pathname
+    if (path === '/api/phones') return json({ items: [{ ...phone, status: connected ? 'connected' : 'connecting' }] })
+    if (path.endsWith('/instance')) return json({ qrcode_base64: 'PRIMEIRO', expires_at: new Date(Date.now() + validity).toISOString() })
+    if (path.endsWith('/status')) { statusCalls++; return json({ ...phone, status: connected ? 'connected' : 'connecting' }) }
+    if (path.endsWith('/qrcode')) { qrCalls++; return json({ qrcode_base64: 'NOVO', expires_at: new Date(Date.now() + 60000).toISOString() }) }
+    return json({ items: [] })
+  }))
+  render(<Providers><MemoryRouter><PhonesGroups /></MemoryRouter></Providers>)
+  await act(async () => { await vi.advanceTimersByTimeAsync(10) })
+  fireEvent.click(screen.getByRole('button', { name: 'Conectar WhatsApp' }))
+  await act(async () => { await vi.advanceTimersByTimeAsync(10) })
+  expect(screen.getByRole('img', { name: 'QR code de Principal' })).toHaveAttribute('src', 'data:image/png;base64,PRIMEIRO')
+  // Deixe as respostas HTTP e notificações da query terminar em cada avanço.
+  for (let elapsed = 0; elapsed < Math.min(validity, 30000) + 1000; elapsed += 1000) {
+    await act(async () => { await vi.advanceTimersByTimeAsync(1000) })
+  }
+  expect(qrCalls).toBe(1)
+  expect(statusCalls).toBeGreaterThanOrEqual(3)
+  expect(screen.getByRole('img', { name: 'QR code de Principal' })).toHaveAttribute('src', 'data:image/png;base64,NOVO')
+  connected = true
+  await act(async () => { await vi.advanceTimersByTimeAsync(4000) })
+  expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+  const stopped = statusCalls
+  await act(async () => { await vi.advanceTimersByTimeAsync(30000) })
+  expect(statusCalls).toBe(stopped)
+})
+
+it('sincroniza token ausente e atualiza seu selo', async () => {
+  let synced = false
+  vi.stubGlobal('fetch', vi.fn(async (request: Request) => {
+    const path = new URL(request.url).pathname
+    if (path.endsWith('/token/sync')) { synced = true; return json({ ...phone, has_instance_token: true }) }
+    if (path === '/api/phones') return json({ items: [{ ...phone, has_instance_token: synced }] })
+    return json({ items: [] })
+  }))
+  render(<Providers><MemoryRouter><PhonesGroups /></MemoryRouter></Providers>)
+  await userEvent.setup().click(await screen.findByRole('button', { name: 'Sincronizar token' }))
+  expect(await screen.findByText('Token da instância: OK')).toBeInTheDocument()
+  expect(screen.queryByRole('button', { name: 'Sincronizar token' })).not.toBeInTheDocument()
+})
+
+it('explica indisponibilidade do servidor ao conectar', async () => {
+  vi.stubGlobal('fetch', vi.fn(async (request: Request) => {
+    const path = new URL(request.url).pathname
+    if (path.endsWith('/instance')) return json({ error: { code: 'SERVICE_UNAVAILABLE', message: 'evolution-api indisponível' } }, 503)
+    if (path === '/api/phones') return json({ items: [phone] })
+    return json({ items: [] })
+  }))
+  render(<Providers><MemoryRouter><PhonesGroups /></MemoryRouter></Providers>)
+  await userEvent.setup().click(await screen.findByRole('button', { name: 'Conectar WhatsApp' }))
+  expect(await screen.findByText('Servidor do WhatsApp indisponível, tente de novo')).toBeInTheDocument()
+})
 
 it('pagina o histórico de execuções do bot', async () => {
   const urls: URL[] = []

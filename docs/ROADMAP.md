@@ -570,3 +570,46 @@ concluído. OpenAPI conferido contra o app e tipos regenerados. A suíte usou
 `--basetemp=.tmp/s1-complete -o cache_dir=.tmp/s1-cache` devido às restrições da
 sandbox no TEMP e cache padrão; warnings restantes são da configuração do Alembic.
 Testes de Evolution usam HTTP simulado, e os testes não enviam WhatsApp real.
+
+## Nina Bot SaaS — fase S1b (2026-10-14)
+
+Implementada na cópia `ninaofertas-s1b`, branch `feat/saas-s1b`, sem commit,
+push ou deploy. A cópia já continha S1 (`8ed9b00`) e o merge de regras de
+cobrança (`4ffd384`), ambos preservados. Nenhum arquivo reservado à S1c,
+incluindo a migration 0007, foi alterado.
+
+1. Feito: migration 0008 (pai 0007), token AES-GCM por telefone, fingerprint e
+   timestamp; resposta pública só informa presença e fingerprint. Número
+   nullable até conectar; downgrade preserva telefones ainda sem número com
+   marcador `pending-<UUID>`, documentado em DATABASE.md.
+2. Feito: criação sem token enviado, hash string/objeto, consulta v2/v1,
+   inexistente → None, QR sem base64 consultado em connect, conectado distinguido
+   de erro e estado connecting suportado. A API adia a consulta adicional de QR
+   para guardar o token primeiro.
+3. Feito: reserva e flush com lock antes da criação externa, rollback na falha,
+   recuperação de conflito no provedor, sincronização auditada por fingerprint,
+   estado com preenchimento de número por ownerJid e validação de nome. Trocar
+   instância limpa seu token anterior.
+4. Feito: runtime decifra token sem expô-lo no repr; envio de texto/mídia usa
+   token, preserva chave geral sem token e só tenta uma vez após 401. Evento
+   warning com tenant; outros erros não repetem envio. Gerenciamento mantém a
+   chave geral; freio, dedup e ciclo não foram alterados.
+5. Feito: painel de QR, consultas de estado a cada 3 s, renovação em 30 s ou na
+   expiração, fechamento automático, mensagem de indisponibilidade, selo e
+   sincronização para admin, formulário com número opcional e tipos gerados.
+6. Feito: testes com HTTP simulado de formatos, cifra, ausência de segredo em
+   resposta/log/evento/auditoria, fallback, não repetição, recuperação, estado,
+   reserva anterior à chamada externa, migration e temporizadores da UI.
+   Matriz de isolamento exige 404 nas rotas novas de telefone entre contas.
+7. Feito: API, DATABASE, BOT_INTEGRATION, DEPLOYMENT, SAAS e AGENTS atualizados;
+   ADR-029 registra token por instância e fallback autorizado pelo dono.
+
+Validação final no banco exclusivo `ninaofertas_test_s1b`: **385 testes backend
+passaram** (5 min 21 s); `ruff check .` sem erros. A suíte inteira usou o Python
+do venv da cópia principal, `TEST_DATABASE_URL` apontando exclusivamente para
+esse banco e `--basetemp=.tmp/s1b-final -o cache_dir=.tmp/s1b-cache` devido às
+restrições da sandbox. Warnings restantes são da configuração do Alembic.
+Dashboard: lint passou, **19 arquivos / 74 testes passaram**, build concluído.
+OpenAPI conferido contra o app e tipos regenerados. Não houve chamada à Evolution
+real, envio de WhatsApp ou acesso a produção; sincronizar o telefone existente
+da Nina fica como ação operacional após integrar e publicar pelo dono.
