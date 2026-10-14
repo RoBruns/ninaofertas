@@ -12,7 +12,7 @@ ambiente `production` · região US East.
 | `nina-api` | FastAPI | não | API V2 na rede interna |
 | `nina-dashboard` | Caddy + SPA | **sim** | Frontend e proxy `/api` |
 | `evolution-api` | imagem | sim | WhatsApp · volume 4.9 GB |
-| `nina-db` | Postgres | **não** | Dados. TCP Proxy apenas temporariamente para backup; desligar depois |
+| `nina-db` | Postgres | **não** | Dados. Backup pelo túnel `railway connect nina-db --tunnel-only`, sem acesso público |
 | `Redis` | banco | não | Cache da `evolution-api` (`CACHE_REDIS_URI`, db 6). Adicionado em 2026-09-23; o bot não usa |
 | `rogstools` | — | sim | **Outro projeto. Não tocar.** |
 
@@ -24,15 +24,15 @@ railway variables --service nina-worker
 railway up --service nina-worker
 ```
 
-> O Postgres fica na rede interna. Para backup local, o dono pode habilitar
-> temporariamente o TCP Proxy, usar `DATABASE_PUBLIC_URL` e desligar o proxy logo
-> depois (procedimento em [Backup](#backup)).
+> O Postgres fica na rede interna. Para backup local, use o túnel SSH
+> `railway connect nina-db --tunnel-only`, sem abrir acesso público (procedimento
+> em [Backup](#backup)).
 
 ### Como acessar o banco a partir da máquina local
 
 `railway run` **não serve** para isso: injeta as variáveis mas executa o processo
 localmente, então `postgres.railway.internal` não resolve. Para backup, use o
-TCP Proxy temporário descrito abaixo. Outra opção de acesso é o túnel SSH:
+túnel SSH descrito em [Backup](#backup):
 
 ```bash
 # uma vez, se ainda não houver chave registrada:
@@ -157,22 +157,24 @@ e psycopg 3, sem binários do Postgres. **Ainda não há backup automático** no
 plano Hobby. Antes das migrations 0007–0009, gere um backup e restaure uma cópia
 em banco descartável. Agendamento diário e retenção de 7 dias continuam pendentes.
 
-Para gerar a partir da máquina local:
-
-1. No serviço **nina-db** da Railway, abra **Settings → Networking** e habilite
-   o **TCP Proxy**. Use a URL pública que aparece em `DATABASE_PUBLIC_URL`.
-2. Na raiz do repositório, com o venv e dependências instalados, coloque essa URL
-   em `DATABASE_URL` no ambiente do terminal (sem exibi-la nem compartilhá-la).
-   Execute o comando abaixo. Também é aceito `--url <postgres-url>`; a variável
-   evita colocar a senha na linha de comando/histórico. Ambos os prefixos
-   `postgres://` e `postgresql://` são aceitos.
-3. **Desligue o TCP Proxy logo depois**, inclusive se o comando falhar.
+Para gerar a partir da máquina local, pelo **túnel SSH** da Railway (o `nina-db`
+continua sem acesso público; não use "Add Public Access"):
 
 ```powershell
-# DATABASE_URL já definida com DATABASE_PUBLIC_URL, sem imprimir seu conteúdo:
-./venv/Scripts/python.exe scripts/backup_db.py --out C:/Backups/nina/nina-antes-saas.zip
+# Terminal 1 — mantém o túnel aberto até Ctrl+C:
+railway connect nina-db --tunnel-only --port 15432
+
+# Terminal 2 — na raiz do repositório; a senha não aparece na tela nem no histórico:
+New-Item -ItemType Directory -Force C:\Backups\nina | Out-Null
+$v = railway variables --service nina-db --json | ConvertFrom-Json
+$env:DATABASE_URL = "postgresql://$($v.PGUSER):$([uri]::EscapeDataString($v.PGPASSWORD))@127.0.0.1:15432/$($v.PGDATABASE)"
+.\venv\Scripts\python.exe scripts\backup_db.py --out C:\Backups\nina\nina-antes-saas.zip
 Remove-Item Env:DATABASE_URL
 ```
+
+Feche o túnel (Ctrl+C no terminal 1) ao terminar. `--url <postgres-url>` também é
+aceito, mas a variável evita a senha na linha de comando; os prefixos `postgres://`
+e `postgresql://` são aceitos.
 
 Crie a pasta de destino antes. Guarde os ZIPs **fora do repositório e fora da
 Railway**, em armazenamento com acesso restrito e cópia separada; `backups/`
