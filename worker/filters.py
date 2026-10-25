@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 from unicodedata import combining, normalize
 
 from core.platforms.base import OfertaCapturada
+from worker.ranking import comissao_estimada_reais
 
 # Casa + público feminino (campanhas Shopee off-topic).
 _NICHOS_CASA_PADRAO = (
@@ -464,6 +465,14 @@ def passa_nos_filtros(oferta: OfertaCapturada, filtros: dict) -> tuple[bool, str
             idade_h = (agora - desde).total_seconds() / 3600
             if idade_h > float(max_idade_h):
                 return False, f"oferta com {idade_h:.0f}h (máx {max_idade_h}h) — não é quente"
+
+        piso = filtros.get("comissao_minima_reais") or 0
+        estimada = comissao_estimada_reais(oferta)
+        if piso and estimada is not None and estimada < float(piso):
+            return (
+                False,
+                f"comissão estimada R${estimada:.2f} abaixo do mínimo R${float(piso):.2f}",
+            )
 
     lojas = filtros.get("lojas")
     if lojas and oferta.loja and oferta.loja.lower() not in [l.lower() for l in lojas]:

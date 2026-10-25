@@ -15659,6 +15659,22 @@
       "title": "Min Vendas",
       "default": 100
      },
+     "comissao_minima_reais": {
+      "type": "number",
+      "minimum": 0.0,
+      "title": "Comissao Minima Reais",
+      "default": 0.0
+     },
+     "prioridade_loja": {
+      "type": "string",
+      "enum": [
+       "alternar",
+       "mercado_livre",
+       "shopee"
+      ],
+      "title": "Prioridade Loja",
+      "default": "alternar"
+     },
      "max_idade_oferta_horas": {
       "type": "integer",
       "minimum": 0.0,

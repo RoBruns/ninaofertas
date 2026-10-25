@@ -17,6 +17,7 @@
                       priceMax
                       priceDiscountRate
                       shopName
+                      commissionRate
                       sales
                       periodStartTime
                     }

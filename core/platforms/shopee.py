@@ -34,6 +34,16 @@ def _preco_float(valor) -> float | None:
         return None
 
 
+def _comissao_fracao(valor) -> float | None:
+    """0.03 e 3 significam 3%. Acima de 1 a API mandou percentual, não fração."""
+    taxa = _preco_float(valor)
+    if taxa is None or taxa < 0:
+        return None
+    if taxa > 1:
+        taxa = taxa / 100
+    return taxa
+
+
 def _desconto_pct(valor) -> float | None:
     d = _preco_float(valor)
     if d is None:
@@ -164,6 +174,7 @@ class ShopeeScraper(Scraper):
                       priceMax
                       priceDiscountRate
                       shopName
+                      commissionRate
                       sales
                       periodStartTime
                     }}
@@ -174,7 +185,6 @@ class ShopeeScraper(Scraper):
                         query = query.replace(
                             "                      sales",
                             "                      ratingStar\n"
-                            "                      commissionRate\n"
                             "                      sales",
                         )
                     try:
@@ -192,7 +202,6 @@ class ShopeeScraper(Scraper):
                             if ordenacao == _SORT_MAIS_VENDIDOS:
                                 oferta.origem_mais_vendidos = True
                                 oferta.nota = _preco_float(item.get("ratingStar"))
-                                oferta.comissao_pct = _preco_float(item.get("commissionRate"))
                             ofertas.append(oferta)
         if origem != "novidades":
             unicas: dict[str, OfertaCapturada] = {}
@@ -280,4 +289,5 @@ class ShopeeScraper(Scraper):
             sku=str(item["itemId"]) if item.get("itemId") is not None else None,
             vendas=vendas,
             oferta_desde=_ts_para_dt(item.get("periodStartTime")),
+            comissao_pct=_comissao_fracao(item.get("commissionRate")),
         )

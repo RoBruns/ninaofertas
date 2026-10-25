@@ -4,6 +4,13 @@ from math import log10
 from core.platforms.base import OfertaCapturada
 
 
+def comissao_estimada_reais(oferta: OfertaCapturada) -> float | None:
+    """Preço vezes a taxa já normalizada. Sem taxa, não há estimativa."""
+    if oferta.comissao_pct is None or oferta.preco is None or oferta.preco <= 0:
+        return None
+    return oferta.preco * oferta.comissao_pct
+
+
 def pontuar(oferta: OfertaCapturada) -> float:
     demanda = 0.0
     if oferta.loja.lower() == "shopee" and oferta.vendas is not None:
