@@ -14782,6 +14782,11 @@
       "title": "Aceitar Campanhas",
       "default": false
      },
+     "cupom_venda_indireta": {
+      "type": "boolean",
+      "title": "Cupom Venda Indireta",
+      "default": false
+     },
      "max_cupons_por_dia": {
       "type": "integer",
       "minimum": 0.0,

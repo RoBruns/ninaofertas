@@ -613,8 +613,21 @@ o cupom é pulado e o produto daquele ciclo segue. Não há mensagem extra.
 A comissão do Mercado Livre costuma compensar mais que a da Shopee, mas o ciclo
 revezava quem começava a fila. Decisão: `filters.prioridade_loja` (`alternar`,
 padrão; `mercado_livre`; `shopee`). O padrão preserva o revezamento. Com uma
-loja escolhida, os produtos dela vão todos na frente; a outra loja fica de
-reserva no mesmo ciclo, para o grupo não ficar em silêncio quando a preferida
-não tem oferta enviável. `uma_loja_por_ciclo` continua exclusivo e alternado.
-O cupom da Shopee, quando cabe no teto, segue na primeira vaga.
+loja escolhida, o ciclo só envia essa loja, inclusive o cupom. A outra não
+entra na mesma vaga: foi o que fazia a Shopee sair mesmo com Mercado Livre
+selecionado, porque o link do Mercado Livre falha e a reserva herdava o ciclo.
+Sem oferta enviável da loja escolhida, o ciclo não envia. `uma_loja_por_ciclo`
+continua exclusivo e alternado.
+
+---
+
+## ADR-033 — Cupom de venda indireta nas duas lojas, na vaga que já existe
+**Data:** 2026-10-25 · **Status:** aceita · **Decisor:** usuário
+
+O cupom ajuda a venda de outros produtos, mas só o da Shopee ocupava a vaga do
+ciclo. O do Mercado Livre ficava atrás e, com uma oferta por ciclo, não saía.
+Decisão: `content.cupom_venda_indireta` (padrão false). Ligado, o cupom da loja
+prioritária vai na frente e o da outra fica de reserva no mesmo ciclo. Sem link
+de afiliado, o ciclo tenta o próximo e o produto segue. O teto
+`max_cupons_por_dia` e o freio não mudam. O cupom continua contando 1.
 

@@ -53,6 +53,7 @@ CONTENT_KEYS = {
     "recado_instagram",
     "aceitar_cupons",
     "aceitar_campanhas",
+    "cupom_venda_indireta",
     "max_cupons_por_dia",
     "cupons_meli",
     "baseline_ciclos",
@@ -116,6 +117,8 @@ class Content(BaseModel):
 
     aceitar_cupons: bool = True
     aceitar_campanhas: bool = False
+    # Desligado até salvar. Ligado, o cupom das duas lojas usa a vaga do ciclo.
+    cupom_venda_indireta: bool = False
     max_cupons_por_dia: int = Field(default=2, ge=0)
     baseline_ciclos: int = Field(default=5, ge=0)
 

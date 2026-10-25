@@ -1902,6 +1902,11 @@ export interface components {
              */
             aceitar_campanhas: boolean;
             /**
+             * Cupom Venda Indireta
+             * @default false
+             */
+            cupom_venda_indireta: boolean;
+            /**
              * Max Cupons Por Dia
              * @default 2
              */

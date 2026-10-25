@@ -51,6 +51,30 @@ def test_formatter_padrao_de_por_negrito_e_cupom(monkeypatch) -> None:
     assert "◼️ *Air fryer promo*" in formatter.montar_mensagem(_oferta(nome="Air fryer *promo*"))
 
 
+def test_cupom_nao_usa_o_texto_de_produto(monkeypatch) -> None:
+    monkeypatch.setattr(formatter, "load_filtros", lambda: {})
+    texto = formatter.montar_mensagem(
+        _oferta(
+            categoria="cupom",
+            nome="20% OFF em R$99: NINA10",
+            beneficio="20% OFF",
+            codigo_cupom="NINA10",
+            preco=20,
+            preco_anterior=99,
+            loja="Shopee",
+            url="https://s.shopee.com.br/cupom",
+        )
+    )
+    assert texto == (
+        "🎁 Resgate esse cupom\n\n"
+        "🎫 20% OFF: NINA10\n\n"
+        "✅ Resgate aqui:\n"
+        "https://s.shopee.com.br/cupom"
+    )
+    assert "Por *R$" not in texto
+    assert "◼️" not in texto
+
+
 def test_formatter_template_do_bot_sem_cupom_insere_codigo_antes_do_link(monkeypatch) -> None:
     template = "🔥 {nome}\n\n✅ R$ {preco}\n\n{url}\n\n⏰ {hora}"
     monkeypatch.setattr(formatter, "load_filtros", lambda: {"mensagem_template": template})
