@@ -49,6 +49,8 @@ def _eh_campanha(oferta: OfertaCapturada) -> bool:
 
 
 def montar_mensagem(oferta: OfertaCapturada) -> str:
+    if (oferta.categoria or "").lower() == "cupom":
+        return _mensagem_cupom(oferta)
     filtros = load_filtros()
     if _eh_campanha(oferta):
         template = filtros.get(
@@ -123,15 +125,14 @@ def _mensagem_legada(oferta: OfertaCapturada, template: str) -> str:
     )
 
 
-def _mensagem_cupom_legada(oferta: OfertaCapturada) -> str:
-    linha = oferta.nome
+def _mensagem_cupom(oferta: OfertaCapturada) -> str:
+    """Cupom da loja, não o anúncio de um produto."""
+    beneficio = (oferta.beneficio or oferta.nome or "Cupom").strip()
     codigo = _cupom_digitavel(oferta.codigo_cupom)
-    if codigo and codigo not in linha:
-        linha = f"{oferta.beneficio or linha}: {codigo}"
-    loja = (oferta.loja or "").lower()
-    if "shopee" in loja:
-        texto = f"🎁 CUPOM SHOPEE 🎁\n\n🎫 {linha}\n\n✅ Resgate aqui:\n{oferta.url}"
-        if oferta.url_carrinho:
-            texto += f"\n\n🛒 Carrinho: {oferta.url_carrinho}"
-        return texto
-    return f"🔥 Cupom Mercado Livre\n\n🎫 {linha}\n\n✅ Resgate aqui:\n{oferta.url}"
+    if codigo and codigo not in beneficio.upper():
+        beneficio = f"{beneficio}: {codigo}"
+    return f"🎁 Resgate esse cupom\n\n🎫 {beneficio}\n\n✅ Resgate aqui:\n{oferta.url}"
+
+
+def _mensagem_cupom_legada(oferta: OfertaCapturada) -> str:
+    return _mensagem_cupom(oferta)
