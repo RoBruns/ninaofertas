@@ -81,10 +81,13 @@ Dentro de cada loja, a maior comissão estimada vai na frente. Sem taxa, a ordem
 anterior fica no fim. Fora de `novidades`, o score (demanda 45%, desconto 35%,
 nota 10%, comissão 10%) só desempata. `prioridade_loja` (padrão `alternar`)
 escolhe quem começa: `alternar` reveza Shopee no ciclo ímpar e Mercado Livre no
-par; `mercado_livre` ou `shopee` coloca essa loja inteira na frente e deixa a
-outra de reserva no mesmo ciclo. `uma_loja_por_ciclo` continua alternando uma
+par; `mercado_livre` ou `shopee` deixa o ciclo só com essa loja. Sem oferta
+enviável, a outra não herda a vaga. `uma_loja_por_ciclo` continua alternando uma
 loja exclusiva e ignora essa prioridade. Um cupom Shopee ocupa a primeira vaga do
-ciclo até `max_cupons_por_dia`; com o teto cheio, o produto segue. Freio,
+ciclo até `max_cupons_por_dia`; com o teto cheio, o produto segue.
+`content.cupom_venda_indireta` (padrão false) coloca também o cupom do Mercado
+Livre nessa vaga: primeiro o da loja prioritária, depois o da outra. Sem link de
+afiliado, o produto segue. Freio,
 deduplicação por grupo e reenvio por queda de preço seguem iguais. A opção pode ser
 comparada num bot de teste e importada pelo fluxo existente; nenhum bot muda automaticamente.
 

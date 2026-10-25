@@ -425,9 +425,12 @@ com código digitável ou desconto explícito. Um cupom Shopee vai para a frente
 da fila em qualquer ciclo, até `max_cupons_por_dia`. Estourado o teto, o cupom
 é pulado e o produto do ciclo segue. O cupom conta 1 no freio. ADR-031.
 
+`content.cupom_venda_indireta` (padrão false) usa essa mesma vaga para o cupom
+da Shopee e o do Mercado Livre. A loja prioritária vem primeiro. ADR-033.
+
 `filters.prioridade_loja` (padrão `alternar`) deixa o bot escolher a loja da
-frente. `mercado_livre` manda essa loja inteira antes da Shopee; se não houver
-oferta enviável, a Shopee segue no mesmo ciclo. ADR-032.
+frente. `mercado_livre` deixa o ciclo só com o Mercado Livre. Sem oferta enviável,
+a Shopee não herda a vaga. ADR-032.
 
 **Status:** feito. Não aumenta o ritmo do número.
 

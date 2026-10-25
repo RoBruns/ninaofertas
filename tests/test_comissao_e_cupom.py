@@ -7,6 +7,7 @@ from pydantic import ValidationError
 
 from core import config_provider
 from core.bot_settings import BotSettings
+from core.platforms.affiliate import link_rastreado
 from core.platforms.base import OfertaCapturada
 from core.platforms.shopee import _comissao_fracao
 from worker.filters import passa_nos_filtros
@@ -75,7 +76,7 @@ def test_alternar_revez_e_mercado_livre_empilha():
     assert _prioridade_do_ciclo({"prioridade_loja": "shopee"}, 2) == ("Shopee", True)
 
 
-def test_mercado_livre_na_frente_e_shopee_de_reserva():
+def test_mercado_livre_escolhido_nao_deixa_a_shopee_no_ciclo():
     baixa = _oferta(nome="baixa", url="https://s.shopee.com.br/baixa", preco=10, comissao_pct=0.03)
     alta = _oferta(nome="alta", url="https://s.shopee.com.br/alta", preco=80, comissao_pct=0.03)
     ml = _oferta(loja="Mercado Livre", nome="ml", url="https://www.mercadolivre.com.br/ml")
@@ -83,7 +84,7 @@ def test_mercado_livre_na_frente_e_shopee_de_reserva():
     resultado = _ordenar_envio(
         [baixa, ml, alta, cupom], 1, "Mercado Livre", "novidades", empilhar=True
     )
-    assert [o.nome for o in resultado] == ["cupom", "ml", "alta", "baixa"]
+    assert [o.nome for o in resultado] == ["ml"]
 
 
 def test_cupom_shopee_na_frente_em_qualquer_ciclo():
@@ -99,6 +100,26 @@ def test_cupom_shopee_na_frente_em_qualquer_ciclo():
     assert so_shopee[0].categoria == "cupom"
     com_ml = _ordenar_envio([produto, ml], 1, "Shopee", "novidades")
     assert [o.nome for o in com_ml] == ["panela", "mlcupom"]
+
+
+def test_venda_indireta_poe_o_cupom_da_loja_prioritaria_na_frente():
+    assert BotSettings().content.cupom_venda_indireta is False
+    produto = _oferta(nome="panela", url="https://s.shopee.com.br/panela")
+    shopee = _oferta(categoria="cupom", nome="shopee", url="https://s.shopee.com.br/cupom")
+    ml = _oferta(
+        categoria="cupom",
+        loja="Mercado Livre",
+        nome="mlcupom",
+        url="https://www.mercadolivre.com.br/cupons",
+    )
+    desligado = _ordenar_envio([produto, shopee, ml], 2, "Mercado Livre", cupom_indireta=False)
+    assert [o.nome for o in desligado] == ["shopee", "panela", "mlcupom"]
+    ligado = _ordenar_envio(
+        [produto, shopee, ml], 2, "Mercado Livre", cupom_indireta=True
+    )
+    assert [o.nome for o in ligado] == ["mlcupom", "shopee", "panela"]
+    assert not link_rastreado("Mercado Livre", "https://www.mercadolivre.com.br/cupons")
+    assert link_rastreado("Mercado Livre", "https://meli.la/abc")
 
 
 def test_parse_voucher_shopee():

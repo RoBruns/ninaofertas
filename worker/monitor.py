@@ -135,7 +135,7 @@ def _prioridade_do_ciclo(filtros: dict, n: int) -> tuple[str, bool]:
     """Devolve a loja que começa a fila e se ela deve ir inteira na frente.
 
     `alternar` reveza: ciclo ímpar Shopee, par Mercado Livre. Uma loja escolhida
-    ocupa a fila antes da outra; a reserva continua no mesmo ciclo.
+    ocupa o ciclo sozinha.
     """
     escolha = filtros.get("prioridade_loja") or "alternar"
     if escolha == "mercado_livre":
@@ -150,12 +150,10 @@ def _intercalar_lojas(
 ) -> list[OfertaCapturada]:
     """MELI e Shopee se revezam; `prioridade` começa a fila pra não ficar só uma loja.
 
-    Com `empilhar`, a loja prioritária vai inteira na frente e a outra fica de reserva.
+    Com `empilhar`, só a loja prioritária permanece. A outra não entra nesse ciclo.
     """
     if empilhar:
-        frente = [oferta for oferta in ofertas if oferta.loja == prioridade]
-        resto = [oferta for oferta in ofertas if oferta.loja != prioridade]
-        return frente + resto
+        return [oferta for oferta in ofertas if oferta.loja == prioridade]
     from collections import defaultdict, deque
 
     filas: dict[str, deque] = defaultdict(deque)
@@ -204,12 +202,24 @@ def _priorizar_comissao(
     ]
 
 
+def _cupons_na_frente(
+    cupons: list[OfertaCapturada], prioridade: str, indireta: bool
+) -> list[OfertaCapturada] | None:
+    """None mantém o cupom da Shopee sozinho na frente. Com venda indireta, as duas lojas."""
+    if not indireta:
+        return None
+    frente = [cupom for cupom in cupons if cupom.loja == prioridade]
+    reserva = [cupom for cupom in cupons if cupom.loja != prioridade]
+    return frente + reserva
+
+
 def _ordenar_envio(
     ofertas: list[OfertaCapturada],
     n: int,
     prioridade: str,
     origem_produtos: str = "novidades",
     empilhar: bool = False,
+    cupom_indireta: bool = False,
 ) -> list[OfertaCapturada]:
     cupons = [o for o in ofertas if (o.categoria or "").lower() == "cupom"]
     produtos = [o for o in ofertas if (o.categoria or "").lower() != "cupom"]
@@ -234,8 +244,13 @@ def _ordenar_envio(
             o if (o.categoria or "").lower() in categorias_conteudo else next(filas[o.loja])
             for o in produtos
         ]
+    if empilhar:
+        cupons = [cupom for cupom in cupons if cupom.loja == prioridade]
     produtos = _priorizar_comissao(produtos, origem_produtos)
     produtos = _intercalar_lojas(produtos, prioridade, empilhar)
+    indiretos = _cupons_na_frente(cupons, prioridade, cupom_indireta)
+    if indiretos is not None:
+        return [*indiretos, *produtos]
     cupom_shopee = next((c for c in cupons if "shopee" in (c.loja or "").lower()), None)
     if cupom_shopee is not None:
         resto = [c for c in cupons if c is not cupom_shopee]
@@ -603,7 +618,12 @@ def _executar_ciclo() -> tuple[int, int, bool]:
                 f"{len(candidatos)} candidatos; top 3: {resumo}"
             )
     todas_ofertas = _ordenar_envio(
-        todas_ofertas, n, prioridade, origem_produtos, empilhar
+        todas_ofertas,
+        n,
+        prioridade,
+        origem_produtos,
+        empilhar,
+        bool(filtros.get("cupom_venda_indireta")),
     )
 
     logger.info(f"[{nome_canal()}] {len(todas_ofertas)} ofertas encontradas na varredura.")
