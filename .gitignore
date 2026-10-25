@@ -11,5 +11,8 @@ backups/
 whatsapp-qr.png
 evolution-connect.json
 evolution-create.json
-.cursor/
+.cursor/*
+!.cursor/BUGBOT.md
+!.cursor/agents/
+!.cursor/agents/**
 .claude/worktrees/
