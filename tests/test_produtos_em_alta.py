@@ -197,14 +197,14 @@ def test_shopee_queries_e_dedup(monkeypatch, origem, sorts):
     assert len(queries) == len(sorts)
     for query, sort in zip(queries, sorts, strict=True):
         assert f"sortType: {sort}" in query
+        assert "commissionRate" in query
         assert ("ratingStar" in query) == (sort == 2)
-        assert ("commissionRate" in query) == (sort == 2)
     assert len(produtos) == 1
     assert produtos[0].origem_mais_vendidos == (origem != "novidades")
+    assert produtos[0].comissao_pct == 0.03
     if origem != "novidades":
         assert produtos[0].vendas == 15000
         assert produtos[0].nota == 4.8
-        assert produtos[0].comissao_pct == 0.03
     else:
         assert queries[0] == (Path(__file__).parent / "fixtures/shopee_query_relevancia.graphql").read_text(
             encoding="utf-8"

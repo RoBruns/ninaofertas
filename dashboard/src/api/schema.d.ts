@@ -2180,6 +2180,17 @@ export interface components {
              */
             min_vendas: number;
             /**
+             * Comissao Minima Reais
+             * @default 0
+             */
+            comissao_minima_reais: number;
+            /**
+             * Prioridade Loja
+             * @default alternar
+             * @enum {string}
+             */
+            prioridade_loja: "alternar" | "mercado_livre" | "shopee";
+            /**
              * Max Idade Oferta Horas
              * @default 0
              */

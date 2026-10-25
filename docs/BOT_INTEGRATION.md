@@ -66,17 +66,25 @@ Não acessa banco nem WhatsApp.
 
 `filters.origem_produtos` aceita `novidades` (padrão, buscas e ordem anteriores),
 `mais_vendidos` ou `ambos`. Shopee usa relevância (`sortType: 1`) no caminho atual
-e vendas (`sortType: 2`) no ranking, com nota e comissão. ML lê `/mais-vendidos`,
+e vendas (`sortType: 2`) no ranking, com nota. A taxa `commissionRate` vem nas duas
+buscas. ML lê `/mais-vendidos`,
 seleciona as categorias do bot (ou `CATEGORIAS_CASA`) e tenta uma página por categoria
 ausente na raiz, usando o cookie da conta. Bloqueios não interrompem o ciclo.
 
 Mais vendidos dispensam `max_vendas`, exigem desconto conhecido e o desconto mínimo,
 e aplicam `min_vendas` (padrão 100; 0 desliga) quando a fonte informa vendas. A exceção
-`ml_ignora_desconto_e_vendas` continua valendo. Os demais filtros permanecem iguais.
+`ml_ignora_desconto_e_vendas` continua valendo. `comissao_minima_reais` (padrão 0,
+desligado) corta só oferta com taxa estimada abaixo do piso; sem taxa, segue.
+Os demais filtros permanecem iguais.
 
-Fora de `novidades`, os produtos de cada loja são ordenados de forma estável por demanda
-(45%), desconto (35%), nota (10%) e comissão (10%) antes da intercalação. Cupons e campanhas
-conservam suas fontes e posições. O ciclo registra contagem e top 3 por loja. Freio,
+Dentro de cada loja, a maior comissão estimada vai na frente. Sem taxa, a ordem
+anterior fica no fim. Fora de `novidades`, o score (demanda 45%, desconto 35%,
+nota 10%, comissão 10%) só desempata. `prioridade_loja` (padrão `alternar`)
+escolhe quem começa: `alternar` reveza Shopee no ciclo ímpar e Mercado Livre no
+par; `mercado_livre` ou `shopee` coloca essa loja inteira na frente e deixa a
+outra de reserva no mesmo ciclo. `uma_loja_por_ciclo` continua alternando uma
+loja exclusiva e ignora essa prioridade. Um cupom Shopee ocupa a primeira vaga do
+ciclo até `max_cupons_por_dia`; com o teto cheio, o produto segue. Freio,
 deduplicação por grupo e reenvio por queda de preço seguem iguais. A opção pode ser
 comparada num bot de teste e importada pelo fluxo existente; nenhum bot muda automaticamente.
 

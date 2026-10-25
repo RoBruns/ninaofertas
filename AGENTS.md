@@ -148,6 +148,8 @@ nina-worker (APScheduler) ──────────────── nina-
   2026-09-30); falha dela vira o evento `ml_sales_sync_failed`.
 - **Opções por bot** vindas da V1 (ADR-022): `uma_loja_por_ciclo`,
   `ml_ignora_desconto_e_vendas`, `ml_categoria_dispensa_nicho`.
+  `prioridade_loja` (`alternar` por padrão; `mercado_livre` ou `shopee` empilha
+  a loja na frente e deixa a outra de reserva no mesmo ciclo, ADR-032).
 - **Silêncio noturno** por bot (`schedule.quiet_hours`, padrão 00:00–08:00, Brasília).
 - **Recado do Instagram**: só bots com `content.recado_instagram=true`; padrão false
   para novos bots. Migration 0007 liga em todos os existentes para preservar o envio.

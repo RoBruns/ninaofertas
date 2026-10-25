@@ -65,6 +65,28 @@ def _linha_beneficio(desc: str, codigo: str | None) -> str:
     return desc
 
 
+def _codigo_digitavel(texto: str | None) -> str | None:
+    code = (texto or "").strip().upper()
+    if re.fullmatch(r"[A-Z0-9]{4,16}", code):
+        return code
+    return None
+
+
+def _cupom_explicito(item: dict) -> bool:
+    """Fallback de campanha só entra com código digitável ou desconto informado."""
+    codigo = _codigo_digitavel(item.get("voucherCode"))
+    if codigo and codigo not in {"HTTP", "HTTPS", "MLB", "JSON", "TYPE", "CUPOM", "OFF"}:
+        return True
+    nome = (item.get("offerName") or "").upper()
+    for achado in re.findall(r"\b([A-Z0-9]{4,16})\b", nome):
+        if any(ch.isdigit() for ch in achado):
+            return True
+    return any(
+        item.get(campo) not in (None, "", 0)
+        for campo in ("discountPercentage", "discountValue", "capAmount")
+    )
+
+
 class CupomScraper(Scraper):
     nome_fonte = "Cupons"
     timeout = 20.0
@@ -87,7 +109,11 @@ class CupomScraper(Scraper):
             nodes = self._shopee_offer_como_cupom()
         out: list[OfertaCapturada] = []
         for item in nodes[:8]:
-            oferta = self._parse_shopee(item)
+            try:
+                oferta = self._parse_shopee(item)
+            except Exception as exc:
+                logger.warning(f"[Cupons] voucher Shopee ignorado: {safe_log_text(exc)}")
+                continue
             if oferta:
                 out.append(oferta)
         return out
@@ -121,6 +147,9 @@ class CupomScraper(Scraper):
               originalLink
               imageUrl
               periodEndTime
+              discountPercentage
+              discountValue
+              capAmount
             }
           }
         }
@@ -133,8 +162,7 @@ class CupomScraper(Scraper):
             return []
         out = []
         for item in (data.get("shopeeOfferV2") or {}).get("nodes") or []:
-            nome = (item.get("offerName") or "").lower()
-            if any(p in nome for p in ("cupom", "voucher", "off", "desconto", "r$")):
+            if _cupom_explicito(item):
                 out.append(item)
         return out
 
@@ -178,7 +206,7 @@ class CupomScraper(Scraper):
         if not codigo and not valor and not pct:
             return None
         return OfertaCapturada(
-            nome=linha,
+            nome=_linha_beneficio(beneficio, codigo),
             preco=valor or 0.0,
             desconto=pct,
             loja="Shopee",

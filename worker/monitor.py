@@ -35,7 +35,7 @@ from worker.channels import (
 )
 from worker.filters import passa_nos_filtros
 from worker.logger import logger
-from worker.ranking import pontuar
+from worker.ranking import comissao_estimada_reais, pontuar
 from worker.sources import FONTES
 
 _baseline_ciclos_feitos: dict[str, int] = {}
@@ -131,8 +131,31 @@ def _telemetria_best_effort(
         return default
 
 
-def _intercalar_lojas(ofertas: list[OfertaCapturada], prioridade: str) -> list[OfertaCapturada]:
-    """MELI e Shopee se revezam; `prioridade` começa a fila pra não ficar só uma loja."""
+def _prioridade_do_ciclo(filtros: dict, n: int) -> tuple[str, bool]:
+    """Devolve a loja que começa a fila e se ela deve ir inteira na frente.
+
+    `alternar` reveza: ciclo ímpar Shopee, par Mercado Livre. Uma loja escolhida
+    ocupa a fila antes da outra; a reserva continua no mesmo ciclo.
+    """
+    escolha = filtros.get("prioridade_loja") or "alternar"
+    if escolha == "mercado_livre":
+        return "Mercado Livre", True
+    if escolha == "shopee":
+        return "Shopee", True
+    return ("Shopee" if n % 2 == 1 else "Mercado Livre"), False
+
+
+def _intercalar_lojas(
+    ofertas: list[OfertaCapturada], prioridade: str, empilhar: bool = False
+) -> list[OfertaCapturada]:
+    """MELI e Shopee se revezam; `prioridade` começa a fila pra não ficar só uma loja.
+
+    Com `empilhar`, a loja prioritária vai inteira na frente e a outra fica de reserva.
+    """
+    if empilhar:
+        frente = [oferta for oferta in ofertas if oferta.loja == prioridade]
+        resto = [oferta for oferta in ofertas if oferta.loja != prioridade]
+        return frente + resto
     from collections import defaultdict, deque
 
     filas: dict[str, deque] = defaultdict(deque)
@@ -147,8 +170,46 @@ def _intercalar_lojas(ofertas: list[OfertaCapturada], prioridade: str) -> list[O
     return out
 
 
+def _priorizar_comissao(
+    produtos: list[OfertaCapturada], origem_produtos: str
+) -> list[OfertaCapturada]:
+    """Dentro de cada loja, quem tem taxa estimada maior vai na frente.
+
+    Sem taxa, a oferta fica no fim da fila da loja, na ordem que já tinha.
+    Campanha não muda de lugar. O score de mais vendidos só desempata.
+    """
+    categorias_conteudo = {"campanha", "promocao", "promoção"}
+    filas: dict[str, Any] = {}
+    for loja in {o.loja for o in produtos}:
+        itens = [
+            (indice, oferta)
+            for indice, oferta in enumerate(produtos)
+            if oferta.loja == loja and (oferta.categoria or "").lower() not in categorias_conteudo
+        ]
+
+        def chave(par: tuple[int, OfertaCapturada], origem: str = origem_produtos) -> tuple:
+            indice, oferta = par
+            estimada = comissao_estimada_reais(oferta)
+            if estimada is None:
+                return (1, 0.0, indice)
+            desempate = -pontuar(oferta) if origem != "novidades" else indice
+            return (0, -estimada, desempate)
+
+        filas[loja] = iter(oferta for _, oferta in sorted(itens, key=chave))
+    return [
+        oferta
+        if (oferta.categoria or "").lower() in categorias_conteudo
+        else next(filas[oferta.loja])
+        for oferta in produtos
+    ]
+
+
 def _ordenar_envio(
-    ofertas: list[OfertaCapturada], n: int, prioridade: str, origem_produtos: str = "novidades"
+    ofertas: list[OfertaCapturada],
+    n: int,
+    prioridade: str,
+    origem_produtos: str = "novidades",
+    empilhar: bool = False,
 ) -> list[OfertaCapturada]:
     cupons = [o for o in ofertas if (o.categoria or "").lower() == "cupom"]
     produtos = [o for o in ofertas if (o.categoria or "").lower() != "cupom"]
@@ -173,9 +234,12 @@ def _ordenar_envio(
             o if (o.categoria or "").lower() in categorias_conteudo else next(filas[o.loja])
             for o in produtos
         ]
-    produtos = _intercalar_lojas(produtos, prioridade)
-    if n % 4 == 0 and cupons:
-        return cupons[:1] + produtos + cupons[1:]
+    produtos = _priorizar_comissao(produtos, origem_produtos)
+    produtos = _intercalar_lojas(produtos, prioridade, empilhar)
+    cupom_shopee = next((c for c in cupons if "shopee" in (c.loja or "").lower()), None)
+    if cupom_shopee is not None:
+        resto = [c for c in cupons if c is not cupom_shopee]
+        return [cupom_shopee, *produtos, *resto]
     return produtos + cupons
 
 
@@ -513,7 +577,7 @@ def _executar_ciclo() -> tuple[int, int, bool]:
 
     n += 1
     _ciclo_n[canal] = n
-    prioridade = "Shopee" if n % 2 == 1 else "Mercado Livre"
+    prioridade, empilhar = _prioridade_do_ciclo(filtros, n)
     if filtros.get("uma_loja_por_ciclo") and len(plataformas) > 1:
         loja_do_ciclo = "Mercado Livre" if n % 2 == 0 else "Shopee"
         slug_do_ciclo = _SLUG_POR_LOJA[loja_do_ciclo]
@@ -524,7 +588,10 @@ def _executar_ciclo() -> tuple[int, int, bool]:
             )
         todas_ofertas = [oferta for oferta in todas_ofertas if oferta.loja == loja_do_ciclo]
         prioridade = loja_do_ciclo
+        empilhar = False
         logger.info(f"[{nome_canal()}] Uma loja por ciclo: {loja_do_ciclo}.")
+    elif empilhar:
+        logger.info(f"[{nome_canal()}] Prioridade da loja: {prioridade}.")
     origem_produtos = filtros.get("origem_produtos", "novidades")
     if origem_produtos != "novidades":
         for loja in sorted({o.loja for o in todas_ofertas}):
@@ -535,7 +602,9 @@ def _executar_ciclo() -> tuple[int, int, bool]:
                 f"[{nome_canal()}] Mais vendidos {loja}: "
                 f"{len(candidatos)} candidatos; top 3: {resumo}"
             )
-    todas_ofertas = _ordenar_envio(todas_ofertas, n, prioridade, origem_produtos)
+    todas_ofertas = _ordenar_envio(
+        todas_ofertas, n, prioridade, origem_produtos, empilhar
+    )
 
     logger.info(f"[{nome_canal()}] {len(todas_ofertas)} ofertas encontradas na varredura.")
 
@@ -633,6 +702,9 @@ def _executar_ciclo() -> tuple[int, int, bool]:
                     continue
                 ok_ritmo, motivo_freio = _freio_anti_ban(session, filtros, candidatos[0], oferta)
                 if not ok_ritmo:
+                    if "cupons hoje" in motivo_freio:
+                        puladas += 1
+                        continue
                     logger.warning(f"[{nome_canal()}] {motivo_freio}")
                     break
                 publico_log = (

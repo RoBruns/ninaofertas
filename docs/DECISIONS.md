@@ -587,3 +587,34 @@ o gráfico, preservando strings decimais em valores, formulários e tooltips.
 
 Na S3, webhooks do gateway chamarão a mesma função transacional. Cadastro público,
 pagamentos e bloqueios por inadimplência ou limites ficam para essa fase.
+
+---
+
+## ADR-031 — Comissão mínima opt-in e cupom Shopee na vaga existente
+**Data:** 2026-10-19 · **Status:** aceita · **Decisor:** usuário
+
+Vendas com comissão de centavos não valem o envio, e o cupom da Shopee quase
+nunca saía porque a captura quebrava. Decisão: `filters.comissao_minima_reais`
+(padrão 0, desligado) descarta a oferta cuja comissão estimada, preço vezes
+taxa, fique abaixo do piso. A taxa da Shopee passa a vir em toda busca. Sem
+taxa, a oferta segue — o Mercado Livre não informa comissão na página, e
+cortá-lo zeraria a loja. Dentro de cada loja, a maior estimativa vai na frente;
+sem taxa, a ordem anterior fica no fim. O score de mais vendidos só desempata.
+
+O cupom da Shopee ocupa a primeira vaga do ciclo enquanto couber em
+`max_cupons_por_dia`. Conta 1 no freio, como qualquer oferta. Com o teto cheio,
+o cupom é pulado e o produto daquele ciclo segue. Não há mensagem extra.
+
+---
+
+## ADR-032 — Prioridade de loja opt-in, com reserva no mesmo ciclo
+**Data:** 2026-10-19 · **Status:** aceita · **Decisor:** usuário
+
+A comissão do Mercado Livre costuma compensar mais que a da Shopee, mas o ciclo
+revezava quem começava a fila. Decisão: `filters.prioridade_loja` (`alternar`,
+padrão; `mercado_livre`; `shopee`). O padrão preserva o revezamento. Com uma
+loja escolhida, os produtos dela vão todos na frente; a outra loja fica de
+reserva no mesmo ciclo, para o grupo não ficar em silêncio quando a preferida
+não tem oferta enviável. `uma_loja_por_ciclo` continua exclusivo e alternado.
+O cupom da Shopee, quando cabe no teto, segue na primeira vaga.
+

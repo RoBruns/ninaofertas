@@ -415,27 +415,27 @@ usar o dashboard de verdade revelou:
   oferecia cookie/token; o worker lê `app_secret`). A tela agora pede o que cada
   plataforma exige.
 
-### B1 — Cupons de campanha Shopee nunca são capturados ⚠️ produção
+### B1 — Cupom da Shopee entra na vaga que já existe ✅ 2026-10-19
 
-`worker/sources/cupons.py:191` usa `nome=linha`, mas `linha` nunca é definida
-naquela função (`_shopee_offer_como_cupom`) — só nas outras duas, nas linhas 217
-e 271. Toda chamada levanta `NameError`, que `Scraper.executar()` engole. É por
-isso que o log de produção mostra `[Cupons] 0 cupons capturados` em todo ciclo.
+O `NameError` de `nome=linha` em `_parse_shopee` engolia a fonte inteira
+(`Scraper.executar`) e o log ficava em 0 cupons. O dono pediu para ligar o envio.
+O parse usa `_linha_beneficio`; um voucher quebrado não derruba os outros. A
+fonte principal continua `voucherOfferV2`. O fallback `shopeeOfferV2` só entra
+com código digitável ou desconto explícito. Um cupom Shopee vai para a frente
+da fila em qualquer ciclo, até `max_cupons_por_dia`. Estourado o teto, o cupom
+é pulado e o produto do ciclo segue. O cupom conta 1 no freio. ADR-031.
 
-Descoberto na fase 1 por `ruff` (F821). Estava no código desde o commit
-`507eaff`. Corrigir provavelmente é usar `_linha_beneficio(beneficio, codigo)`,
-como fazem os outros dois caminhos — **mas isso liga uma fonte que hoje está
-desligada de fato**, e passaria a enviar cupons de campanha ao grupo. É mudança
-de comportamento operacional, então precisa de decisão do usuário, não de um
-fix silencioso.
+`filters.prioridade_loja` (padrão `alternar`) deixa o bot escolher a loja da
+frente. `mercado_livre` manda essa loja inteira antes da Shopee; se não houver
+oferta enviável, a Shopee segue no mesmo ciclo. ADR-032.
 
-**Status:** adiado por decisão do usuário (2026-09-22) — ele ainda não avaliou
-como quer usar cupons na operação. **Não corrigir sem consultá-lo**: o fix liga
-uma fonte que hoje está desligada de fato e muda o que chega nos grupos.
+**Status:** feito. Não aumenta o ritmo do número.
 
-Retomar quando o usuário definir o papel do cupom. A essa altura a fase 6 já terá
-deixado `max_cupons_por_dia` e `aceitar_cupons` controláveis pelo dashboard, então
-dá para ligar com o volume limitado e observar antes de soltar.
+### B1 — histórico: cupons adiados em 2026-09-22
+
+`worker/sources/cupons.py` usava `nome=linha` sem definir `linha`. O dono adiou
+o conserto em 2026-09-22 porque ligar a fonte mudaria o que chega no grupo.
+Retomado em 2026-10-19, com o teto diário que já existia no dashboard.
 
 ### B3 — `audit_logs.ip` é INET e derrubava o login ✅ corrigido
 
