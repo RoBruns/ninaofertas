@@ -117,9 +117,11 @@ class Content(BaseModel):
 
     aceitar_cupons: bool = True
     aceitar_campanhas: bool = False
-    # Desligado até salvar. Ligado, o cupom das duas lojas usa a vaga do ciclo.
+    # Desligado até salvar. Ligado, o cupom afiliado disponível usa a vaga do ciclo.
     cupom_venda_indireta: bool = False
     max_cupons_por_dia: int = Field(default=2, ge=0)
+    # Cupons da Central de Afiliados do ML. Vazio = conta sem liberação (sem scrape).
+    cupons_meli: list[dict] = Field(default_factory=list)
     baseline_ciclos: int = Field(default=5, ge=0)
 
 

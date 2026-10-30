@@ -1912,6 +1912,13 @@ export interface components {
              */
             max_cupons_por_dia: number;
             /**
+             * Cupons Meli
+             * @default []
+             */
+            cupons_meli: {
+                [key: string]: unknown;
+            }[];
+            /**
              * Baseline Ciclos
              * @default 5
              */

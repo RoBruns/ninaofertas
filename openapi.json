@@ -14793,6 +14793,15 @@
       "title": "Max Cupons Por Dia",
       "default": 2
      },
+     "cupons_meli": {
+      "items": {
+       "additionalProperties": true,
+       "type": "object"
+      },
+      "type": "array",
+      "title": "Cupons Meli",
+      "default": []
+     },
      "baseline_ciclos": {
       "type": "integer",
       "minimum": 0.0,
