@@ -126,9 +126,15 @@ def _mensagem_legada(oferta: OfertaCapturada, template: str) -> str:
 
 
 def _mensagem_cupom(oferta: OfertaCapturada) -> str:
-    """Cupom da loja, não o anúncio de um produto."""
+    """Cupom resgatável/aplicável com link afiliado, não o anúncio de um produto."""
     beneficio = (oferta.beneficio or oferta.nome or "Cupom").strip()
     codigo = _cupom_digitavel(oferta.codigo_cupom)
+    loja = (oferta.loja or "").lower()
+    if "mercado" in loja and not codigo:
+        return (
+            f"🎁 Cupom Mercado Livre\n\n🎫 {beneficio}\n\n"
+            f"✅ Abre o link e aplica o cupom:\n{oferta.url}"
+        )
     if codigo and codigo not in beneficio.upper():
         beneficio = f"{beneficio}: {codigo}"
     return f"🎁 Resgate esse cupom\n\n🎫 {beneficio}\n\n✅ Resgate aqui:\n{oferta.url}"

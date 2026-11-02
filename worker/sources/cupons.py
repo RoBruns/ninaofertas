@@ -1,4 +1,4 @@
-"""Cupons de loja (Shopee voucher + alguns do MELI), não campanha aleatória."""
+"""Cupons resgatáveis com link afiliado (Shopee voucher; ML só se cadastrado)."""
 from __future__ import annotations
 
 import hashlib
@@ -7,10 +7,8 @@ from datetime import datetime, timezone
 
 import httpx
 
-from core.platforms.base import OfertaCapturada, Scraper
 from core.log_safe import safe_log_text
-from core.platforms.mercadolivre import HEADERS as ML_HEADERS
-from core.platforms.mercadolivre import OFERTAS_URL
+from core.platforms.base import OfertaCapturada, Scraper
 from core.platforms.shopee import (
     _preco_float,
     _ts_para_dt,
@@ -167,7 +165,8 @@ class CupomScraper(Scraper):
         return out
 
     def _parse_shopee(self, item: dict) -> OfertaCapturada | None:
-        url = item.get("offerLink") or item.get("originalLink") or item.get("voucherLink")
+        # offerLink já vem com tracking de afiliado; sem ele o cupom não entra.
+        url = (item.get("offerLink") or "").strip()
         if not url:
             return None
         codigo = (item.get("voucherCode") or "").strip().upper() or None
@@ -222,17 +221,26 @@ class CupomScraper(Scraper):
         )
 
     def _meli(self) -> list[OfertaCapturada]:
+        """Só cupons colados da Central de Afiliados. Lista vazia = conta sem liberação."""
         manuais = load_filtros().get("cupons_meli") or []
+        if not manuais:
+            logger.debug("[Cupons] nenhum cupom ML cadastrado.")
+            return []
         out: list[OfertaCapturada] = []
         for item in manuais:
             if not isinstance(item, dict):
                 continue
-            codigo = str(item.get("codigo") or "").strip().upper()
-            url = item.get("url") or "https://www.mercadolivre.com.br/cupons"
-            titulo = str(item.get("titulo") or item.get("beneficio") or "Cupom Mercado Livre")
-            if not codigo and not titulo:
+            url = str(item.get("url") or "").strip()
+            if not url or "mercadolivre.com.br/cupons" in url.lower().rstrip("/"):
+                # Página genérica de cupons não é afiliada; createLink não salva.
                 continue
-            linha = _linha_beneficio(titulo, codigo or None)
+            codigo = str(item.get("codigo") or "").strip().upper() or None
+            titulo = str(
+                item.get("titulo") or item.get("beneficio") or "Cupom Mercado Livre"
+            ).strip()
+            if not titulo:
+                continue
+            linha = _linha_beneficio(titulo, codigo)
             out.append(
                 OfertaCapturada(
                     nome=linha,
@@ -241,65 +249,13 @@ class CupomScraper(Scraper):
                     url=url,
                     categoria="cupom",
                     sku=_sku("meli", codigo or url, url),
-                    codigo_cupom=codigo or None,
+                    codigo_cupom=codigo,
                     min_gasto=_preco_float(item.get("min_gasto")),
                     beneficio=titulo,
                     validade=str(item.get("validade") or "") or None,
                 )
             )
-        if out:
-            return out[:4]
-        out.extend(self._meli_html())
         return out[:4]
-
-    def _meli_html(self) -> list[OfertaCapturada]:
-        """Página pública de ofertas às vezes traz código/texto de cupom no JSON."""
-        try:
-            with httpx.Client(timeout=self.timeout, headers=ML_HEADERS, follow_redirects=True) as c:
-                resp = c.get(OFERTAS_URL)
-        except httpx.HTTPError as e:
-            logger.debug(f"[Cupons] MELI ofertas: {e}")
-            return []
-        if resp.status_code != 200:
-            return []
-        html = resp.text
-        codigos = []
-        for rx in (
-            r'"coupon_code"\s*:\s*"([A-Z0-9]{4,20})"',
-            r'"couponCode"\s*:\s*"([A-Z0-9]{4,20})"',
-            r'"code"\s*:\s*"([A-Z]{3,}[A-Z0-9]{2,14})"',
-        ):
-            for m in re.finditer(rx, html, flags=re.I):
-                code = m.group(1).upper()
-                if code not in {"HTTP", "HTTPS", "MLB", "JSON", "TYPE"} and code not in codigos:
-                    codigos.append(code)
-            if codigos:
-                break
-        textos = re.findall(
-            r'"text"\s*:\s*"([^"]{0,12}(?:Cupom|OFF|off)[^"]{0,40})"',
-            html,
-        )
-        if not codigos:
-            return []
-        out: list[OfertaCapturada] = []
-        for i, codigo in enumerate(codigos[:3]):
-            titulo = textos[i] if i < len(textos) else "Cupom Mercado Livre"
-            titulo = titulo.replace("{1} com Cupom", "Preço com cupom").strip()
-            url = "https://www.mercadolivre.com.br/cupons"
-            linha = _linha_beneficio(titulo, codigo)
-            out.append(
-                OfertaCapturada(
-                    nome=linha,
-                    preco=0.0,
-                    loja="Mercado Livre",
-                    url=url,
-                    categoria="cupom",
-                    sku=_sku("meli", codigo, url + codigo),
-                    codigo_cupom=codigo,
-                    beneficio=titulo,
-                )
-            )
-        return out
 
 
 def _fmt(valor: float) -> str:

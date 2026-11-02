@@ -1,4 +1,4 @@
-"""Piso de comissão estimada e cupom da Shopee que antes quebrava na captura."""
+"""Piso de comissão estimada, prioridade suave e cupom afiliado."""
 # ruff: noqa: F811
 from __future__ import annotations
 
@@ -76,7 +76,7 @@ def test_alternar_revez_e_mercado_livre_empilha():
     assert _prioridade_do_ciclo({"prioridade_loja": "shopee"}, 2) == ("Shopee", True)
 
 
-def test_mercado_livre_escolhido_nao_deixa_a_shopee_no_ciclo():
+def test_mercado_livre_preferido_mantem_shopee_na_reserva():
     baixa = _oferta(nome="baixa", url="https://s.shopee.com.br/baixa", preco=10, comissao_pct=0.03)
     alta = _oferta(nome="alta", url="https://s.shopee.com.br/alta", preco=80, comissao_pct=0.03)
     ml = _oferta(loja="Mercado Livre", nome="ml", url="https://www.mercadolivre.com.br/ml")
@@ -84,20 +84,20 @@ def test_mercado_livre_escolhido_nao_deixa_a_shopee_no_ciclo():
     resultado = _ordenar_envio(
         [baixa, ml, alta, cupom], 1, "Mercado Livre", "novidades", empilhar=True
     )
-    assert [o.nome for o in resultado] == ["ml"]
+    assert [o.nome for o in resultado] == ["ml", "alta", "baixa", "cupom"]
 
 
-def test_cupom_shopee_na_frente_em_qualquer_ciclo():
+def test_sem_venda_indireta_cupom_nao_rouba_a_vaga():
     produto = _oferta(nome="panela", url="https://s.shopee.com.br/panela")
     cupom = _oferta(categoria="cupom", nome="cupom", url="https://s.shopee.com.br/cupom")
     ml = _oferta(
         categoria="cupom",
         loja="Mercado Livre",
         nome="mlcupom",
-        url="https://www.mercadolivre.com.br/cupom",
+        url="https://meli.la/abc",
     )
     so_shopee = _ordenar_envio([produto, cupom], 1, "Shopee", "novidades")
-    assert so_shopee[0].categoria == "cupom"
+    assert [o.nome for o in so_shopee] == ["panela", "cupom"]
     com_ml = _ordenar_envio([produto, ml], 1, "Shopee", "novidades")
     assert [o.nome for o in com_ml] == ["panela", "mlcupom"]
 
@@ -113,7 +113,7 @@ def test_venda_indireta_poe_o_cupom_da_loja_prioritaria_na_frente():
         url="https://www.mercadolivre.com.br/cupons",
     )
     desligado = _ordenar_envio([produto, shopee, ml], 2, "Mercado Livre", cupom_indireta=False)
-    assert [o.nome for o in desligado] == ["shopee", "panela", "mlcupom"]
+    assert [o.nome for o in desligado] == ["panela", "shopee", "mlcupom"]
     ligado = _ordenar_envio(
         [produto, shopee, ml], 2, "Mercado Livre", cupom_indireta=True
     )
@@ -135,6 +135,30 @@ def test_parse_voucher_shopee():
     assert oferta.categoria == "cupom"
     assert oferta.codigo_cupom == "NINA10"
     assert oferta.nome == "20% OFF em R$99: NINA10"
+    assert CupomScraper()._parse_shopee({"voucherCode": "NINA10", "discountPercentage": 20}) is None
+
+
+def test_meli_manual_ignora_pagina_generica_e_lista_vazia(monkeypatch):
+    monkeypatch.setattr(cupons, "load_filtros", lambda: {"cupons_meli": []})
+    assert CupomScraper()._meli() == []
+    monkeypatch.setattr(
+        cupons,
+        "load_filtros",
+        lambda: {
+            "cupons_meli": [
+                {"url": "https://www.mercadolivre.com.br/cupons", "titulo": "genérico"},
+                {
+                    "url": "https://www.mercadolivre.com.br/oferta/MLB1",
+                    "titulo": "20% OFF",
+                    "codigo": "CASA20",
+                },
+            ]
+        },
+    )
+    out = CupomScraper()._meli()
+    assert len(out) == 1
+    assert out[0].url.endswith("/MLB1")
+    assert out[0].codigo_cupom == "CASA20"
 
 
 def test_fallback_ignora_campanha_sem_codigo_ou_desconto():

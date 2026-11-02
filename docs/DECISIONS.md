@@ -601,33 +601,36 @@ taxa, a oferta segue — o Mercado Livre não informa comissão na página, e
 cortá-lo zeraria a loja. Dentro de cada loja, a maior estimativa vai na frente;
 sem taxa, a ordem anterior fica no fim. O score de mais vendidos só desempata.
 
-O cupom da Shopee ocupa a primeira vaga do ciclo enquanto couber em
-`max_cupons_por_dia`. Conta 1 no freio, como qualquer oferta. Com o teto cheio,
-o cupom é pulado e o produto daquele ciclo segue. Não há mensagem extra.
+O cupom afiliado (Shopee `voucherOfferV2` com `offerLink`) só disputa a vaga
+do ciclo com `content.cupom_venda_indireta` ligado. Conta 1 no freio. Com o teto
+`max_cupons_por_dia` cheio, o cupom é pulado e o produto segue. Sem a flag, o
+cupom não rouba a vaga do produto a cada ciclo (isso mascarava a prioridade MELI).
 
 ---
 
 ## ADR-032 — Prioridade de loja opt-in, com reserva no mesmo ciclo
 **Data:** 2026-10-19 · **Status:** aceita · **Decisor:** usuário
+**Atualizado:** 2026-10-30
 
 A comissão do Mercado Livre costuma compensar mais que a da Shopee, mas o ciclo
 revezava quem começava a fila. Decisão: `filters.prioridade_loja` (`alternar`,
 padrão; `mercado_livre`; `shopee`). O padrão preserva o revezamento. Com uma
-loja escolhida, o ciclo só envia essa loja, inclusive o cupom. A outra não
-entra na mesma vaga: foi o que fazia a Shopee sair mesmo com Mercado Livre
-selecionado, porque o link do Mercado Livre falha e a reserva herdava o ciclo.
-Sem oferta enviável da loja escolhida, o ciclo não envia. `uma_loja_por_ciclo`
+loja escolhida, ela vai na frente e a outra fica de **reserva no mesmo ciclo**.
+A exclusão total (2026-10-25) silenciava o bot quando o `createLink` do Mercado
+Livre falhava; a reserva volta a ocupar a vaga nesse caso. `uma_loja_por_ciclo`
 continua exclusivo e alternado.
 
 ---
 
-## ADR-033 — Cupom de venda indireta nas duas lojas, na vaga que já existe
+## ADR-033 — Cupom de venda indireta afiliado, na vaga que já existe
 **Data:** 2026-10-25 · **Status:** aceita · **Decisor:** usuário
+**Atualizado:** 2026-10-30
 
-O cupom ajuda a venda de outros produtos, mas só o da Shopee ocupava a vaga do
-ciclo. O do Mercado Livre ficava atrás e, com uma oferta por ciclo, não saía.
-Decisão: `content.cupom_venda_indireta` (padrão false). Ligado, o cupom da loja
-prioritária vai na frente e o da outra fica de reserva no mesmo ciclo. Sem link
-de afiliado, o ciclo tenta o próximo e o produto segue. O teto
-`max_cupons_por_dia` e o freio não mudam. O cupom continua contando 1.
+O cupom é resgatável/aplicável e só sai com link afiliado. Shopee: voucher com
+`offerLink`. Mercado Livre: só itens em `content.cupons_meli` colados da Central
+de Afiliados (a conta pode ainda não ter a aba Cupons liberada); sem scrape da
+página genérica `/cupons`, que não passa em `link_rastreado`. Decisão:
+`content.cupom_venda_indireta` (padrão false). Ligado, o cupom da loja
+preferida vai na frente e o da outra fica de reserva. Sem link afiliado, o
+ciclo tenta o próximo e o produto segue. O teto e o freio não mudam.
 

@@ -420,17 +420,19 @@ usar o dashboard de verdade revelou:
 O `NameError` de `nome=linha` em `_parse_shopee` engolia a fonte inteira
 (`Scraper.executar`) e o log ficava em 0 cupons. O dono pediu para ligar o envio.
 O parse usa `_linha_beneficio`; um voucher quebrado não derruba os outros. A
-fonte principal continua `voucherOfferV2`. O fallback `shopeeOfferV2` só entra
-com código digitável ou desconto explícito. Um cupom Shopee vai para a frente
-da fila em qualquer ciclo, até `max_cupons_por_dia`. Estourado o teto, o cupom
-é pulado e o produto do ciclo segue. O cupom conta 1 no freio. ADR-031.
+fonte principal continua `voucherOfferV2` com `offerLink` afiliado. O fallback
+`shopeeOfferV2` só entra com código digitável ou desconto explícito. Com
+`cupom_venda_indireta`, o cupom disputa a vaga até `max_cupons_por_dia`; sem a
+flag, não rouba o produto a cada ciclo. Estourado o teto, o produto segue.
+O cupom conta 1 no freio. ADR-031.
 
-`content.cupom_venda_indireta` (padrão false) usa essa mesma vaga para o cupom
-da Shopee e o do Mercado Livre. A loja prioritária vem primeiro. ADR-033.
+`content.cupom_venda_indireta` (padrão false) usa essa vaga para cupom afiliado
+da Shopee e, se cadastrado em `cupons_meli`, do Mercado Livre. Sem liberação de
+Cupons na Central do ML, a lista fica vazia. ADR-033.
 
 `filters.prioridade_loja` (padrão `alternar`) deixa o bot escolher a loja da
-frente. `mercado_livre` deixa o ciclo só com o Mercado Livre. Sem oferta enviável,
-a Shopee não herda a vaga. ADR-032.
+frente. `mercado_livre` ou `shopee` põe a preferida na frente com a outra de
+reserva. ADR-032.
 
 **Status:** feito. Não aumenta o ritmo do número.
 

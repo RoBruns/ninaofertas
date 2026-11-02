@@ -73,6 +73,18 @@ def test_cupom_nao_usa_o_texto_de_produto(monkeypatch) -> None:
     )
     assert "Por *R$" not in texto
     assert "◼️" not in texto
+    ml = formatter.montar_mensagem(
+        _oferta(
+            categoria="cupom",
+            nome="20% OFF casa",
+            beneficio="20% OFF casa",
+            codigo_cupom=None,
+            loja="Mercado Livre",
+            url="https://meli.la/abc",
+        )
+    )
+    assert "Abre o link e aplica o cupom" in ml
+    assert "Resgate esse cupom" not in ml
 
 
 def test_formatter_template_do_bot_sem_cupom_insere_codigo_antes_do_link(monkeypatch) -> None:

@@ -132,10 +132,10 @@ def _telemetria_best_effort(
 
 
 def _prioridade_do_ciclo(filtros: dict, n: int) -> tuple[str, bool]:
-    """Devolve a loja que começa a fila e se ela deve ir inteira na frente.
+    """Devolve a loja que começa a fila e se ela vai inteira na frente com reserva.
 
     `alternar` reveza: ciclo ímpar Shopee, par Mercado Livre. Uma loja escolhida
-    ocupa o ciclo sozinha.
+    fica na frente; a outra permanece de reserva no mesmo ciclo.
     """
     escolha = filtros.get("prioridade_loja") or "alternar"
     if escolha == "mercado_livre":
@@ -150,10 +150,12 @@ def _intercalar_lojas(
 ) -> list[OfertaCapturada]:
     """MELI e Shopee se revezam; `prioridade` começa a fila pra não ficar só uma loja.
 
-    Com `empilhar`, só a loja prioritária permanece. A outra não entra nesse ciclo.
+    Com `empilhar`, a loja escolhida vai inteira na frente e a outra fica de reserva.
     """
     if empilhar:
-        return [oferta for oferta in ofertas if oferta.loja == prioridade]
+        preferidas = [oferta for oferta in ofertas if oferta.loja == prioridade]
+        reserva = [oferta for oferta in ofertas if oferta.loja != prioridade]
+        return [*preferidas, *reserva]
     from collections import defaultdict, deque
 
     filas: dict[str, deque] = defaultdict(deque)
@@ -205,7 +207,7 @@ def _priorizar_comissao(
 def _cupons_na_frente(
     cupons: list[OfertaCapturada], prioridade: str, indireta: bool
 ) -> list[OfertaCapturada] | None:
-    """None mantém o cupom da Shopee sozinho na frente. Com venda indireta, as duas lojas."""
+    """Com venda indireta, cupom da loja preferida na frente e o da outra de reserva."""
     if not indireta:
         return None
     frente = [cupom for cupom in cupons if cupom.loja == prioridade]
@@ -245,17 +247,16 @@ def _ordenar_envio(
             for o in produtos
         ]
     if empilhar:
-        cupons = [cupom for cupom in cupons if cupom.loja == prioridade]
+        preferidos = [cupom for cupom in cupons if cupom.loja == prioridade]
+        reserva = [cupom for cupom in cupons if cupom.loja != prioridade]
+        cupons = [*preferidos, *reserva]
     produtos = _priorizar_comissao(produtos, origem_produtos)
     produtos = _intercalar_lojas(produtos, prioridade, empilhar)
     indiretos = _cupons_na_frente(cupons, prioridade, cupom_indireta)
     if indiretos is not None:
         return [*indiretos, *produtos]
-    cupom_shopee = next((c for c in cupons if "shopee" in (c.loja or "").lower()), None)
-    if cupom_shopee is not None:
-        resto = [c for c in cupons if c is not cupom_shopee]
-        return [cupom_shopee, *produtos, *resto]
-    return produtos + cupons
+    # Sem venda indireta, o cupom não rouba a vaga do produto a cada ciclo.
+    return [*produtos, *cupons]
 
 
 def _salvar_oferta(session, oferta: OfertaCapturada):
