@@ -575,3 +575,157 @@ class MetricSnapshot(Base):
     commission: Mapped[Decimal | None] = mapped_column(MONEY)
     spend: Mapped[Decimal | None] = mapped_column(MONEY)
     computed_at: Mapped[datetime] = mapped_column(TIMESTAMPTZ, server_default=text("now()"))
+
+
+class TaskBoard(Base):
+    __tablename__ = "task_boards"
+    __table_args__ = (
+        Index("ix_task_boards_owner_user", "owner_id", "user_id"),
+    )
+    id: Mapped[PythonUUID] = mapped_column(
+        UUID_TYPE, primary_key=True, server_default=text("gen_random_uuid()")
+    )
+    owner_id: Mapped[PythonUUID] = mapped_column(UUID_TYPE, ForeignKey("tenants.id"))
+    user_id: Mapped[PythonUUID] = mapped_column(UUID_TYPE, ForeignKey("users.id"))
+    name: Mapped[str] = mapped_column(Text)
+    position: Mapped[int] = mapped_column(Integer, server_default=text("0"))
+    archived_at: Mapped[datetime | None] = mapped_column(TIMESTAMPTZ)
+    created_at: Mapped[datetime] = mapped_column(TIMESTAMPTZ, server_default=text("now()"))
+    updated_at: Mapped[datetime] = mapped_column(TIMESTAMPTZ, server_default=text("now()"))
+    lists: Mapped[list[TaskList]] = relationship(
+        back_populates="board", cascade="all, delete-orphan", order_by="TaskList.position"
+    )
+    labels: Mapped[list[TaskLabel]] = relationship(
+        back_populates="board", cascade="all, delete-orphan", order_by="TaskLabel.name"
+    )
+
+
+class TaskList(Base):
+    __tablename__ = "task_lists"
+    __table_args__ = (Index("ix_task_lists_board_position", "board_id", "position"),)
+    id: Mapped[PythonUUID] = mapped_column(
+        UUID_TYPE, primary_key=True, server_default=text("gen_random_uuid()")
+    )
+    board_id: Mapped[PythonUUID] = mapped_column(
+        UUID_TYPE, ForeignKey("task_boards.id", ondelete="CASCADE")
+    )
+    name: Mapped[str] = mapped_column(Text)
+    position: Mapped[int] = mapped_column(Integer, server_default=text("0"))
+    archived_at: Mapped[datetime | None] = mapped_column(TIMESTAMPTZ)
+    created_at: Mapped[datetime] = mapped_column(TIMESTAMPTZ, server_default=text("now()"))
+    board: Mapped[TaskBoard] = relationship(back_populates="lists")
+    cards: Mapped[list[TaskCard]] = relationship(
+        back_populates="list", cascade="all, delete-orphan", order_by="TaskCard.position"
+    )
+
+
+class TaskCard(Base):
+    __tablename__ = "task_cards"
+    __table_args__ = (
+        CheckConstraint(
+            "priority IN ('low', 'normal', 'high')", name="ck_task_cards_priority"
+        ),
+        Index("ix_task_cards_list_position", "list_id", "position"),
+    )
+    id: Mapped[PythonUUID] = mapped_column(
+        UUID_TYPE, primary_key=True, server_default=text("gen_random_uuid()")
+    )
+    list_id: Mapped[PythonUUID] = mapped_column(
+        UUID_TYPE, ForeignKey("task_lists.id", ondelete="CASCADE")
+    )
+    title: Mapped[str] = mapped_column(Text)
+    description: Mapped[str | None] = mapped_column(Text)
+    position: Mapped[int] = mapped_column(Integer, server_default=text("0"))
+    due_on: Mapped[date | None] = mapped_column(Date)
+    priority: Mapped[str] = mapped_column(Text, server_default=text("'normal'"))
+    archived_at: Mapped[datetime | None] = mapped_column(TIMESTAMPTZ)
+    created_at: Mapped[datetime] = mapped_column(TIMESTAMPTZ, server_default=text("now()"))
+    updated_at: Mapped[datetime] = mapped_column(TIMESTAMPTZ, server_default=text("now()"))
+    list: Mapped[TaskList] = relationship(back_populates="cards")
+    labels: Mapped[list[TaskLabel]] = relationship(
+        secondary="task_card_labels", back_populates="cards"
+    )
+    comments: Mapped[list[TaskComment]] = relationship(
+        back_populates="card", cascade="all, delete-orphan", order_by="TaskComment.created_at"
+    )
+    checklists: Mapped[list[TaskChecklist]] = relationship(
+        back_populates="card", cascade="all, delete-orphan", order_by="TaskChecklist.position"
+    )
+
+
+class TaskLabel(Base):
+    __tablename__ = "task_labels"
+    __table_args__ = (UniqueConstraint("board_id", "name"),)
+    id: Mapped[PythonUUID] = mapped_column(
+        UUID_TYPE, primary_key=True, server_default=text("gen_random_uuid()")
+    )
+    board_id: Mapped[PythonUUID] = mapped_column(
+        UUID_TYPE, ForeignKey("task_boards.id", ondelete="CASCADE")
+    )
+    name: Mapped[str] = mapped_column(Text)
+    color: Mapped[str] = mapped_column(Text, server_default=text("'#64748b'"))
+    board: Mapped[TaskBoard] = relationship(back_populates="labels")
+    cards: Mapped[list[TaskCard]] = relationship(
+        secondary="task_card_labels", back_populates="labels"
+    )
+
+
+class TaskCardLabel(Base):
+    __tablename__ = "task_card_labels"
+    __table_args__ = (UniqueConstraint("card_id", "label_id"),)
+    card_id: Mapped[PythonUUID] = mapped_column(
+        UUID_TYPE, ForeignKey("task_cards.id", ondelete="CASCADE"), primary_key=True
+    )
+    label_id: Mapped[PythonUUID] = mapped_column(
+        UUID_TYPE, ForeignKey("task_labels.id", ondelete="CASCADE"), primary_key=True
+    )
+
+
+class TaskComment(Base):
+    __tablename__ = "task_comments"
+    id: Mapped[PythonUUID] = mapped_column(
+        UUID_TYPE, primary_key=True, server_default=text("gen_random_uuid()")
+    )
+    card_id: Mapped[PythonUUID] = mapped_column(
+        UUID_TYPE, ForeignKey("task_cards.id", ondelete="CASCADE"), index=True
+    )
+    author_id: Mapped[PythonUUID] = mapped_column(UUID_TYPE, ForeignKey("users.id"))
+    body: Mapped[str] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(TIMESTAMPTZ, server_default=text("now()"))
+    card: Mapped[TaskCard] = relationship(back_populates="comments")
+
+
+class TaskChecklist(Base):
+    __tablename__ = "task_checklists"
+    __table_args__ = (Index("ix_task_checklists_card_position", "card_id", "position"),)
+    id: Mapped[PythonUUID] = mapped_column(
+        UUID_TYPE, primary_key=True, server_default=text("gen_random_uuid()")
+    )
+    card_id: Mapped[PythonUUID] = mapped_column(
+        UUID_TYPE, ForeignKey("task_cards.id", ondelete="CASCADE")
+    )
+    title: Mapped[str] = mapped_column(Text)
+    position: Mapped[int] = mapped_column(Integer, server_default=text("0"))
+    card: Mapped[TaskCard] = relationship(back_populates="checklists")
+    items: Mapped[list[TaskChecklistItem]] = relationship(
+        back_populates="checklist",
+        cascade="all, delete-orphan",
+        order_by="TaskChecklistItem.position",
+    )
+
+
+class TaskChecklistItem(Base):
+    __tablename__ = "task_checklist_items"
+    __table_args__ = (
+        Index("ix_task_checklist_items_checklist_position", "checklist_id", "position"),
+    )
+    id: Mapped[PythonUUID] = mapped_column(
+        UUID_TYPE, primary_key=True, server_default=text("gen_random_uuid()")
+    )
+    checklist_id: Mapped[PythonUUID] = mapped_column(
+        UUID_TYPE, ForeignKey("task_checklists.id", ondelete="CASCADE")
+    )
+    title: Mapped[str] = mapped_column(Text)
+    done: Mapped[bool] = mapped_column(Boolean, server_default=text("false"))
+    position: Mapped[int] = mapped_column(Integer, server_default=text("0"))
+    checklist: Mapped[TaskChecklist] = relationship(back_populates="items")

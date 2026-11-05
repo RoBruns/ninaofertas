@@ -634,3 +634,19 @@ página genérica `/cupons`, que não passa em `link_rastreado`. Decisão:
 preferida vai na frente e o da outra fica de reserva. Sem link afiliado, o
 ciclo tenta o próximo e o produto segue. O teto e o freio não mudam.
 
+---
+
+## ADR-034 — Kanban pessoal por usuário na aba Controle
+**Data:** 2026-11-02 · **Status:** aceita · **Decisor:** dono
+
+A aba Controle ganha `/tarefas`: quadro estilo Trello para organizar trabalho
+operacional. Decisão: o painel é **pessoal**. Cada board pertence a
+`owner_id` (tenant) + `user_id` (autor). Usuários da mesma conta não compartilham
+quadros nesta fase — nem o admin lê o quadro alheio. Qualquer papel autenticado
+usa o próprio kanban.
+
+O primeiro acesso sem boards cria “Meu quadro” com listas A fazer / Em andamento /
+Feito. Há vários boards por usuário, cartões com prazo/prioridade/etiquetas,
+checklists e comentários. Board/lista/cartão arquivam; anexos, realtime,
+compartilhamento e automações ficam de fora.
+

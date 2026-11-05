@@ -31,6 +31,7 @@ from api.routers import (
     platform,
     sales,
     system,
+    tasks,
     users,
 )
 from api.security import validate_security_config
@@ -102,5 +103,6 @@ app.include_router(campaigns.router, prefix="/api")
 app.include_router(sales.router, prefix="/api")
 app.include_router(metrics.router, prefix="/api")
 app.include_router(system.router, prefix="/api")
+app.include_router(tasks.router, prefix="/api")
 
 app.include_router(platform.router, prefix="/api")

@@ -8,3 +8,4 @@ export const CampaignsPage = lazy(() => import('./Campaigns').then((module) => (
 export const AlertsPage = lazy(() => import('./Alerts').then((module) => ({ default: module.Alerts })))
 export const LogsPage = lazy(() => import('./Logs').then((module) => ({ default: module.Logs })))
 export const AuditPage = lazy(() => import('./Audit').then((module) => ({ default: module.Audit })))
+export const TasksPage = lazy(() => import('./Tasks').then((module) => ({ default: module.Tasks })))

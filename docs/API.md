@@ -333,6 +333,35 @@ GET/POST/PATCH/DELETE /api/campaigns
 GET    /api/campaigns/{id}/metrics   → gasto, entradas em grupo e custo por entrada (ROAS da campanha: /api/metrics/by-campaign)
 ```
 
+## Tarefas (kanban pessoal)
+
+Quadro pessoal por usuário autenticado (`owner_id` = tenant + `user_id` = autor).
+Ninguém vê o quadro de outro usuário, nem admin da mesma conta. O primeiro
+`GET /api/task-boards` vazio cria “Meu quadro” com listas A fazer / Em andamento / Feito.
+
+```
+GET/POST                /api/task-boards
+GET/PATCH/DELETE        /api/task-boards/{board_id}
+POST                    /api/task-boards/{board_id}/lists
+PATCH/DELETE            /api/task-boards/lists/{list_id}
+POST                    /api/task-boards/lists/reorder
+POST                    /api/task-boards/{board_id}/cards
+GET/PATCH/DELETE        /api/task-boards/cards/{card_id}
+POST                    /api/task-boards/cards/{card_id}/move
+POST                    /api/task-boards/{board_id}/labels
+PATCH/DELETE            /api/task-boards/labels/{label_id}
+PUT                     /api/task-boards/cards/{card_id}/labels
+POST                    /api/task-boards/cards/{card_id}/comments
+DELETE                  /api/task-boards/comments/{comment_id}
+POST                    /api/task-boards/cards/{card_id}/checklists
+PATCH/DELETE            /api/task-boards/checklists/{checklist_id}
+POST                    /api/task-boards/checklists/{checklist_id}/items
+PATCH/DELETE            /api/task-boards/checklist-items/{item_id}
+```
+
+DELETE de board/lista/cartão arquiva (`archived_at`); comentários e itens de
+checklist são hard delete. Escrita auditada.
+
 ## Vendas e comissões
 
 ```
