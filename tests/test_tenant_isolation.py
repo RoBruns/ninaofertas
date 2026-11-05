@@ -104,6 +104,7 @@ LIST_ROUTES = {
     "/api/metrics/by-niche",
     "/api/metrics/funnel",
     "/api/system/status",
+    "/api/task-boards",
 }
 
 # Exclusões específicas, sem prefixos que escondam novas rotas.
@@ -152,6 +153,36 @@ EXCLUDED_ROUTES = {
             "/api/campaigns",
             "/api/sales/import",
             "/api/sales/sync",
+            "/api/task-boards",
+        )
+    },
+    **{
+        (method, path): "Kanban pessoal por user_id; coberto em test_tasks_api.py"
+        for method, path in (
+            ("GET", "/api/task-boards/{board_id}"),
+            ("PATCH", "/api/task-boards/{board_id}"),
+            ("DELETE", "/api/task-boards/{board_id}"),
+            ("POST", "/api/task-boards/{board_id}/lists"),
+            ("PATCH", "/api/task-boards/lists/{list_id}"),
+            ("POST", "/api/task-boards/lists/reorder"),
+            ("DELETE", "/api/task-boards/lists/{list_id}"),
+            ("POST", "/api/task-boards/{board_id}/cards"),
+            ("GET", "/api/task-boards/cards/{card_id}"),
+            ("PATCH", "/api/task-boards/cards/{card_id}"),
+            ("POST", "/api/task-boards/cards/{card_id}/move"),
+            ("DELETE", "/api/task-boards/cards/{card_id}"),
+            ("POST", "/api/task-boards/{board_id}/labels"),
+            ("PATCH", "/api/task-boards/labels/{label_id}"),
+            ("DELETE", "/api/task-boards/labels/{label_id}"),
+            ("PUT", "/api/task-boards/cards/{card_id}/labels"),
+            ("POST", "/api/task-boards/cards/{card_id}/comments"),
+            ("DELETE", "/api/task-boards/comments/{comment_id}"),
+            ("POST", "/api/task-boards/cards/{card_id}/checklists"),
+            ("PATCH", "/api/task-boards/checklists/{checklist_id}"),
+            ("DELETE", "/api/task-boards/checklists/{checklist_id}"),
+            ("POST", "/api/task-boards/checklists/{checklist_id}/items"),
+            ("PATCH", "/api/task-boards/checklist-items/{item_id}"),
+            ("DELETE", "/api/task-boards/checklist-items/{item_id}"),
         )
     },
 }

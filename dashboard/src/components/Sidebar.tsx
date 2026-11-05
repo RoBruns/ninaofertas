@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { BellRing, Bot, History, KeyRound, LayoutDashboard, Megaphone, Receipt, ScrollText, ShoppingBag, Smartphone, TrendingUp, Users } from 'lucide-react'
+import { BellRing, Bot, History, KeyRound, LayoutDashboard, Megaphone, Receipt, ScrollText, ShoppingBag, Smartphone, SquareKanban, TrendingUp, Users } from 'lucide-react'
 import { NavLink } from 'react-router-dom'
 import { api, apiFailure } from '../api/client'
 import { useAuth } from '../auth/useAuth'
@@ -8,7 +8,7 @@ import { BrandMark } from './BrandMark'
 const groups = [
   ['Operação', [['/', 'Visão geral', LayoutDashboard], ['/bots', 'Bots', Bot], ['/telefones', 'Telefones e grupos', Smartphone], ['/contas', 'Contas', KeyRound]]],
   ['Dinheiro', [['/desempenho', 'Desempenho', TrendingUp], ['/vendas', 'Vendas', ShoppingBag], ['/despesas', 'Despesas', Receipt], ['/campanhas', 'Campanhas', Megaphone]]],
-  ['Controle', [['/alertas', 'Alertas', BellRing], ['/logs', 'Logs técnicos', ScrollText], ['/auditoria', 'Auditoria', History], ['/usuarios', 'Usuários', Users]]],
+  ['Controle', [['/alertas', 'Alertas', BellRing], ['/tarefas', 'Tarefas', SquareKanban], ['/logs', 'Logs técnicos', ScrollText], ['/auditoria', 'Auditoria', History], ['/usuarios', 'Usuários', Users]]],
 ] as const
 
 export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {

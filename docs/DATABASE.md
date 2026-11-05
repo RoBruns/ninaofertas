@@ -509,6 +509,46 @@ reconstruível. Existe porque comparação histórica de 12 meses varrendo `sale
 e `envios` crus fica lenta rápido. Só entra na fase 9; até lá as métricas são
 calculadas ao vivo, que para o volume atual basta.
 
+```sql
+task_boards (
+  id UUID PK, owner_id UUID NOT NULL REFERENCES tenants(id),
+  user_id UUID NOT NULL REFERENCES users(id),
+  name TEXT NOT NULL, position INT NOT NULL DEFAULT 0,
+  archived_at TIMESTAMPTZ, created_at TIMESTAMPTZ, updated_at TIMESTAMPTZ
+)
+task_lists (
+  id UUID PK, board_id UUID NOT NULL REFERENCES task_boards(id) ON DELETE CASCADE,
+  name TEXT NOT NULL, position INT NOT NULL DEFAULT 0, archived_at TIMESTAMPTZ, created_at TIMESTAMPTZ
+)
+task_cards (
+  id UUID PK, list_id UUID NOT NULL REFERENCES task_lists(id) ON DELETE CASCADE,
+  title TEXT NOT NULL, description TEXT, position INT NOT NULL DEFAULT 0,
+  due_on DATE, priority TEXT NOT NULL DEFAULT 'normal' CHECK (priority IN ('low','normal','high')),
+  archived_at TIMESTAMPTZ, created_at TIMESTAMPTZ, updated_at TIMESTAMPTZ
+)
+task_labels (
+  id UUID PK, board_id UUID NOT NULL REFERENCES task_boards(id) ON DELETE CASCADE,
+  name TEXT NOT NULL, color TEXT NOT NULL DEFAULT '#64748b',
+  UNIQUE (board_id, name)
+)
+task_card_labels (card_id UUID, label_id UUID, PRIMARY KEY (card_id, label_id))
+task_comments (
+  id UUID PK, card_id UUID NOT NULL REFERENCES task_cards(id) ON DELETE CASCADE,
+  author_id UUID NOT NULL REFERENCES users(id), body TEXT NOT NULL, created_at TIMESTAMPTZ
+)
+task_checklists (
+  id UUID PK, card_id UUID NOT NULL REFERENCES task_cards(id) ON DELETE CASCADE,
+  title TEXT NOT NULL, position INT NOT NULL DEFAULT 0
+)
+task_checklist_items (
+  id UUID PK, checklist_id UUID NOT NULL REFERENCES task_checklists(id) ON DELETE CASCADE,
+  title TEXT NOT NULL, done BOOLEAN NOT NULL DEFAULT false, position INT NOT NULL DEFAULT 0
+)
+```
+
+Kanban pessoal (ADR-034): isolamento por `owner_id` + `user_id`. Soft-archive em
+board/lista/cartão; cascade apaga filhos ao remover o quadro de verdade.
+
 ## Fórmulas das métricas
 
 Fonte única de verdade para o cálculo — implementar em `core/metrics.py`, nunca

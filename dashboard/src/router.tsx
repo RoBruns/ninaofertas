@@ -5,7 +5,7 @@ import { Accounts } from './pages/Accounts'
 import { BotDetail } from './pages/BotDetail'
 import { Bots } from './pages/Bots'
 import { Login } from './pages/Login'
-import { AlertsPage, AuditPage, CampaignsPage, ExpensesPage, LogsPage, OverviewPage, PerformancePage, SalesPage } from './pages/LazyPages'
+import { AlertsPage, AuditPage, CampaignsPage, ExpensesPage, LogsPage, OverviewPage, PerformancePage, SalesPage, TasksPage } from './pages/LazyPages'
 import { PhonesGroups } from './pages/PhonesGroups'
 import { Users } from './pages/Users'
 import { Platform } from './pages/Platform'
@@ -24,6 +24,7 @@ export const router = createBrowserRouter([
     { path: 'despesas', element: <ExpensesPage /> },
     { path: 'campanhas', element: <CampaignsPage /> },
     { path: 'alertas', element: <AlertsPage /> },
+    { path: 'tarefas', element: <TasksPage /> },
     { path: 'logs', element: <LogsPage /> },
     { path: 'auditoria', element: <AuditPage /> },
     { path: 'usuarios', element: <Users /> },

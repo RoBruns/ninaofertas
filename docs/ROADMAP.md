@@ -1,5 +1,14 @@
 # Roadmap de implementação
 
+## Kanban pessoal na Controle — 2026-11-02
+
+Página `/tarefas` no grupo Controle: boards pessoais por usuário (ADR-034),
+migration `0010_task_boards`, API `/api/task-boards*` e UI com `@dnd-kit`
+(colunas, cartões, labels, prazo, prioridade, checklists, comentários). Seed
+automático do quadro padrão no primeiro GET. Sem compartilhamento entre usuários,
+anexos ou realtime. Testes em `tests/test_tasks_api.py`; cobertura de rotas
+atualizada em `test_tenant_isolation.py`.
+
 ## Backup lógico e restauração — 2026-10-14
 
 Implementado em `feat/saas`, sem commit, push ou deploy:
