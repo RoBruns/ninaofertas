@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import builtins
 from datetime import date, datetime
 from decimal import Decimal
 from typing import Any
@@ -642,13 +643,13 @@ class TaskCard(Base):
     created_at: Mapped[datetime] = mapped_column(TIMESTAMPTZ, server_default=text("now()"))
     updated_at: Mapped[datetime] = mapped_column(TIMESTAMPTZ, server_default=text("now()"))
     list: Mapped[TaskList] = relationship(back_populates="cards")
-    labels: Mapped[list[TaskLabel]] = relationship(
+    labels: Mapped[builtins.list[TaskLabel]] = relationship(
         secondary="task_card_labels", back_populates="cards"
     )
-    comments: Mapped[list[TaskComment]] = relationship(
+    comments: Mapped[builtins.list[TaskComment]] = relationship(
         back_populates="card", cascade="all, delete-orphan", order_by="TaskComment.created_at"
     )
-    checklists: Mapped[list[TaskChecklist]] = relationship(
+    checklists: Mapped[builtins.list[TaskChecklist]] = relationship(
         back_populates="card", cascade="all, delete-orphan", order_by="TaskChecklist.position"
     )
 
