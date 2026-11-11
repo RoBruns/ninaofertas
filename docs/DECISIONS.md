@@ -642,14 +642,12 @@ passa em `link_rastreado`). Sem Playwright e sem clicar em Aplicar. Cache 30 min
 captcha/HTML vazio falha soft sem invalidar cookie. createLink error 111
 (URL fora do programa) pula o cupom e **não** invalida o cookie.
 
-**Cadência fixa (não configurável no dashboard):** a cada **90 minutos** um
-cupom deve sair (pode repetir o mesmo); cupom **novo** (SKU nunca enviado)
-disputa a vaga na hora. Conta 1 no freio anti-ban; o intervalo geral entre
-ofertas continua valendo. Flags antigas (`aceitar_cupons`,
-`cupom_venda_indireta`, `max_cupons_por_dia`, `cupons_meli`) ficam no schema
-só por compatibilidade — o worker ignora. Sem link afiliado, o produto segue.
-Mensagem no formato urgência (Shopee `🚨` / MELI `🔥`). Imagem ML:
-`assets/cupom_meli.png`.
+**Cadência no dashboard:** `content.aceitar_cupons` liga/desliga o envio;
+`content.intervalo_cupom_minutos` (padrão 90, mín. 15) define o intervalo entre
+cupons (pode repetir o mesmo); cupom **novo** disputa a vaga na hora.
+`cupons_meli` é reforço manual de links. Conta 1 no freio anti-ban. Sem link
+afiliado, o produto segue. Mensagem no formato urgência (Shopee `🚨` / MELI
+`🔥`). Imagem ML: `assets/cupom_meli.png`.
 
 ---
 

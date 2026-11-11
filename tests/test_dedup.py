@@ -78,12 +78,15 @@ def test_preco_caiu_de_menos_nao_reenvia(oferta_e_sessao: tuple[Oferta, Session]
     assert enviar is False
 
 
-def test_cupom_antes_de_90_min_nao_reenvia(
+def test_cupom_antes_do_intervalo_nao_reenvia(
     oferta_e_sessao: tuple[Oferta, Session], monkeypatch
 ) -> None:
+    from worker import dedup as dedup_mod
+
     oferta, session = oferta_e_sessao
     repositories.registrar_envio(session, oferta.id, "grupo", "mensagem", 0.0, "sucesso")
     monkeypatch.setattr(repositories, "_minutos_desde", lambda _quando: 30.0)
+    monkeypatch.setattr(dedup_mod, "load_filtros", lambda: {"intervalo_cupom_minutos": 90})
 
     enviar, motivo = deve_enviar(
         session,
@@ -99,10 +102,13 @@ def test_cupom_antes_de_90_min_nao_reenvia(
     assert "reenvio em" in motivo
 
 
-def test_cupom_apos_90_min_reenvia(oferta_e_sessao: tuple[Oferta, Session], monkeypatch) -> None:
+def test_cupom_apos_intervalo_reenvia(oferta_e_sessao: tuple[Oferta, Session], monkeypatch) -> None:
+    from worker import dedup as dedup_mod
+
     oferta, session = oferta_e_sessao
     repositories.registrar_envio(session, oferta.id, "grupo", "mensagem", 0.0, "sucesso")
-    monkeypatch.setattr(repositories, "_minutos_desde", lambda _quando: 91.0)
+    monkeypatch.setattr(repositories, "_minutos_desde", lambda _quando: 61.0)
+    monkeypatch.setattr(dedup_mod, "load_filtros", lambda: {"intervalo_cupom_minutos": 60})
 
     enviar, motivo = deve_enviar(
         session,
@@ -115,4 +121,4 @@ def test_cupom_apos_90_min_reenvia(oferta_e_sessao: tuple[Oferta, Session], monk
     )
 
     assert enviar is True
-    assert "90" in motivo
+    assert "60" in motivo

@@ -199,7 +199,8 @@ class CupomScraper(Scraper):
     timeout = 20.0
 
     def buscar(self) -> list[OfertaCapturada]:
-        # Cupom é automático; flags antigas do dashboard são ignoradas.
+        if load_filtros().get("aceitar_cupons", True) is False:
+            return []
         out: list[OfertaCapturada] = []
         out.extend(self._shopee())
         out.extend(self._meli())

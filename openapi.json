@@ -17644,7 +17644,7 @@
      },
      "aceitar_cupons": {
       "type": "boolean",
-      "title": "Aceitar Cupons",
+      "title": "Enviar Cupons",
       "default": true
      },
      "aceitar_campanhas": {
@@ -17655,13 +17655,19 @@
      "cupom_venda_indireta": {
       "type": "boolean",
       "title": "Cupom Venda Indireta",
-      "default": false
+      "default": true
      },
      "max_cupons_por_dia": {
       "type": "integer",
       "minimum": 0.0,
       "title": "Max Cupons Por Dia",
       "default": 2
+     },
+     "intervalo_cupom_minutos": {
+      "type": "integer",
+      "minimum": 15.0,
+      "title": "Intervalo Cupom Minutos",
+      "default": 90
      },
      "cupons_meli": {
       "items": {

@@ -469,11 +469,11 @@ Worker captura `mercadolivre.com.br/cupons` (httpx + cookie), monta
 Playwright/Aplicar. Cache 30 min; captcha e error 111 fail-soft. Imagem
 `assets/cupom_meli.png`. ADR-033.
 
-### B1d — Cupom automático a cada 1h30 ✅ 2026-11-11
+### B1d — Cupom com intervalo no dashboard ✅ 2026-11-11
 
-Cadência fixa 90 min (pode repetir); cupom novo na hora. Opções de cupom
-removidas do dashboard. ADR-033.
-**Pós-deploy:** cookie ML válido; log `[Cupons]`; blip ~1h30 e cupom novo imediato.
+`Enviar cupons` + `intervalo_cupom_minutos` (padrão 90) + links ML opcionais no
+BotDetail. Cupom novo na hora; pode repetir após o intervalo. ADR-033.
+**Pós-deploy:** ligar envio no bot; cookie ML; log `[Cupons]`.
 
 ### B1 — histórico: cupons adiados em 2026-09-22
 

@@ -2,7 +2,7 @@
 
 Evita reenviar a mesma oferta (mesmo SKU, ou nome praticamente igual).
 Só reenvia se o preço caiu o suficiente desde o último envio com sucesso.
-Cupom (categoria=cupom) reenvia após INTERVALO_CUPOM_MINUTOS; novo sai na hora.
+Cupom (categoria=cupom) reenvia após o intervalo do bot; novo sai na hora.
 """
 
 from __future__ import annotations
@@ -15,8 +15,9 @@ from uuid import UUID
 from sqlalchemy.orm import Session
 
 from core import repositories
-from core.cupom_cadencia import INTERVALO_CUPOM_MINUTOS
+from core.cupom_cadencia import intervalo_cupom_minutos
 from core.models import Envio
+from worker.channels import load_filtros
 
 # Sufixos tipo "--3601" que a Shopee cola no título.
 _RE_SUFIXO_LOJA = re.compile(r"\s*--\d+\s*$")
@@ -61,7 +62,8 @@ def _deve_enviar_cupom(
     grupo: str | None,
     tenant_id: UUID,
 ) -> tuple[bool, str]:
-    """Cupom novo sai na hora; o mesmo SKU só reenvia após INTERVALO_CUPOM_MINUTOS."""
+    """Cupom novo sai na hora; o mesmo SKU só reenvia após o intervalo do bot."""
+    intervalo = intervalo_cupom_minutos(load_filtros())
     ultimo = envio_anterior
     if ultimo is None and sku:
         ultimo = repositories.ultimo_envio_por_sku(
@@ -77,10 +79,10 @@ def _deve_enviar_cupom(
     minutos = repositories._minutos_desde(ultimo.enviado_em) if ultimo.enviado_em else None
     if minutos is None:
         return True, "cupom novo"
-    if minutos < INTERVALO_CUPOM_MINUTOS:
-        falta = INTERVALO_CUPOM_MINUTOS - minutos
+    if minutos < intervalo:
+        falta = intervalo - minutos
         return False, f"cupom já enviado; reenvio em {falta:.0f} min"
-    return True, f"cupom: reenvio após {INTERVALO_CUPOM_MINUTOS} min"
+    return True, f"cupom: reenvio após {intervalo} min"
 
 
 def deve_enviar(

@@ -88,10 +88,11 @@ preferida interrompe o restante dela; 401/403 bloqueia a plataforma até o
 próximo ciclo; oferta sem link grava `visto` (`mensagem=afiliado`) e não retenta.
 `uma_loja_por_ciclo` continua alternando uma loja exclusiva e ignora essa
 prioridade (sem reserva).
-Cupom de venda indireta é **automático**: a cada 90 min disputa a vaga (pode
-repetir); cupom novo sai na hora. Shopee usa `voucherOfferV2`; ML faz scrape de
-`/cupons` → `_Container_` → createLink (`meli.la`). Controles de cupom saíram do
-dashboard. Sem link de afiliado, o produto segue. Freio anti-ban geral não muda.
+Cupom de venda indireta: `aceitar_cupons` liga o envio; `intervalo_cupom_minutos`
+(padrão 90) define a cadência (pode repetir); cupom novo sai na hora.
+`cupons_meli` reforça links manuais. Shopee usa `voucherOfferV2`; ML faz scrape
+de `/cupons` → `_Container_` → createLink (`meli.la`). Sem link de afiliado, o
+produto segue. Freio anti-ban geral não muda.
 
 ```
 Dashboard ──HTTP/JSON──► API ──SQL──► Postgres ◄──SQL── Worker ──► plataformas

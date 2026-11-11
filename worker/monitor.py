@@ -19,7 +19,7 @@ from sqlalchemy.orm import Session
 from core import db, relevancia, relogio, repositories
 from core.config_provider import bot_runtime_atual
 from core.credentials import platforms_with_usable_credentials
-from core.cupom_cadencia import INTERVALO_CUPOM_MINUTOS
+from core.cupom_cadencia import intervalo_cupom_minutos
 from core.models import Oferta
 from core.platforms import affiliate
 from core.platforms.base import OfertaCapturada
@@ -216,11 +216,14 @@ def _cupons_na_frente(
     return frente + reserva
 
 
-def _cupom_deve_disputar_vaga(ofertas: list[OfertaCapturada]) -> bool:
-    """True se passou 1h30 desde o último cupom ou há cupom novo (nunca enviado)."""
+def _cupom_deve_disputar_vaga(
+    ofertas: list[OfertaCapturada], filtros: dict | None = None
+) -> bool:
+    """True se passou o intervalo desde o último cupom ou há cupom novo (nunca enviado)."""
     cupons = [o for o in ofertas if (o.categoria or "").lower() == "cupom"]
     if not cupons:
         return False
+    intervalo = intervalo_cupom_minutos(filtros)
     runtime = bot_runtime_atual()
     grupos = tuple(runtime.group_ids) if runtime and runtime.group_ids else (None,)
     try:
@@ -232,7 +235,7 @@ def _cupom_deve_disputar_vaga(ofertas: list[OfertaCapturada]) -> bool:
             minutos = repositories.minutos_desde_ultimo_cupom(
                 session, grupo=grupo, tenant_id=tenant_id
             )
-            if minutos is None or minutos >= INTERVALO_CUPOM_MINUTOS:
+            if minutos is None or minutos >= intervalo:
                 return True
             for cupom in cupons:
                 if not cupom.sku:
@@ -392,19 +395,20 @@ def _freio_anti_ban(
         return False, f"freio: limite {max_dia_global}/dia {limite}"
 
     if oferta and (oferta.categoria or "").lower() == "cupom":
+        intervalo = intervalo_cupom_minutos(filtros)
         minutos = repositories.minutos_desde_ultimo_cupom(
             session, grupo=grupo, tenant_id=_tenant_id_atual()
         )
-        if minutos is not None and minutos < INTERVALO_CUPOM_MINUTOS:
-            # Cupom novo (SKU nunca enviado) fura a cadência; repetido espera 1h30.
+        if minutos is not None and minutos < intervalo:
+            # Cupom novo (SKU nunca enviado) fura a cadência; repetido espera o intervalo.
             sku = getattr(oferta, "sku", None)
             if sku and repositories.sku_ja_enviado(
                 session, sku, oferta.loja, grupo=grupo, tenant_id=_tenant_id_atual()
             ):
-                falta = INTERVALO_CUPOM_MINUTOS - minutos
+                falta = intervalo - minutos
                 return False, f"freio: próximo cupom em {falta:.0f} min"
             if not sku:
-                falta = INTERVALO_CUPOM_MINUTOS - minutos
+                falta = intervalo - minutos
                 return False, f"freio: próximo cupom em {falta:.0f} min"
 
     return True, ""
@@ -712,11 +716,12 @@ def _executar_ciclo() -> tuple[int, int, bool]:
                 f"{len(candidatos)} candidatos; top 3: {resumo}"
             )
     n_cupons = sum(1 for o in todas_ofertas if (o.categoria or "").lower() == "cupom")
-    cupom_na_frente = n_cupons > 0 and _cupom_deve_disputar_vaga(todas_ofertas)
+    intervalo = intervalo_cupom_minutos(filtros)
+    cupom_na_frente = n_cupons > 0 and _cupom_deve_disputar_vaga(todas_ofertas, filtros)
     if n_cupons and cupom_na_frente:
         logger.info(
             f"[{nome_canal()}] [Cupons] {n_cupons} na fila — disputam a vaga "
-            f"(cadência {INTERVALO_CUPOM_MINUTOS} min ou cupom novo)."
+            f"(cadência {intervalo} min ou cupom novo)."
         )
     todas_ofertas = _ordenar_envio(
         todas_ofertas,

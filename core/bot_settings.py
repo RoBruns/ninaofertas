@@ -55,6 +55,7 @@ CONTENT_KEYS = {
     "aceitar_campanhas",
     "cupom_venda_indireta",
     "max_cupons_por_dia",
+    "intervalo_cupom_minutos",
     "cupons_meli",
     "baseline_ciclos",
 }
@@ -115,11 +116,12 @@ class Content(BaseModel):
     recado_instagram: bool = False
     model_config = ConfigDict(extra="allow")
 
-    # Legado: cupom é automático (1h30 / novo na hora). Campos ignorados pelo worker.
     aceitar_cupons: bool = True
     aceitar_campanhas: bool = False
+    # Legado (sempre ligado quando aceitar_cupons): mantido no schema.
     cupom_venda_indireta: bool = True
     max_cupons_por_dia: int = Field(default=2, ge=0)
+    intervalo_cupom_minutos: int = Field(default=90, ge=15)
     cupons_meli: list[dict] = Field(default_factory=list)
     baseline_ciclos: int = Field(default=5, ge=0)
 
