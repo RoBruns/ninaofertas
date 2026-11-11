@@ -323,8 +323,31 @@ def sku_ja_enviado(
     tenant_id: UUID,
 ) -> bool:
     """True se algum envio com sucesso já usou este SKU (mesmo produto, outra URL)."""
+    return (
+        ultimo_envio_por_sku(
+            session,
+            sku,
+            loja=loja,
+            exceto_oferta_id=exceto_oferta_id,
+            grupo=grupo,
+            tenant_id=tenant_id,
+        )
+        is not None
+    )
+
+
+def ultimo_envio_por_sku(
+    session: Session,
+    sku: str,
+    loja: str | None = None,
+    exceto_oferta_id: int | None = None,
+    grupo: str | None = None,
+    *,
+    tenant_id: UUID,
+) -> Envio | None:
+    """Último envio com sucesso deste SKU (mesmo produto, outra URL)."""
     q = (
-        session.query(Envio.id)
+        session.query(Envio)
         .join(Oferta, Oferta.id == Envio.oferta_id)
         .filter(Envio.status == "sucesso", Oferta.sku == sku)
     )
@@ -334,7 +357,11 @@ def sku_ja_enviado(
         q = q.filter(Envio.grupo == grupo)
     if exceto_oferta_id is not None:
         q = q.filter(Oferta.id != exceto_oferta_id)
-    return q.filter(escopo_envios_conta(tenant_id=tenant_id)).first() is not None
+    return (
+        q.filter(escopo_envios_conta(tenant_id=tenant_id))
+        .order_by(Envio.enviado_em.desc())
+        .first()
+    )
 
 
 def nomes_precos_enviados_recentes(

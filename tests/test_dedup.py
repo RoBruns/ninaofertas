@@ -76,3 +76,59 @@ def test_preco_caiu_de_menos_nao_reenvia(oferta_e_sessao: tuple[Oferta, Session]
     )
 
     assert enviar is False
+
+
+def test_cupom_mesmo_dia_nao_reenvia(oferta_e_sessao: tuple[Oferta, Session], monkeypatch) -> None:
+    from datetime import datetime
+    from zoneinfo import ZoneInfo
+
+    from core import relogio
+    from worker import dedup as dedup_mod
+
+    oferta, session = oferta_e_sessao
+    br = ZoneInfo("America/Sao_Paulo")
+    agora = datetime(2026, 11, 10, 15, 0, tzinfo=br)
+    monkeypatch.setattr(relogio, "agora_br", lambda: agora)
+    monkeypatch.setattr(dedup_mod, "_mesmo_dia_brasilia", lambda _quando: True)
+    repositories.registrar_envio(session, oferta.id, "grupo", "mensagem", 0.0, "sucesso")
+
+    enviar, motivo = deve_enviar(
+        session,
+        oferta.id,
+        0.0,
+        15.0,
+        grupo="grupo",
+        categoria="cupom",
+        tenant_id=session.info["tenant_id"],
+    )
+
+    assert enviar is False
+    assert "hoje" in motivo
+
+
+def test_cupom_outro_dia_reenvia(oferta_e_sessao: tuple[Oferta, Session], monkeypatch) -> None:
+    from datetime import datetime
+    from zoneinfo import ZoneInfo
+
+    from core import relogio
+    from worker import dedup as dedup_mod
+
+    oferta, session = oferta_e_sessao
+    br = ZoneInfo("America/Sao_Paulo")
+    agora = datetime(2026, 11, 11, 10, 0, tzinfo=br)
+    monkeypatch.setattr(relogio, "agora_br", lambda: agora)
+    monkeypatch.setattr(dedup_mod, "_mesmo_dia_brasilia", lambda _quando: False)
+    repositories.registrar_envio(session, oferta.id, "grupo", "mensagem", 0.0, "sucesso")
+
+    enviar, motivo = deve_enviar(
+        session,
+        oferta.id,
+        0.0,
+        15.0,
+        grupo="grupo",
+        categoria="cupom",
+        tenant_id=session.info["tenant_id"],
+    )
+
+    assert enviar is True
+    assert "novo dia" in motivo

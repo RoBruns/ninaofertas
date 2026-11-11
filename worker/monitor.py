@@ -456,6 +456,7 @@ def _processar_oferta(session, oferta: OfertaCapturada, filtros: dict) -> str:
         sku=oferta.sku,
         loja=oferta.loja,
         grupo=grupo,
+        categoria=oferta.categoria,
         tenant_id=_tenant_id_atual(),
     )
     if not pode_enviar:
@@ -500,7 +501,57 @@ def _processar_oferta(session, oferta: OfertaCapturada, filtros: dict) -> str:
 
 
 _SLUG_POR_LOJA = {"Shopee": "shopee", "Mercado Livre": "mercadolivre"}
+_MOTIVO_AFILIADO = "afiliado"
 _avisos_sem_conta: dict[str, frozenset[str]] = {}
+
+
+def _marcar_falha_afiliado(
+    session: Session,
+    oferta_db: Oferta,
+    oferta: OfertaCapturada,
+    grupos: tuple[str, ...],
+) -> None:
+    """Grava visto por grupo para não retentar createLink na mesma oferta."""
+    runtime = bot_atual()
+    for grupo in grupos:
+        with _contexto_do_grupo(runtime, grupo):
+            if repositories.rejeitada_pelo_publico(
+                session,
+                oferta_db.id,
+                grupo,
+                _MOTIVO_AFILIADO,
+                runtime.id if runtime else None,
+                tenant_id=_tenant_id_atual(),
+            ):
+                continue
+            repositories.registrar_visto(
+                session,
+                oferta_db.id,
+                oferta.preco,
+                grupo=grupo,
+                bot_id=runtime.id if runtime else None,
+                group_id=grupo_db_id(),
+                motivo=_MOTIVO_AFILIADO,
+            )
+
+
+def _sem_afiliado_previo(
+    session: Session, oferta_db: Oferta, grupos: tuple[str, ...]
+) -> tuple[str, ...]:
+    """Remove grupos que já falharam afiliado nesta oferta/bot."""
+    runtime = bot_atual()
+    return tuple(
+        grupo
+        for grupo in grupos
+        if not repositories.rejeitada_pelo_publico(
+            session,
+            oferta_db.id,
+            grupo,
+            _MOTIVO_AFILIADO,
+            runtime.id if runtime else None,
+            tenant_id=_tenant_id_atual(),
+        )
+    )
 
 
 def _plataformas_do_bot(runtime: Any) -> set[str]:
@@ -541,6 +592,7 @@ def _grupos_candidatos(
             sku=oferta.sku,
             loja=oferta.loja,
             grupo=grupo,
+            categoria=oferta.categoria,
             tenant_id=_tenant_id_atual(),
         )
         if pode_enviar:
@@ -618,13 +670,20 @@ def _executar_ciclo() -> tuple[int, int, bool]:
                 f"[{nome_canal()}] Mais vendidos {loja}: "
                 f"{len(candidatos)} candidatos; top 3: {resumo}"
             )
+    cupom_indireta = bool(filtros.get("cupom_venda_indireta"))
+    n_cupons = sum(1 for o in todas_ofertas if (o.categoria or "").lower() == "cupom")
+    if n_cupons and not cupom_indireta:
+        logger.info(
+            f"[{nome_canal()}] [Cupons] {n_cupons} capturados, venda indireta desligada — "
+            "ficam atrás do produto."
+        )
     todas_ofertas = _ordenar_envio(
         todas_ofertas,
         n,
         prioridade,
         origem_produtos,
         empilhar,
-        bool(filtros.get("cupom_venda_indireta")),
+        cupom_indireta,
     )
 
     logger.info(f"[{nome_canal()}] {len(todas_ofertas)} ofertas encontradas na varredura.")
@@ -679,7 +738,16 @@ def _executar_ciclo() -> tuple[int, int, bool]:
             puladas = 0
             falhas = 0
             sem_afiliado = 0
+            # Com empilhar: uma falha de afiliado na preferida libera a reserva no mesmo ciclo.
+            lojas_sem_afiliado: set[str] = set()
             for oferta in todas_ofertas:
+                slug = _SLUG_POR_LOJA.get(oferta.loja)
+                if slug and affiliate.plataforma_bloqueada_no_ciclo(slug):
+                    puladas += 1
+                    continue
+                if empilhar and oferta.loja in lojas_sem_afiliado:
+                    puladas += 1
+                    continue
                 try:
                     passou, motivo = passa_nos_filtros(oferta, filtros)
                     if not passou:
@@ -695,6 +763,10 @@ def _executar_ciclo() -> tuple[int, int, bool]:
                     logger.error(f"Erro ao processar oferta '{oferta.nome[:60]}': {e}")
                     falhas += 1
                     continue
+                if not candidatos:
+                    puladas += 1
+                    continue
+                candidatos = _sem_afiliado_previo(session, oferta_db, candidatos)
                 if not candidatos:
                     puladas += 1
                     continue
@@ -735,6 +807,7 @@ def _executar_ciclo() -> tuple[int, int, bool]:
                 )
                 logger.info(f"[{nome_canal()}] Oferta NOVA{publico_log}: {oferta.nome}")
                 mensagens_enviadas = 0
+                falhou_afiliado = False
                 for indice, grupo in enumerate(candidatos):
                     if indice:
                         time.sleep(8)
@@ -750,9 +823,21 @@ def _executar_ciclo() -> tuple[int, int, bool]:
                     if resultado == "enviou":
                         mensagens_enviadas += 1
                     elif resultado == "afiliado":
+                        falhou_afiliado = True
                         sem_afiliado += 1
+                        break
                     else:
                         falhas += 1
+                if falhou_afiliado:
+                    _marcar_falha_afiliado(session, oferta_db, oferta, candidatos)
+                    if empilhar and oferta.loja == prioridade:
+                        lojas_sem_afiliado.add(oferta.loja)
+                        logger.info(
+                            f"[{nome_canal()}] Sem afiliado em {oferta.loja}; "
+                            "seguindo com a reserva neste ciclo."
+                        )
+                    if slug and affiliate.plataforma_bloqueada_no_ciclo(slug):
+                        lojas_sem_afiliado.add(oferta.loja)
                 enviadas_ciclo += mensagens_enviadas
                 if mensagens_enviadas:
                     ofertas_enviadas += 1

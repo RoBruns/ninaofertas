@@ -610,7 +610,7 @@ cupom não rouba a vaga do produto a cada ciclo (isso mascarava a prioridade MEL
 
 ## ADR-032 — Prioridade de loja opt-in, com reserva no mesmo ciclo
 **Data:** 2026-10-19 · **Status:** aceita · **Decisor:** usuário
-**Atualizado:** 2026-10-30
+**Atualizado:** 2026-11-10
 
 A comissão do Mercado Livre costuma compensar mais que a da Shopee, mas o ciclo
 revezava quem começava a fila. Decisão: `filters.prioridade_loja` (`alternar`,
@@ -620,11 +620,18 @@ A exclusão total (2026-10-25) silenciava o bot quando o `createLink` do Mercado
 Livre falhava; a reserva volta a ocupar a vaga nesse caso. `uma_loja_por_ciclo`
 continua exclusivo e alternado.
 
+Com a preferida empilhada, varrer todas as ofertas dela após falha de afiliado
+atrasava o blip (createLink com timeout alto, tentado por grupo). Desde 2026-11-10:
+a primeira falha de afiliado na preferida **libera a reserva no mesmo ciclo**;
+401/403 bloqueia o restante da plataforma neste ciclo; a oferta sem link grava
+`visto` com motivo `afiliado` e não retenta createLink nos ciclos seguintes.
+O link MELI é cacheado por URL dentro do ciclo.
+
 ---
 
 ## ADR-033 — Cupom de venda indireta afiliado, na vaga que já existe
 **Data:** 2026-10-25 · **Status:** aceita · **Decisor:** usuário
-**Atualizado:** 2026-10-30
+**Atualizado:** 2026-11-10
 
 O cupom é resgatável/aplicável e só sai com link afiliado. Shopee: voucher com
 `offerLink`. Mercado Livre: só itens em `content.cupons_meli` colados da Central
@@ -633,6 +640,12 @@ página genérica `/cupons`, que não passa em `link_rastreado`. Decisão:
 `content.cupom_venda_indireta` (padrão false). Ligado, o cupom da loja
 preferida vai na frente e o da outra fica de reserva. Sem link afiliado, o
 ciclo tenta o próximo e o produto segue. O teto e o freio não mudam.
+
+Sem a flag, cupons capturados ficam atrás do produto (com 1 vaga/ciclo quase
+nunca saem); o dashboard avisa e o worker registra em log. Deduplicação de
+cupom é **1× por dia (Brasília)** no grupo — no dia seguinte o mesmo SKU pode
+voltar, ainda limitado por `max_cupons_por_dia`. A mensagem usa o formato de
+urgência (Shopee `🚨` / MELI `🔥`) com benefício, código e “Resgate aqui”.
 
 ---
 

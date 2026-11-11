@@ -66,14 +66,29 @@ def test_cupom_nao_usa_o_texto_de_produto(monkeypatch) -> None:
         )
     )
     assert texto == (
-        "🎁 Resgate esse cupom\n\n"
-        "🎫 20% OFF: NINA10\n\n"
-        "✅ Resgate aqui:\n"
+        "🚨 RESGATE CUPOM SHOPEE LIBERADO!\n\n"
+        "🎟️ 20% OFF: NINA10\n"
         "https://s.shopee.com.br/cupom"
     )
     assert "Por *R$" not in texto
     assert "◼️" not in texto
     ml = formatter.montar_mensagem(
+        _oferta(
+            categoria="cupom",
+            nome="25% OFF acima de R$79, limite R$40",
+            beneficio="25% OFF acima de R$79, limite R$40",
+            codigo_cupom="HOJENOML",
+            loja="Mercado Livre",
+            url="https://meli.la/2XoB7wc",
+        )
+    )
+    assert ml == (
+        "🔥 Cupom Mercado Livre\n\n"
+        "🎟️ 25% OFF acima de R$79, limite R$40: HOJENOML\n\n"
+        "✅ Resgate aqui:\n"
+        "https://meli.la/2XoB7wc"
+    )
+    ml_sem_codigo = formatter.montar_mensagem(
         _oferta(
             categoria="cupom",
             nome="20% OFF casa",
@@ -83,8 +98,8 @@ def test_cupom_nao_usa_o_texto_de_produto(monkeypatch) -> None:
             url="https://meli.la/abc",
         )
     )
-    assert "Abre o link e aplica o cupom" in ml
-    assert "Resgate esse cupom" not in ml
+    assert "🔥 Cupom Mercado Livre" in ml_sem_codigo
+    assert "Resgate esse cupom" not in ml_sem_codigo
 
 
 def test_formatter_template_do_bot_sem_cupom_insere_codigo_antes_do_link(monkeypatch) -> None:

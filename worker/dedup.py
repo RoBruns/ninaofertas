@@ -2,18 +2,21 @@
 
 Evita reenviar a mesma oferta (mesmo SKU, ou nome praticamente igual).
 Só reenvia se o preço caiu o suficiente desde o último envio com sucesso.
+Cupom (categoria=cupom) pode reenviar no máximo 1× por dia (Brasília).
 """
 
 from __future__ import annotations
 
 import re
 import unicodedata
+from datetime import datetime
 from difflib import SequenceMatcher
 from uuid import UUID
 
 from sqlalchemy.orm import Session
 
-from core import repositories
+from core import relogio, repositories
+from core.models import Envio
 
 # Sufixos tipo "--3601" que a Shopee cola no título.
 _RE_SUFIXO_LOJA = re.compile(r"\s*--\d+\s*$")
@@ -48,6 +51,40 @@ def _precos_parecidos(p1: float | None, p2: float | None, tol_pct: float = 3.0) 
     return abs(p1 - p2) / max(p1, p2) * 100 <= tol_pct
 
 
+def _mesmo_dia_brasilia(quando: datetime | None) -> bool:
+    if quando is None:
+        return False
+    return relogio._em_brasilia(quando).date() == relogio.agora_br().date()
+
+
+def _deve_enviar_cupom(
+    session: Session,
+    oferta_id: int,
+    envio_anterior: Envio | None,
+    *,
+    sku: str | None,
+    loja: str | None,
+    grupo: str | None,
+    tenant_id: UUID,
+) -> tuple[bool, str]:
+    """Cupom reenvia no máximo uma vez por dia (Brasília) no grupo."""
+    ultimo = envio_anterior
+    if ultimo is None and sku:
+        ultimo = repositories.ultimo_envio_por_sku(
+            session,
+            sku,
+            loja=loja,
+            exceto_oferta_id=oferta_id,
+            grupo=grupo,
+            tenant_id=tenant_id,
+        )
+    if ultimo is None:
+        return True, "cupom novo"
+    if _mesmo_dia_brasilia(ultimo.enviado_em):
+        return False, "cupom já enviado hoje"
+    return True, "cupom: reenvio no novo dia (Brasília)"
+
+
 def deve_enviar(
     session: Session,
     oferta_id: int,
@@ -59,8 +96,20 @@ def deve_enviar(
     sku: str | None = None,
     loja: str | None = None,
     grupo: str | None = None,
+    categoria: str | None = None,
 ) -> tuple[bool, str]:
     envio_anterior = repositories.ultimo_envio(session, oferta_id, grupo=grupo, tenant_id=tenant_id)
+
+    if (categoria or "").lower() == "cupom":
+        return _deve_enviar_cupom(
+            session,
+            oferta_id,
+            envio_anterior,
+            sku=sku,
+            loja=loja,
+            grupo=grupo,
+            tenant_id=tenant_id,
+        )
 
     if envio_anterior is None:
         # `visto` da baseline não pode travar envio (restart/Postgres vazio no Railway).

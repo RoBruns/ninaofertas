@@ -19,12 +19,25 @@ from core.platforms.shopee_api import generate_short_link
 ML_CREATE_LINK = "https://www.mercadolivre.com.br/affiliate-program/api/v2/affiliates/createLink"
 ML_LINKBUILDER = "https://www.mercadolivre.com.br/afiliados/linkbuilder"
 _aviso_createlink_neste_ciclo = False
+_plataformas_bloqueadas_ciclo: set[str] = set()
+_cache_links_ciclo: dict[tuple[str, str], AffiliateLink] = {}
 
 
 def reset_aviso_ciclo() -> None:
-    """Permite um aviso de createLink a cada ciclo do bot."""
-    global _aviso_createlink_neste_ciclo
+    """Limpa aviso, bloqueio e cache de links no início de cada ciclo do bot."""
+    global _aviso_createlink_neste_ciclo, _plataformas_bloqueadas_ciclo, _cache_links_ciclo
     _aviso_createlink_neste_ciclo = False
+    _plataformas_bloqueadas_ciclo = set()
+    _cache_links_ciclo = {}
+
+
+def plataforma_bloqueada_no_ciclo(slug: str) -> bool:
+    """True após 401/403: o ciclo não tenta de novo createLink nessa plataforma."""
+    return slug in _plataformas_bloqueadas_ciclo
+
+
+def _bloquear_plataforma(slug: str) -> None:
+    _plataformas_bloqueadas_ciclo.add(slug)
 
 
 def _avisar_createlink(mensagem: str) -> None:
@@ -168,6 +181,7 @@ def _converter_mercadolivre_com_tag(
                         f"HTTP {response.status_code}",
                         bot_id=runtime.id if runtime else None,
                     )
+                    _bloquear_plataforma("mercadolivre")
                     _avisar_createlink(
                         f"[afiliado] MELI createLink HTTP {response.status_code} — cookie da conta expirou; "
                         "renove no dashboard → Contas."
@@ -236,6 +250,7 @@ def converter_shopee(
                 f"HTTP {exc.response.status_code}",
                 bot_id=runtime.id if runtime else None,
             )
+            _bloquear_plataforma("shopee")
         logger.error(f"[afiliado] Shopee shortLink falhou: {safe_log_text(exc)}")
         return None
     except Exception as exc:
@@ -253,14 +268,24 @@ def garantir_afiliado(
     """Mantém o retorno string legado e anexa a atribuição quando ela foi aplicada."""
     loja = (oferta_loja or "").lower()
     if "mercado" in loja:
+        cache_key = ("mercadolivre", url)
+        cached = _cache_links_ciclo.get(cache_key)
+        if cached is not None:
+            return cached
+        if plataforma_bloqueada_no_ciclo("mercadolivre"):
+            resultado = AffiliateLink(url)
+            _cache_links_ciclo[cache_key] = resultado
+            return resultado
         runtime, auth = _ml_auth()
         account_tag = auth.account_tag
         bot_tag = runtime.settings.attribution.ml_tag if runtime is not None else None
         tag = bot_tag or account_tag
         converted = _converter_mercadolivre_com_tag(url, tag, auth, runtime)
         if converted:
-            return AffiliateLink(converted, f"ml:{tag}")
-        if bot_tag and bot_tag != account_tag:
+            resultado = AffiliateLink(converted, f"ml:{tag}")
+            _cache_links_ciclo[cache_key] = resultado
+            return resultado
+        if bot_tag and bot_tag != account_tag and not plataforma_bloqueada_no_ciclo("mercadolivre"):
             registrar_evento_runtime(
                 "attribution_link_failed",
                 "Falha ao gerar link atribuido do Mercado Livre; usando fallback afiliado",
@@ -269,10 +294,16 @@ def garantir_afiliado(
             )
             fallback = _converter_mercadolivre_com_tag(url, account_tag, auth, runtime)
             if fallback:
-                return AffiliateLink(fallback)
-        return AffiliateLink(url)
+                resultado = AffiliateLink(fallback)
+                _cache_links_ciclo[cache_key] = resultado
+                return resultado
+        resultado = AffiliateLink(url)
+        _cache_links_ciclo[cache_key] = resultado
+        return resultado
 
     if "shopee" in loja:
+        if plataforma_bloqueada_no_ciclo("shopee"):
+            return AffiliateLink(url)
         runtime = bot_runtime_atual()
         attributed = runtime is not None and group_id is not None
         converted = converter_shopee(url, group_id=group_id, origin_url=origin_url)
@@ -311,5 +342,6 @@ __all__ = [
     "converter_shopee",
     "garantir_afiliado",
     "link_rastreado",
+    "plataforma_bloqueada_no_ciclo",
     "reset_aviso_ciclo",
 ]

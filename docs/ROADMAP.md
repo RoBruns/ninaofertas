@@ -1,5 +1,13 @@
 # Roadmap de implementação
 
+## Prioridade de loja: curto-circuito para a reserva — 2026-11-10
+
+Com `prioridade_loja` empilhada, falha de createLink na preferida não varre mais
+todas as ofertas dela antes da reserva. ADR-032 atualizado: primeira falha de
+afiliado libera a reserva no mesmo ciclo; 401/403 bloqueia a plataforma no ciclo;
+visto `afiliado` evita retentar; cache MELI por URL entre grupos. Dashboard avisa
+quando `uma_loja_por_ciclo` anula a prioridade e clarifica `check_interval`.
+
 ## Kanban pessoal na Controle — 2026-11-02
 
 Página `/tarefas` no grupo Controle: boards pessoais por usuário (ADR-034),
@@ -444,6 +452,16 @@ frente. `mercado_livre` ou `shopee` põe a preferida na frente com a outra de
 reserva. ADR-032.
 
 **Status:** feito. Não aumenta o ritmo do número.
+
+### B1b — Cupons de fato disparam + formato concorrente ✅ 2026-11-10
+
+Causa de “nunca saiu cupom”: flag desligada (cupom atrás do produto com 1
+vaga/ciclo), `cupons_meli` vazio no ML, dedup one-shot com preço 0. Mudanças:
+aviso no dashboard + log do worker; mensagem no estilo urgência (Shopee/MELI);
+dedup de cupom 1×/dia Brasília; warning se Shopee zerar com credencial;
+`config.json` do seed liga `cupom_venda_indireta`. **Pós-deploy:** no bot Nina
+confirmar a flag ligada, colar ao menos um `meli.la` em Cupons ML se quiser
+MELI, e checar log `[Cupons]` + mensagem no grupo.
 
 ### B1 — histórico: cupons adiados em 2026-09-22
 
