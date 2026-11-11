@@ -2190,7 +2190,7 @@ export interface components {
              */
             recado_instagram: boolean;
             /**
-             * Aceitar Cupons
+             * Enviar Cupons
              * @default true
              */
             aceitar_cupons: boolean;
@@ -2201,7 +2201,7 @@ export interface components {
             aceitar_campanhas: boolean;
             /**
              * Cupom Venda Indireta
-             * @default false
+             * @default true
              */
             cupom_venda_indireta: boolean;
             /**
@@ -2209,6 +2209,11 @@ export interface components {
              * @default 2
              */
             max_cupons_por_dia: number;
+            /**
+             * Intervalo Cupom Minutos
+             * @default 90
+             */
+            intervalo_cupom_minutos: number;
             /** Cupons Meli */
             cupons_meli?: {
                 [key: string]: unknown;

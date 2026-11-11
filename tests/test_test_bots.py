@@ -435,8 +435,9 @@ def test_legacy_sends_and_coupon_group_protection(session_factory):
             == 1
         )
         assert not _freio_anti_ban(session, {"intervalo_minutos_entre_ofertas": 5}, "outro")[0]
-        assert not _freio_anti_ban(session, {"max_cupons_por_dia": 1}, "real", offer)[0]
-        assert _freio_anti_ban(session, {"max_cupons_por_dia": 1}, "outro", offer)[0]
+        # Grupo "real" já teve cupom há pouco → cadência 90 min bloqueia repetido.
+        assert not _freio_anti_ban(session, {}, "real", offer)[0]
+        assert _freio_anti_ban(session, {}, "outro", offer)[0]
 
 
 def test_test_baseline_even_in_production_groups(monkeypatch, session_factory):

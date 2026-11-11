@@ -460,8 +460,20 @@ vaga/ciclo), `cupons_meli` vazio no ML, dedup one-shot com preço 0. Mudanças:
 aviso no dashboard + log do worker; mensagem no estilo urgência (Shopee/MELI);
 dedup de cupom 1×/dia Brasília; warning se Shopee zerar com credencial;
 `config.json` do seed liga `cupom_venda_indireta`. **Pós-deploy:** no bot Nina
-confirmar a flag ligada, colar ao menos um `meli.la` em Cupons ML se quiser
-MELI, e checar log `[Cupons]` + mensagem no grupo.
+confirmar a flag ligada e checar log `[Cupons]` + mensagem no grupo.
+
+### B1c — Scrape ML /cupons → _Container_ + afiliado ✅ 2026-11-11
+
+Worker captura `mercadolivre.com.br/cupons` (httpx + cookie), monta
+`_Container_{id}?coupon_campaign_id={id}`, createLink → `meli.la`. Sem
+Playwright/Aplicar. Cache 30 min; captcha e error 111 fail-soft. Imagem
+`assets/cupom_meli.png`. ADR-033.
+
+### B1d — Cupom com intervalo no dashboard ✅ 2026-11-11
+
+`Enviar cupons` + `intervalo_cupom_minutos` (padrão 90) + links ML opcionais no
+BotDetail. Cupom novo na hora; pode repetir após o intervalo. ADR-033.
+**Pós-deploy:** ligar envio no bot; cookie ML; log `[Cupons]`.
 
 ### B1 — histórico: cupons adiados em 2026-09-22
 

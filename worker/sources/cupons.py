@@ -1,12 +1,14 @@
-"""Cupons resgatáveis com link afiliado (Shopee voucher; ML só se cadastrado)."""
+"""Cupons resgatáveis com link afiliado (Shopee voucher; ML via /cupons → _Container_)."""
 from __future__ import annotations
 
 import hashlib
 import re
+import time
 from datetime import datetime, timezone
 
 import httpx
 
+from core.http_headers import MELI_HTML_HEADERS
 from core.log_safe import safe_log_text
 from core.platforms.base import OfertaCapturada, Scraper
 from core.platforms.shopee import (
@@ -50,6 +52,27 @@ _SHOPEE_VOUCHER_QUERIES = (
     """,
 )
 
+CUPONS_ML_URL = "https://www.mercadolivre.com.br/cupons?source_page=mperfil"
+CUPONS_ML_TTL_SEGUNDOS = 30 * 60
+_MAX_MELI = 8
+# Cache compartilhado entre ciclos: (monotonic_ts, ofertas).
+_cache_cupons_ml: tuple[float, list[OfertaCapturada]] | None = None
+
+_RE_CAMPAIGN_ID = re.compile(
+    r"(?:coupon_campaign_id[=:\\\"'\s]+|_Container_|\"(?:coupon_)?campaign_id\"\s*:\s*\"?)(\d{5,})",
+    re.IGNORECASE,
+)
+_RE_PCT = re.compile(r"(\d{1,2})\s*%\s*(?:OFF|off|de desconto)?", re.IGNORECASE)
+_RE_LIMITE = re.compile(
+    r"(?:limite|até|ate)\s*R\$?\s*([\d.,]+)|R\$\s*([\d.,]+)\s*(?:OFF|off)",
+    re.IGNORECASE,
+)
+_RE_MIN = re.compile(
+    r"(?:acima de|a partir de|mínimo|minimo|compras? (?:de|acima))\s*R\$?\s*([\d.,]+)",
+    re.IGNORECASE,
+)
+_RE_CODIGO = re.compile(r"\b([A-Z0-9]{4,16})\b")
+
 
 def _sku(loja: str, codigo: str, url: str) -> str:
     raw = f"{loja}:{codigo}:{url}"
@@ -83,6 +106,92 @@ def _cupom_explicito(item: dict) -> bool:
         item.get(campo) not in (None, "", 0)
         for campo in ("discountPercentage", "discountValue", "capAmount")
     )
+
+
+def url_container_meli(campaign_id: str) -> str:
+    cid = str(campaign_id).strip()
+    return f"https://lista.mercadolivre.com.br/_Container_{cid}?coupon_campaign_id={cid}"
+
+
+def _numero_br(raw: str) -> int | None:
+    try:
+        return int(float(raw.replace(".", "").replace(",", ".")))
+    except ValueError:
+        return None
+
+
+def _beneficio_perto(html: str, campaign_id: str) -> str | None:
+    idx = html.find(campaign_id)
+    if idx < 0:
+        return None
+    trecho = html[max(0, idx - 400) : idx + 400]
+    pct = _RE_PCT.search(trecho)
+    if not pct:
+        return None
+    beneficio = f"{pct.group(1)}% OFF"
+    min_m = _RE_MIN.search(trecho)
+    if min_m:
+        valor = _numero_br(min_m.group(1))
+        if valor is not None:
+            beneficio += f" acima de R${valor}"
+    lim = _RE_LIMITE.search(trecho)
+    if lim:
+        valor = _numero_br(lim.group(1) or lim.group(2) or "")
+        if valor is not None:
+            beneficio += f", limite R${valor}"
+    return beneficio
+
+def _codigo_perto(html: str, campaign_id: str) -> str | None:
+    idx = html.find(campaign_id)
+    if idx < 0:
+        return None
+    trecho = html[max(0, idx - 200) : idx + 200].upper()
+    invalidos = {"HTTP", "HTTPS", "MLB", "JSON", "TYPE", "CUPOM", "OFF", "CONTAINER"}
+    for achado in _RE_CODIGO.findall(trecho):
+        if achado in invalidos or achado == campaign_id:
+            continue
+        if any(ch.isdigit() for ch in achado) and any(ch.isalpha() for ch in achado):
+            return achado
+    return None
+
+
+def parse_cupons_meli_html(html: str) -> list[dict]:
+    """Extrai campaign_ids e benefício aproximado do HTML de /cupons."""
+    ids: list[str] = []
+    vistos: set[str] = set()
+    for match in _RE_CAMPAIGN_ID.finditer(html or ""):
+        cid = match.group(1)
+        if cid in vistos:
+            continue
+        vistos.add(cid)
+        ids.append(cid)
+    out: list[dict] = []
+    for cid in ids:
+        out.append(
+            {
+                "campaign_id": cid,
+                "beneficio": _beneficio_perto(html, cid) or "Cupom Mercado Livre",
+                "codigo": _codigo_perto(html, cid),
+            }
+        )
+    return out
+
+
+def _html_bloqueado(url: str, status: int, html: str) -> str | None:
+    lowered_url = str(url).lower()
+    if any(x in lowered_url for x in ("captcha", "account-verification", "login")):
+        return f"redirecionou para {url}"
+    if status != 200:
+        return f"HTTP {status}"
+    low = (html or "")[:2000].lower()
+    if "captcha" in low or "account-verification" in low:
+        return "captcha/verificação no HTML"
+    return None
+
+
+def limpar_cache_cupons_meli() -> None:
+    global _cache_cupons_ml
+    _cache_cupons_ml = None
 
 
 class CupomScraper(Scraper):
@@ -232,10 +341,14 @@ class CupomScraper(Scraper):
         )
 
     def _meli(self) -> list[OfertaCapturada]:
-        """Só cupons colados da Central de Afiliados. Lista vazia = conta sem liberação."""
+        """Scrape /cupons → URL _Container_ + cupons_meli manuais (união por SKU)."""
+        scrapeados = self._scrape_cupons_meli()
+        manuais = self._meli_manuais()
+        return _unir_por_sku([*scrapeados, *manuais])[:_MAX_MELI]
+
+    def _meli_manuais(self) -> list[OfertaCapturada]:
         manuais = load_filtros().get("cupons_meli") or []
         if not manuais:
-            logger.debug("[Cupons] nenhum cupom ML cadastrado.")
             return []
         out: list[OfertaCapturada] = []
         for item in manuais:
@@ -266,7 +379,84 @@ class CupomScraper(Scraper):
                     validade=str(item.get("validade") or "") or None,
                 )
             )
-        return out[:4]
+        return out
+
+    def _scrape_cupons_meli(self) -> list[OfertaCapturada]:
+        global _cache_cupons_ml
+        agora = time.monotonic()
+        if (
+            _cache_cupons_ml is not None
+            and agora - _cache_cupons_ml[0] < CUPONS_ML_TTL_SEGUNDOS
+        ):
+            return list(_cache_cupons_ml[1])
+
+        from core.platforms.affiliate import _ml_auth
+
+        _, auth = _ml_auth()
+        if not auth.cookie:
+            logger.debug("[Cupons] ML sem cookie — scrape de /cupons pulado.")
+            return []
+
+        headers = dict(MELI_HTML_HEADERS)
+        headers["cookie"] = auth.cookie
+        try:
+            with httpx.Client(
+                timeout=self.timeout, headers=headers, follow_redirects=True
+            ) as client:
+                resp = client.get(CUPONS_ML_URL)
+        except httpx.HTTPError as exc:
+            logger.warning(f"[Cupons] scrape ML /cupons falhou: {safe_log_text(exc)}")
+            return []
+
+        bloqueio = _html_bloqueado(str(resp.url), resp.status_code, resp.text)
+        if bloqueio:
+            logger.warning(
+                f"[Cupons] scrape ML /cupons bloqueado ({bloqueio}) — cookie intacto."
+            )
+            return []
+
+        itens = parse_cupons_meli_html(resp.text)
+        if not itens:
+            logger.warning(
+                "[Cupons] /cupons sem campaign_id no HTML (login/Aplicar pode ser "
+                "necessário — scrape não clica Aplicar)."
+            )
+            _cache_cupons_ml = (agora, [])
+            return []
+
+        out: list[OfertaCapturada] = []
+        for item in itens:
+            cid = str(item["campaign_id"])
+            url = url_container_meli(cid)
+            beneficio = str(item.get("beneficio") or "Cupom Mercado Livre")
+            codigo = _codigo_digitavel(item.get("codigo"))
+            out.append(
+                OfertaCapturada(
+                    nome=_linha_beneficio(beneficio, codigo),
+                    preco=0.0,
+                    loja="Mercado Livre",
+                    url=url,
+                    categoria="cupom",
+                    sku=_sku("meli", codigo or cid, url),
+                    codigo_cupom=codigo,
+                    beneficio=beneficio,
+                )
+            )
+        logger.info(f"[Cupons] ML scrape: {len(out)} campanhas em /cupons.")
+        _cache_cupons_ml = (agora, list(out))
+        return out
+
+
+def _unir_por_sku(ofertas: list[OfertaCapturada]) -> list[OfertaCapturada]:
+    vistos: set[str] = set()
+    out: list[OfertaCapturada] = []
+    for oferta in ofertas:
+        chave = oferta.sku or oferta.url
+        if chave in vistos:
+            continue
+        vistos.add(chave)
+        out.append(oferta)
+    return out
 
 
 def _fmt(valor: float) -> str:

@@ -90,6 +90,7 @@ CONTENT_KEYS = (
     "aceitar_campanhas",
     "cupom_venda_indireta",
     "max_cupons_por_dia",
+    "intervalo_cupom_minutos",
     "baseline_ciclos",
     "cupons_meli",
 )

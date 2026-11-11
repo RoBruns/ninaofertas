@@ -388,7 +388,7 @@ def passa_nos_filtros(oferta: OfertaCapturada, filtros: dict) -> tuple[bool, str
 
     if eh_cupom:
         if filtros.get("aceitar_cupons") is False:
-            return False, "cupons desabilitados no config"
+            return False, "envio de cupons desligado no bot"
         if _eh_conteudo_infantil(oferta.nome, filtros):
             return False, "conteúdo infantil bloqueado"
         lojas = filtros.get("lojas")

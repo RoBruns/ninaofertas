@@ -103,7 +103,6 @@ def test_sem_venda_indireta_cupom_nao_rouba_a_vaga():
 
 
 def test_venda_indireta_poe_o_cupom_da_loja_prioritaria_na_frente():
-    assert BotSettings().content.cupom_venda_indireta is False
     produto = _oferta(nome="panela", url="https://s.shopee.com.br/panela")
     shopee = _oferta(categoria="cupom", nome="shopee", url="https://s.shopee.com.br/cupom")
     ml = _oferta(
@@ -139,6 +138,8 @@ def test_parse_voucher_shopee():
 
 
 def test_meli_manual_ignora_pagina_generica_e_lista_vazia(monkeypatch):
+    cupons.limpar_cache_cupons_meli()
+    monkeypatch.setattr(CupomScraper, "_scrape_cupons_meli", lambda self: [])
     monkeypatch.setattr(cupons, "load_filtros", lambda: {"cupons_meli": []})
     assert CupomScraper()._meli() == []
     monkeypatch.setattr(
@@ -159,6 +160,169 @@ def test_meli_manual_ignora_pagina_generica_e_lista_vazia(monkeypatch):
     assert len(out) == 1
     assert out[0].url.endswith("/MLB1")
     assert out[0].codigo_cupom == "CASA20"
+
+
+def test_parse_cupons_meli_html_monta_container():
+    html = """
+    <div data-campaign="14548284">25% OFF acima de R$79 limite R$40 HOJENOML</div>
+    <a href="/x?coupon_campaign_id=14548284">Conferir</a>
+    <script>"campaign_id":14066237,"discount":"20% OFF"</script>
+    """
+    itens = cupons.parse_cupons_meli_html(html)
+    ids = {i["campaign_id"] for i in itens}
+    assert ids == {"14548284", "14066237"}
+    url = cupons.url_container_meli("14548284")
+    assert url == (
+        "https://lista.mercadolivre.com.br/_Container_14548284?coupon_campaign_id=14548284"
+    )
+    assert "meli.la" not in url
+    um = next(i for i in itens if i["campaign_id"] == "14548284")
+    assert "25% OFF" in (um["beneficio"] or "")
+
+
+def test_meli_scrape_une_com_manual(monkeypatch):
+    cupons.limpar_cache_cupons_meli()
+    scrape = [
+        OfertaCapturada(
+            nome="25% OFF",
+            preco=0,
+            loja="Mercado Livre",
+            url=cupons.url_container_meli("14548284"),
+            categoria="cupom",
+            sku="cupom:scrape1",
+            beneficio="25% OFF",
+        )
+    ]
+    monkeypatch.setattr(CupomScraper, "_scrape_cupons_meli", lambda self: scrape)
+    monkeypatch.setattr(
+        cupons,
+        "load_filtros",
+        lambda: {
+            "cupons_meli": [
+                {
+                    "url": "https://meli.la/manual",
+                    "titulo": "Cupom manual",
+                    "codigo": "MANUAL1",
+                }
+            ]
+        },
+    )
+    out = CupomScraper()._meli()
+    assert len(out) == 2
+    assert any("_Container_14548284" in o.url for o in out)
+    assert any(o.url.endswith("/manual") for o in out)
+
+
+def test_meli_scrape_captcha_vira_vazio(monkeypatch):
+    class _Resp:
+        status_code = 200
+        url = "https://www.mercadolivre.com.br/account-verification"
+        text = "<html>captcha</html>"
+
+    class _Client:
+        def __init__(self, *a, **k):
+            pass
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+        def get(self, url):
+            return _Resp()
+
+    cupons.limpar_cache_cupons_meli()
+    monkeypatch.setattr(cupons.httpx, "Client", _Client)
+    monkeypatch.setattr(
+        "core.platforms.affiliate._ml_auth",
+        lambda: (
+            None,
+            type("A", (), {"cookie": "ssid=x", "account_id": None, "account_tag": ""})(),
+        ),
+    )
+    assert CupomScraper()._scrape_cupons_meli() == []
+
+
+def test_create_link_container_vira_meli_la_e_111_nao_invalida(monkeypatch):
+    import httpx
+    from uuid import uuid4
+
+    from core.platforms import affiliate
+
+    container = cupons.url_container_meli("14548284")
+    assert not link_rastreado("Mercado Livre", container)
+
+    class _Ok:
+        def __init__(self, *a, **k):
+            pass
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+        def get(self, *a, **k):
+            return httpx.Response(200, request=httpx.Request("GET", "https://x"))
+
+        def post(self, url, **kwargs):
+            body = {"urls": [{"short_url": "https://meli.la/cupomML"}], "total_success": 1}
+            return httpx.Response(200, json=body, request=httpx.Request("POST", url))
+
+    auth = affiliate._MLAuth(account_id=None, account_tag="nina-tag", cookie="ssid=ok;_csrf=tok")
+    monkeypatch.setattr(affiliate.httpx, "Client", _Ok)
+    converted = affiliate._converter_mercadolivre_com_tag(container, "nina-tag", auth, None)
+    assert converted == "https://meli.la/cupomML"
+    assert link_rastreado("Mercado Livre", converted)
+
+    recusado = {
+        "urls": [
+            {
+                "origin_url": container,
+                "message": "URL not allowed in affiliates program",
+                "error_code": 111,
+            }
+        ],
+        "total_success": 0,
+        "total_error": 1,
+    }
+    assert affiliate._create_link_url_recusada(recusado) is True
+
+    invalidou = {"ok": False}
+
+    def _mark(*a, **k):
+        invalidou["ok"] = True
+
+    class _Reject(_Ok):
+        def post(self, url, **kwargs):
+            return httpx.Response(200, json=recusado, request=httpx.Request("POST", url))
+
+    monkeypatch.setattr(affiliate.httpx, "Client", _Reject)
+    monkeypatch.setattr(affiliate, "mark_account_credentials_invalid", _mark)
+    auth2 = affiliate._MLAuth(
+        account_id=uuid4(), account_tag="nina-tag", cookie="ssid=ok;_csrf=tok"
+    )
+    assert affiliate._converter_mercadolivre_com_tag(container, "nina-tag", auth2, None) is None
+    assert invalidou["ok"] is False
+
+
+def test_cupom_card_meli_usa_asset_estatico(tmp_path, monkeypatch):
+    from worker import cupom_card
+
+    asset = tmp_path / "cupom_meli.png"
+    asset.write_bytes(b"fake-png")
+    monkeypatch.setattr(cupom_card, "_CUPOM_MELI_ASSET", asset)
+    path = cupom_card.gerar_card(
+        OfertaCapturada(
+            nome="Cupom",
+            preco=0,
+            loja="Mercado Livre",
+            url=cupons.url_container_meli("1"),
+            categoria="cupom",
+        )
+    )
+    assert path == str(asset)
 
 
 def test_fallback_ignora_campanha_sem_codigo_ou_desconto():
@@ -195,7 +359,7 @@ def test_voucher_invalido_nao_derruba_os_outros(monkeypatch):
     assert [o.codigo_cupom for o in out] == ["NINA10"]
 
 
-def test_teto_de_cupom_nao_cala_o_produto(monkeypatch, session_factory):
+def test_cadencia_de_cupom_nao_cala_o_produto(monkeypatch, session_factory):
     cupom = OfertaCapturada(
         nome="20% OFF",
         preco=0,
@@ -203,6 +367,7 @@ def test_teto_de_cupom_nao_cala_o_produto(monkeypatch, session_factory):
         url="https://s.shopee.com.br/cupom",
         categoria="cupom",
         codigo_cupom="NINA10",
+        sku="cupom:nina10",
     )
     produto = OfertaCapturada(
         nome="Panela",
@@ -212,7 +377,9 @@ def test_teto_de_cupom_nao_cala_o_produto(monkeypatch, session_factory):
         comissao_pct=0.05,
     )
     _runtime, enviados = _preparar(monkeypatch, session_factory, [cupom, produto])
-    monkeypatch.setattr(monitor.repositories, "contar_cupons_hoje", lambda *_a, **_k: 2)
+    monkeypatch.setattr(monitor.repositories, "minutos_desde_ultimo_cupom", lambda *_a, **_k: 10.0)
+    monkeypatch.setattr(monitor.repositories, "sku_ja_enviado", lambda *_a, **_k: True)
+    monkeypatch.setattr(monitor, "_cupom_deve_disputar_vaga", lambda *_a, **_k: False)
     with config_provider.usar_bot_runtime(_runtime):
         monitor.ciclo()
     assert enviados

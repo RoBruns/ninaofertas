@@ -249,6 +249,7 @@
   "aceitar_campanhas": false,
   "aceitar_cupons": true,
   "cupom_venda_indireta": true,
+  "intervalo_cupom_minutos": 90,
   "max_cupons_por_dia": 2,
   "cupons_meli": [],
   "baseline_ciclos": 0,

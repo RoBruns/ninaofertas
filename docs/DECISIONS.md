@@ -631,21 +631,23 @@ O link MELI é cacheado por URL dentro do ciclo.
 
 ## ADR-033 — Cupom de venda indireta afiliado, na vaga que já existe
 **Data:** 2026-10-25 · **Status:** aceita · **Decisor:** usuário
-**Atualizado:** 2026-11-10
+**Atualizado:** 2026-11-11
 
 O cupom é resgatável/aplicável e só sai com link afiliado. Shopee: voucher com
-`offerLink`. Mercado Livre: só itens em `content.cupons_meli` colados da Central
-de Afiliados (a conta pode ainda não ter a aba Cupons liberada); sem scrape da
-página genérica `/cupons`, que não passa em `link_rastreado`. Decisão:
-`content.cupom_venda_indireta` (padrão false). Ligado, o cupom da loja
-preferida vai na frente e o da outra fica de reserva. Sem link afiliado, o
-ciclo tenta o próximo e o produto segue. O teto e o freio não mudam.
+`offerLink`. Mercado Livre: scrape httpx de `/cupons` (cookie da conta) extrai
+`campaign_id`, monta
+`lista.mercadolivre.com.br/_Container_{id}?coupon_campaign_id={id}` e passa no
+createLink → `meli.la`. A página genérica `/cupons` **não** é enviada (não
+passa em `link_rastreado`). Sem Playwright e sem clicar em Aplicar. Cache 30 min;
+captcha/HTML vazio falha soft sem invalidar cookie. createLink error 111
+(URL fora do programa) pula o cupom e **não** invalida o cookie.
 
-Sem a flag, cupons capturados ficam atrás do produto (com 1 vaga/ciclo quase
-nunca saem); o dashboard avisa e o worker registra em log. Deduplicação de
-cupom é **1× por dia (Brasília)** no grupo — no dia seguinte o mesmo SKU pode
-voltar, ainda limitado por `max_cupons_por_dia`. A mensagem usa o formato de
-urgência (Shopee `🚨` / MELI `🔥`) com benefício, código e “Resgate aqui”.
+**Cadência no dashboard:** `content.aceitar_cupons` liga/desliga o envio;
+`content.intervalo_cupom_minutos` (padrão 90, mín. 15) define o intervalo entre
+cupons (pode repetir o mesmo); cupom **novo** disputa a vaga na hora.
+`cupons_meli` é reforço manual de links. Conta 1 no freio anti-ban. Sem link
+afiliado, o produto segue. Mensagem no formato urgência (Shopee `🚨` / MELI
+`🔥`). Imagem ML: `assets/cupom_meli.png`.
 
 ---
 

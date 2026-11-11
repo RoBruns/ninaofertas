@@ -55,6 +55,7 @@ CONTENT_KEYS = {
     "aceitar_campanhas",
     "cupom_venda_indireta",
     "max_cupons_por_dia",
+    "intervalo_cupom_minutos",
     "cupons_meli",
     "baseline_ciclos",
 }
@@ -117,10 +118,10 @@ class Content(BaseModel):
 
     aceitar_cupons: bool = True
     aceitar_campanhas: bool = False
-    # Desligado até salvar. Ligado, o cupom afiliado disponível usa a vaga do ciclo.
-    cupom_venda_indireta: bool = False
+    # Legado (sempre ligado quando aceitar_cupons): mantido no schema.
+    cupom_venda_indireta: bool = True
     max_cupons_por_dia: int = Field(default=2, ge=0)
-    # Cupons da Central de Afiliados do ML. Vazio = conta sem liberação (sem scrape).
+    intervalo_cupom_minutos: int = Field(default=90, ge=15)
     cupons_meli: list[dict] = Field(default_factory=list)
     baseline_ciclos: int = Field(default=5, ge=0)
 

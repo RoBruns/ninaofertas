@@ -295,6 +295,27 @@ def contar_cupons_hoje(session: Session, grupo: str | None = None, *, tenant_id:
     return q.filter(escopo_envios_conta(tenant_id=tenant_id)).scalar() or 0
 
 
+def minutos_desde_ultimo_cupom(
+    session: Session, grupo: str | None = None, *, tenant_id: UUID
+) -> float | None:
+    """Minutos desde o último cupom com sucesso neste grupo. None se nunca enviou."""
+    q = (
+        session.query(Envio.enviado_em)
+        .join(Oferta, Oferta.id == Envio.oferta_id)
+        .filter(Envio.status == "sucesso", Oferta.categoria == "cupom")
+    )
+    if grupo:
+        q = q.filter(Envio.grupo == grupo)
+    ultimo = (
+        q.filter(escopo_envios_conta(tenant_id=tenant_id))
+        .order_by(Envio.enviado_em.desc())
+        .first()
+    )
+    if not ultimo or not ultimo[0]:
+        return None
+    return _minutos_desde(ultimo[0])
+
+
 def minutos_desde_ultimo_sku(
     session: Session, sku: str, grupo: str | None = None, *, tenant_id: UUID
 ) -> float | None:
