@@ -9,6 +9,7 @@ from core.platforms.base import OfertaCapturada
 from core.settings import BASE_DIR
 
 _DIR = BASE_DIR / "data" / "cupons"
+_CUPOM_MELI_ASSET = BASE_DIR / "assets" / "cupom_meli.png"
 _FONTS = (
     Path(r"C:\Windows\Fonts\segoeui.ttf"),
     Path(r"C:\Windows\Fonts\arial.ttf"),
@@ -47,8 +48,11 @@ def gerar_card(oferta: OfertaCapturada) -> str | None:
     dest = _DIR / f"{sku}.png"
     if "shopee" in loja:
         img = _card_shopee(oferta)
-    else:
-        img = _card_meli(oferta)
+        img.save(dest, "PNG")
+        return str(dest)
+    if _CUPOM_MELI_ASSET.is_file():
+        return str(_CUPOM_MELI_ASSET)
+    img = _card_meli(oferta)
     img.save(dest, "PNG")
     return str(dest)
 

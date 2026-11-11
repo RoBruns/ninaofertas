@@ -460,8 +460,16 @@ vaga/ciclo), `cupons_meli` vazio no ML, dedup one-shot com preço 0. Mudanças:
 aviso no dashboard + log do worker; mensagem no estilo urgência (Shopee/MELI);
 dedup de cupom 1×/dia Brasília; warning se Shopee zerar com credencial;
 `config.json` do seed liga `cupom_venda_indireta`. **Pós-deploy:** no bot Nina
-confirmar a flag ligada, colar ao menos um `meli.la` em Cupons ML se quiser
-MELI, e checar log `[Cupons]` + mensagem no grupo.
+confirmar a flag ligada e checar log `[Cupons]` + mensagem no grupo.
+
+### B1c — Scrape ML /cupons → _Container_ + afiliado ✅ 2026-11-11
+
+Worker captura `mercadolivre.com.br/cupons` (httpx + cookie), monta
+`_Container_{id}?coupon_campaign_id={id}`, createLink → `meli.la`. Sem
+Playwright/Aplicar. Cache 30 min; captcha e error 111 fail-soft. Imagem
+`assets/cupom_meli.png`. `cupons_meli` vira reforço opcional. ADR-033.
+**Pós-deploy:** cookie ML válido; log `[Cupons] ML scrape:`; 1 cupom MELI no
+grupo com venda indireta ligada.
 
 ### B1 — histórico: cupons adiados em 2026-09-22
 

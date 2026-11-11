@@ -194,6 +194,13 @@ def _converter_mercadolivre_com_tag(
         _avisar_createlink(f"[afiliado] MELI createLink falhou: {safe_log_text(exc)}")
         return None
 
+    if _create_link_url_recusada(data):
+        # error_code 111 = URL fora do programa; cookie continua válido.
+        _avisar_createlink(
+            "[afiliado] MELI createLink recusou URL (não afiliável / error 111)."
+        )
+        return None
+
     converted = _extrair_url_afiliada(data)
     if converted:
         logger.info(f"[afiliado] MELI convertida: {converted}")
@@ -202,6 +209,26 @@ def _converter_mercadolivre_com_tag(
         f"[afiliado] MELI createLink resposta inesperada: {safe_log_text(data, 240)}"
     )
     return None
+
+
+def _create_link_url_recusada(data: Any) -> bool:
+    """True quando o createLink HTTP 200 recusa a URL (ex.: error_code 111)."""
+    if not isinstance(data, dict):
+        return False
+    urls = data.get("urls")
+    if isinstance(urls, list):
+        for item in urls:
+            if not isinstance(item, dict):
+                continue
+            code = item.get("error_code")
+            msg = str(item.get("message") or "").lower()
+            if code == 111 or "not allowed" in msg:
+                return True
+    if data.get("error_code") == 111:
+        return True
+    if int(data.get("total_error") or 0) > 0 and int(data.get("total_success") or 0) == 0:
+        return True
+    return False
 
 
 def converter_mercadolivre(url: str) -> str | None:

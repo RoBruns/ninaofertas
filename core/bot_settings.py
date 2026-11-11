@@ -120,7 +120,7 @@ class Content(BaseModel):
     # Desligado até salvar. Ligado, o cupom afiliado disponível usa a vaga do ciclo.
     cupom_venda_indireta: bool = False
     max_cupons_por_dia: int = Field(default=2, ge=0)
-    # Cupons da Central de Afiliados do ML. Vazio = conta sem liberação (sem scrape).
+    # Reforço manual (meli.la / _Container_). O scrape de /cupons é a fonte principal.
     cupons_meli: list[dict] = Field(default_factory=list)
     baseline_ciclos: int = Field(default=5, ge=0)
 
