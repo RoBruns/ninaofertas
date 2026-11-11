@@ -2,20 +2,20 @@
 
 Evita reenviar a mesma oferta (mesmo SKU, ou nome praticamente igual).
 Só reenvia se o preço caiu o suficiente desde o último envio com sucesso.
-Cupom (categoria=cupom) pode reenviar no máximo 1× por dia (Brasília).
+Cupom (categoria=cupom) reenvia após INTERVALO_CUPOM_MINUTOS; novo sai na hora.
 """
 
 from __future__ import annotations
 
 import re
 import unicodedata
-from datetime import datetime
 from difflib import SequenceMatcher
 from uuid import UUID
 
 from sqlalchemy.orm import Session
 
-from core import relogio, repositories
+from core import repositories
+from core.cupom_cadencia import INTERVALO_CUPOM_MINUTOS
 from core.models import Envio
 
 # Sufixos tipo "--3601" que a Shopee cola no título.
@@ -51,12 +51,6 @@ def _precos_parecidos(p1: float | None, p2: float | None, tol_pct: float = 3.0) 
     return abs(p1 - p2) / max(p1, p2) * 100 <= tol_pct
 
 
-def _mesmo_dia_brasilia(quando: datetime | None) -> bool:
-    if quando is None:
-        return False
-    return relogio._em_brasilia(quando).date() == relogio.agora_br().date()
-
-
 def _deve_enviar_cupom(
     session: Session,
     oferta_id: int,
@@ -67,7 +61,7 @@ def _deve_enviar_cupom(
     grupo: str | None,
     tenant_id: UUID,
 ) -> tuple[bool, str]:
-    """Cupom reenvia no máximo uma vez por dia (Brasília) no grupo."""
+    """Cupom novo sai na hora; o mesmo SKU só reenvia após INTERVALO_CUPOM_MINUTOS."""
     ultimo = envio_anterior
     if ultimo is None and sku:
         ultimo = repositories.ultimo_envio_por_sku(
@@ -80,9 +74,13 @@ def _deve_enviar_cupom(
         )
     if ultimo is None:
         return True, "cupom novo"
-    if _mesmo_dia_brasilia(ultimo.enviado_em):
-        return False, "cupom já enviado hoje"
-    return True, "cupom: reenvio no novo dia (Brasília)"
+    minutos = repositories._minutos_desde(ultimo.enviado_em) if ultimo.enviado_em else None
+    if minutos is None:
+        return True, "cupom novo"
+    if minutos < INTERVALO_CUPOM_MINUTOS:
+        falta = INTERVALO_CUPOM_MINUTOS - minutos
+        return False, f"cupom já enviado; reenvio em {falta:.0f} min"
+    return True, f"cupom: reenvio após {INTERVALO_CUPOM_MINUTOS} min"
 
 
 def deve_enviar(

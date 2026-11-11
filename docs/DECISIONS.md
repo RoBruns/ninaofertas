@@ -640,18 +640,16 @@ O cupom é resgatável/aplicável e só sai com link afiliado. Shopee: voucher c
 createLink → `meli.la`. A página genérica `/cupons` **não** é enviada (não
 passa em `link_rastreado`). Sem Playwright e sem clicar em Aplicar. Cache 30 min;
 captcha/HTML vazio falha soft sem invalidar cookie. createLink error 111
-(URL fora do programa) pula o cupom e **não** invalida o cookie. `cupons_meli`
-manual continua como reforço. Decisão: `content.cupom_venda_indireta` (padrão
-false). Ligado, o cupom da loja preferida vai na frente e o da outra fica de
-reserva. Sem link afiliado, o ciclo tenta o próximo e o produto segue. O teto
-e o freio não mudam.
+(URL fora do programa) pula o cupom e **não** invalida o cookie.
 
-Sem a flag, cupons capturados ficam atrás do produto (com 1 vaga/ciclo quase
-nunca saem); o dashboard avisa e o worker registra em log. Deduplicação de
-cupom é **1× por dia (Brasília)** no grupo — no dia seguinte o mesmo SKU pode
-voltar, ainda limitado por `max_cupons_por_dia`. A mensagem usa o formato de
-urgência (Shopee `🚨` / MELI `🔥`) com benefício, código e “Resgate aqui”.
-Imagem ML: arte estática em `assets/cupom_meli.png`.
+**Cadência fixa (não configurável no dashboard):** a cada **90 minutos** um
+cupom deve sair (pode repetir o mesmo); cupom **novo** (SKU nunca enviado)
+disputa a vaga na hora. Conta 1 no freio anti-ban; o intervalo geral entre
+ofertas continua valendo. Flags antigas (`aceitar_cupons`,
+`cupom_venda_indireta`, `max_cupons_por_dia`, `cupons_meli`) ficam no schema
+só por compatibilidade — o worker ignora. Sem link afiliado, o produto segue.
+Mensagem no formato urgência (Shopee `🚨` / MELI `🔥`). Imagem ML:
+`assets/cupom_meli.png`.
 
 ---
 

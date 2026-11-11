@@ -210,12 +210,9 @@ it('prioriza o Mercado Livre e grava a loja na frente sem mudar o revezamento pa
   expect(saved).toMatchObject({ settings: { filters: { prioridade_loja: 'mercado_livre' } } })
 })
 
-it('liga o cupom de venda indireta sem mudar o padrão desligado', async () => {
-  const user = userEvent.setup()
-  let saved: unknown
+it('mostra cupom automático e não oferece controles de cupom', async () => {
   vi.stubGlobal('fetch', vi.fn(async (request: Request) => {
     const path = new URL(request.url).pathname
-    if (request.method === 'PATCH') { saved = await request.json(); return json(bot) }
     if (path === '/api/bots/bot-1') return json(bot)
     if (path === '/api/niches') return json([])
     if (path === '/api/phones') return json({ items: [phone] })
@@ -224,14 +221,10 @@ it('liga o cupom de venda indireta sem mudar o padrão desligado', async () => {
     return json({ status: 'ok', message: 'Funcionando', credential_issues: [], group_issues: [] })
   }))
   render(<Providers><MemoryRouter initialEntries={['/bots/bot-1']}><Routes><Route path="/bots/:id" element={<BotDetail />} /></Routes></MemoryRouter></Providers>)
-  expect(await screen.findByText(/não disputam a vaga enquanto houver produto/i)).toBeInTheDocument()
-  const coupon = await screen.findByRole('checkbox', { name: /Cupom de venda indireta/ })
-  expect(coupon).not.toBeChecked()
-  await user.click(coupon)
-  expect(screen.queryByText(/não disputam a vaga enquanto houver produto/i)).not.toBeInTheDocument()
-  await user.click(screen.getByRole('button', { name: 'Salvar alterações' }))
-  expect(await screen.findByText('Bot salvo.')).toBeInTheDocument()
-  expect(saved).toMatchObject({ settings: { content: { cupom_venda_indireta: true } } })
+  expect(await screen.findByText(/Cupons de venda indireta são automáticos/i)).toBeInTheDocument()
+  expect(screen.queryByRole('checkbox', { name: /Cupom de venda indireta/ })).not.toBeInTheDocument()
+  expect(screen.queryByRole('checkbox', { name: /Aceitar cupons/ })).not.toBeInTheDocument()
+  expect(screen.queryByLabelText(/Máximo de cupons por dia/i)).not.toBeInTheDocument()
 })
 
 it('configura público e relevância, exibindo o limiar somente com público preenchido', async () => {

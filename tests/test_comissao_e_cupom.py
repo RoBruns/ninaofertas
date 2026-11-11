@@ -103,7 +103,6 @@ def test_sem_venda_indireta_cupom_nao_rouba_a_vaga():
 
 
 def test_venda_indireta_poe_o_cupom_da_loja_prioritaria_na_frente():
-    assert BotSettings().content.cupom_venda_indireta is False
     produto = _oferta(nome="panela", url="https://s.shopee.com.br/panela")
     shopee = _oferta(categoria="cupom", nome="shopee", url="https://s.shopee.com.br/cupom")
     ml = _oferta(
@@ -360,7 +359,7 @@ def test_voucher_invalido_nao_derruba_os_outros(monkeypatch):
     assert [o.codigo_cupom for o in out] == ["NINA10"]
 
 
-def test_teto_de_cupom_nao_cala_o_produto(monkeypatch, session_factory):
+def test_cadencia_de_cupom_nao_cala_o_produto(monkeypatch, session_factory):
     cupom = OfertaCapturada(
         nome="20% OFF",
         preco=0,
@@ -368,6 +367,7 @@ def test_teto_de_cupom_nao_cala_o_produto(monkeypatch, session_factory):
         url="https://s.shopee.com.br/cupom",
         categoria="cupom",
         codigo_cupom="NINA10",
+        sku="cupom:nina10",
     )
     produto = OfertaCapturada(
         nome="Panela",
@@ -377,7 +377,9 @@ def test_teto_de_cupom_nao_cala_o_produto(monkeypatch, session_factory):
         comissao_pct=0.05,
     )
     _runtime, enviados = _preparar(monkeypatch, session_factory, [cupom, produto])
-    monkeypatch.setattr(monitor.repositories, "contar_cupons_hoje", lambda *_a, **_k: 2)
+    monkeypatch.setattr(monitor.repositories, "minutos_desde_ultimo_cupom", lambda *_a, **_k: 10.0)
+    monkeypatch.setattr(monitor.repositories, "sku_ja_enviado", lambda *_a, **_k: True)
+    monkeypatch.setattr(monitor, "_cupom_deve_disputar_vaga", lambda *_a, **_k: False)
     with config_provider.usar_bot_runtime(_runtime):
         monitor.ciclo()
     assert enviados

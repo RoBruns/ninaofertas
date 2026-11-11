@@ -88,15 +88,10 @@ preferida interrompe o restante dela; 401/403 bloqueia a plataforma até o
 próximo ciclo; oferta sem link grava `visto` (`mensagem=afiliado`) e não retenta.
 `uma_loja_por_ciclo` continua alternando uma loja exclusiva e ignora essa
 prioridade (sem reserva).
-`content.cupom_venda_indireta` (padrão false) coloca o cupom afiliado na vaga:
-primeiro o da loja preferida, depois o da outra. Shopee usa `voucherOfferV2`;
-ML faz scrape de `/cupons` → URL `_Container_` → createLink (`meli.la`), com
-`cupons_meli` manual como reforço. Sem a flag, cupons capturados ficam atrás do
-produto e quase não saem. Sem link de afiliado, o produto segue. Freio e
-`max_cupons_por_dia` seguem iguais. Cupom deduplica **1× por dia (Brasília)** no
-grupo (não pela queda de preço). A opção pode ser comparada num bot de teste e
-importada pelo fluxo existente; nenhum bot muda automaticamente — no dashboard
-é preciso ligar a flag no bot.
+Cupom de venda indireta é **automático**: a cada 90 min disputa a vaga (pode
+repetir); cupom novo sai na hora. Shopee usa `voucherOfferV2`; ML faz scrape de
+`/cupons` → `_Container_` → createLink (`meli.la`). Controles de cupom saíram do
+dashboard. Sem link de afiliado, o produto segue. Freio anti-ban geral não muda.
 
 ```
 Dashboard ──HTTP/JSON──► API ──SQL──► Postgres ◄──SQL── Worker ──► plataformas

@@ -467,9 +467,13 @@ confirmar a flag ligada e checar log `[Cupons]` + mensagem no grupo.
 Worker captura `mercadolivre.com.br/cupons` (httpx + cookie), monta
 `_Container_{id}?coupon_campaign_id={id}`, createLink → `meli.la`. Sem
 Playwright/Aplicar. Cache 30 min; captcha e error 111 fail-soft. Imagem
-`assets/cupom_meli.png`. `cupons_meli` vira reforço opcional. ADR-033.
-**Pós-deploy:** cookie ML válido; log `[Cupons] ML scrape:`; 1 cupom MELI no
-grupo com venda indireta ligada.
+`assets/cupom_meli.png`. ADR-033.
+
+### B1d — Cupom automático a cada 1h30 ✅ 2026-11-11
+
+Cadência fixa 90 min (pode repetir); cupom novo na hora. Opções de cupom
+removidas do dashboard. ADR-033.
+**Pós-deploy:** cookie ML válido; log `[Cupons]`; blip ~1h30 e cupom novo imediato.
 
 ### B1 — histórico: cupons adiados em 2026-09-22
 

@@ -115,12 +115,11 @@ class Content(BaseModel):
     recado_instagram: bool = False
     model_config = ConfigDict(extra="allow")
 
+    # Legado: cupom é automático (1h30 / novo na hora). Campos ignorados pelo worker.
     aceitar_cupons: bool = True
     aceitar_campanhas: bool = False
-    # Desligado até salvar. Ligado, o cupom afiliado disponível usa a vaga do ciclo.
-    cupom_venda_indireta: bool = False
+    cupom_venda_indireta: bool = True
     max_cupons_por_dia: int = Field(default=2, ge=0)
-    # Reforço manual (meli.la / _Container_). O scrape de /cupons é a fonte principal.
     cupons_meli: list[dict] = Field(default_factory=list)
     baseline_ciclos: int = Field(default=5, ge=0)
 

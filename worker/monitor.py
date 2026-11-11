@@ -19,6 +19,7 @@ from sqlalchemy.orm import Session
 from core import db, relevancia, relogio, repositories
 from core.config_provider import bot_runtime_atual
 from core.credentials import platforms_with_usable_credentials
+from core.cupom_cadencia import INTERVALO_CUPOM_MINUTOS
 from core.models import Oferta
 from core.platforms import affiliate
 from core.platforms.base import OfertaCapturada
@@ -207,12 +208,44 @@ def _priorizar_comissao(
 def _cupons_na_frente(
     cupons: list[OfertaCapturada], prioridade: str, indireta: bool
 ) -> list[OfertaCapturada] | None:
-    """Com venda indireta, cupom da loja preferida na frente e o da outra de reserva."""
+    """Com cadência/novo cupom, preferida na frente e a outra de reserva."""
     if not indireta:
         return None
     frente = [cupom for cupom in cupons if cupom.loja == prioridade]
     reserva = [cupom for cupom in cupons if cupom.loja != prioridade]
     return frente + reserva
+
+
+def _cupom_deve_disputar_vaga(ofertas: list[OfertaCapturada]) -> bool:
+    """True se passou 1h30 desde o último cupom ou há cupom novo (nunca enviado)."""
+    cupons = [o for o in ofertas if (o.categoria or "").lower() == "cupom"]
+    if not cupons:
+        return False
+    runtime = bot_runtime_atual()
+    grupos = tuple(runtime.group_ids) if runtime and runtime.group_ids else (None,)
+    try:
+        tenant_id = _tenant_id_atual()
+    except ValueError:
+        return True
+    with db.get_session() as session:
+        for grupo in grupos:
+            minutos = repositories.minutos_desde_ultimo_cupom(
+                session, grupo=grupo, tenant_id=tenant_id
+            )
+            if minutos is None or minutos >= INTERVALO_CUPOM_MINUTOS:
+                return True
+            for cupom in cupons:
+                if not cupom.sku:
+                    continue
+                if not repositories.sku_ja_enviado(
+                    session,
+                    cupom.sku,
+                    cupom.loja,
+                    grupo=grupo,
+                    tenant_id=tenant_id,
+                ):
+                    return True
+    return False
 
 
 def _ordenar_envio(
@@ -359,12 +392,20 @@ def _freio_anti_ban(
         return False, f"freio: limite {max_dia_global}/dia {limite}"
 
     if oferta and (oferta.categoria or "").lower() == "cupom":
-        max_cupom = int(filtros.get("max_cupons_por_dia") or 2)
-        if (
-            repositories.contar_cupons_hoje(session, grupo=grupo, tenant_id=_tenant_id_atual())
-            >= max_cupom
-        ):
-            return False, f"freio: já foram {max_cupom} cupons hoje neste grupo"
+        minutos = repositories.minutos_desde_ultimo_cupom(
+            session, grupo=grupo, tenant_id=_tenant_id_atual()
+        )
+        if minutos is not None and minutos < INTERVALO_CUPOM_MINUTOS:
+            # Cupom novo (SKU nunca enviado) fura a cadência; repetido espera 1h30.
+            sku = getattr(oferta, "sku", None)
+            if sku and repositories.sku_ja_enviado(
+                session, sku, oferta.loja, grupo=grupo, tenant_id=_tenant_id_atual()
+            ):
+                falta = INTERVALO_CUPOM_MINUTOS - minutos
+                return False, f"freio: próximo cupom em {falta:.0f} min"
+            if not sku:
+                falta = INTERVALO_CUPOM_MINUTOS - minutos
+                return False, f"freio: próximo cupom em {falta:.0f} min"
 
     return True, ""
 
@@ -670,12 +711,12 @@ def _executar_ciclo() -> tuple[int, int, bool]:
                 f"[{nome_canal()}] Mais vendidos {loja}: "
                 f"{len(candidatos)} candidatos; top 3: {resumo}"
             )
-    cupom_indireta = bool(filtros.get("cupom_venda_indireta"))
     n_cupons = sum(1 for o in todas_ofertas if (o.categoria or "").lower() == "cupom")
-    if n_cupons and not cupom_indireta:
+    cupom_na_frente = n_cupons > 0 and _cupom_deve_disputar_vaga(todas_ofertas)
+    if n_cupons and cupom_na_frente:
         logger.info(
-            f"[{nome_canal()}] [Cupons] {n_cupons} capturados, venda indireta desligada — "
-            "ficam atrás do produto."
+            f"[{nome_canal()}] [Cupons] {n_cupons} na fila — disputam a vaga "
+            f"(cadência {INTERVALO_CUPOM_MINUTOS} min ou cupom novo)."
         )
     todas_ofertas = _ordenar_envio(
         todas_ofertas,
@@ -683,7 +724,7 @@ def _executar_ciclo() -> tuple[int, int, bool]:
         prioridade,
         origem_produtos,
         empilhar,
-        cupom_indireta,
+        cupom_na_frente,
     )
 
     logger.info(f"[{nome_canal()}] {len(todas_ofertas)} ofertas encontradas na varredura.")
@@ -795,7 +836,7 @@ def _executar_ciclo() -> tuple[int, int, bool]:
                     continue
                 ok_ritmo, motivo_freio = _freio_anti_ban(session, filtros, candidatos[0], oferta)
                 if not ok_ritmo:
-                    if "cupons hoje" in motivo_freio:
+                    if "próximo cupom" in motivo_freio:
                         puladas += 1
                         continue
                     logger.warning(f"[{nome_canal()}] {motivo_freio}")
