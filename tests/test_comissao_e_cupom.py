@@ -218,3 +218,161 @@ def test_teto_de_cupom_nao_cala_o_produto(monkeypatch, session_factory):
     assert enviados
     assert all("Panela" in mensagem for _, mensagem in enviados)
     assert all("NINA10" not in mensagem for _, mensagem in enviados)
+
+
+def _preparar_duas_lojas(monkeypatch, session_factory, ofertas, filtros_extra=None):
+    runtime, enviados = _preparar(
+        monkeypatch,
+        session_factory,
+        ofertas,
+        {"prioridade_loja": "mercado_livre", **(filtros_extra or {})},
+    )
+    monkeypatch.setattr(
+        monitor,
+        "_SLUG_POR_LOJA",
+        {"Shopee": "shopee", "Mercado Livre": "mercadolivre"},
+    )
+    monkeypatch.setattr(
+        monitor, "platforms_with_usable_credentials", lambda _ids: {"shopee", "mercadolivre"}
+    )
+    return runtime, enviados
+
+
+def test_prioridade_meli_falha_afiliado_libera_reserva_no_mesmo_ciclo(
+    monkeypatch, session_factory
+):
+    from core.platforms.affiliate import AffiliateLink
+
+    ml_a = OfertaCapturada(
+        nome="ML A", preco=100.0, loja="Mercado Livre", url="https://produto.mercadolivre.com.br/a"
+    )
+    ml_b = OfertaCapturada(
+        nome="ML B", preco=100.0, loja="Mercado Livre", url="https://produto.mercadolivre.com.br/b"
+    )
+    shopee = OfertaCapturada(
+        nome="Shopee boa", preco=80.0, loja="Shopee", url="https://shopee.com.br/boa"
+    )
+    runtime, enviados = _preparar_duas_lojas(
+        monkeypatch, session_factory, [ml_a, ml_b, shopee]
+    )
+    tentativas: list[str] = []
+
+    def garantir(loja, url, **_kw):
+        tentativas.append(loja)
+        if "mercado" in loja.lower():
+            return AffiliateLink(url)
+        return AffiliateLink("https://s.shopee.com.br/ok", None)
+
+    monkeypatch.setattr(monitor.affiliate, "garantir_afiliado", garantir)
+    monkeypatch.setattr(monitor.affiliate, "link_rastreado", link_rastreado)
+    monkeypatch.setattr(monitor.affiliate, "plataforma_bloqueada_no_ciclo", lambda _s: False)
+    monkeypatch.setattr(monitor.affiliate, "reset_aviso_ciclo", lambda: None)
+
+    with config_provider.usar_bot_runtime(runtime):
+        monitor.ciclo()
+
+    assert any("Shopee boa" in mensagem for _, mensagem in enviados)
+    # Uma falha MELI basta: não varre a segunda oferta da preferida.
+    assert tentativas.count("Mercado Livre") == 1
+    assert "Shopee" in tentativas
+
+
+def test_falha_afiliado_nao_retenta_no_ciclo_seguinte(monkeypatch, session_factory):
+    from core.platforms.affiliate import AffiliateLink
+    from sqlalchemy import func, select
+    from core.models import Envio
+
+    ml = OfertaCapturada(
+        nome="ML sem link",
+        preco=100.0,
+        loja="Mercado Livre",
+        url="https://produto.mercadolivre.com.br/x",
+    )
+    runtime, enviados = _preparar_duas_lojas(monkeypatch, session_factory, [ml])
+    chamadas = {"n": 0}
+
+    def garantir(_loja, url, **_kw):
+        chamadas["n"] += 1
+        return AffiliateLink(url)
+
+    monkeypatch.setattr(monitor.affiliate, "garantir_afiliado", garantir)
+    monkeypatch.setattr(monitor.affiliate, "link_rastreado", link_rastreado)
+    monkeypatch.setattr(monitor.affiliate, "plataforma_bloqueada_no_ciclo", lambda _s: False)
+    monkeypatch.setattr(monitor.affiliate, "reset_aviso_ciclo", lambda: None)
+
+    with config_provider.usar_bot_runtime(runtime):
+        monitor.ciclo()
+        monitor.ciclo()
+
+    assert enviados == []
+    assert chamadas["n"] == 1
+    with session_factory() as session:
+        vistos = session.scalar(
+            select(func.count())
+            .select_from(Envio)
+            .where(Envio.status == "visto", Envio.mensagem == "afiliado")
+        )
+    assert vistos and vistos >= 1
+
+
+def test_cache_meli_reusa_link_no_mesmo_ciclo(monkeypatch):
+    from core.platforms import affiliate
+
+    chamadas = {"n": 0}
+    auth = affiliate._MLAuth(None, "tag-bot", "cookie=1")
+
+    def converter(url, tag, _auth, _runtime):
+        chamadas["n"] += 1
+        return f"https://meli.la/{tag}"
+
+    monkeypatch.setattr(affiliate, "_ml_auth", lambda: (None, auth))
+    monkeypatch.setattr(affiliate, "_converter_mercadolivre_com_tag", converter)
+    affiliate.reset_aviso_ciclo()
+    primeiro = affiliate.garantir_afiliado("Mercado Livre", "https://produto.mercadolivre.com.br/x")
+    segundo = affiliate.garantir_afiliado("Mercado Livre", "https://produto.mercadolivre.com.br/x")
+    assert primeiro == segundo == "https://meli.la/tag-bot"
+    assert chamadas["n"] == 1
+    affiliate.reset_aviso_ciclo()
+    affiliate.garantir_afiliado("Mercado Livre", "https://produto.mercadolivre.com.br/x")
+    assert chamadas["n"] == 2
+
+
+def test_401_bloqueia_restante_da_plataforma_no_ciclo(monkeypatch, session_factory):
+    from core.platforms import affiliate
+    from core.platforms.affiliate import AffiliateLink
+
+    ml_a = OfertaCapturada(
+        nome="ML A", preco=100.0, loja="Mercado Livre", url="https://produto.mercadolivre.com.br/a"
+    )
+    ml_b = OfertaCapturada(
+        nome="ML B", preco=100.0, loja="Mercado Livre", url="https://produto.mercadolivre.com.br/b"
+    )
+    shopee = OfertaCapturada(
+        nome="Shopee ok", preco=80.0, loja="Shopee", url="https://shopee.com.br/ok"
+    )
+    runtime, enviados = _preparar_duas_lojas(monkeypatch, session_factory, [ml_a, ml_b, shopee])
+    affiliate.reset_aviso_ciclo()
+    tentativas: list[str] = []
+
+    def garantir(loja, url, **_kw):
+        tentativas.append(f"{loja}|{url}")
+        if "mercado" in loja.lower():
+            affiliate._bloquear_plataforma("mercadolivre")
+            return AffiliateLink(url)
+        return AffiliateLink("https://s.shopee.com.br/ok", None)
+
+    monkeypatch.setattr(monitor.affiliate, "garantir_afiliado", garantir)
+    # Mantém o bloqueio real entre ofertas do ciclo.
+    monkeypatch.setattr(
+        monitor.affiliate,
+        "plataforma_bloqueada_no_ciclo",
+        affiliate.plataforma_bloqueada_no_ciclo,
+    )
+    monkeypatch.setattr(monitor.affiliate, "link_rastreado", link_rastreado)
+
+    with config_provider.usar_bot_runtime(runtime):
+        monitor.ciclo()
+
+    assert any("Shopee ok" in mensagem for _, mensagem in enviados)
+    meli_tentadas = [t for t in tentativas if t.startswith("Mercado Livre")]
+    assert len(meli_tentadas) == 1

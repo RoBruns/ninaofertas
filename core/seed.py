@@ -88,6 +88,7 @@ PACING_KEYS = (
 CONTENT_KEYS = (
     "aceitar_cupons",
     "aceitar_campanhas",
+    "cupom_venda_indireta",
     "max_cupons_por_dia",
     "baseline_ciclos",
     "cupons_meli",

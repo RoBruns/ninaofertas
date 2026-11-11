@@ -82,14 +82,20 @@ anterior fica no fim. Fora de `novidades`, o score (demanda 45%, desconto 35%,
 nota 10%, comissão 10%) só desempata. `prioridade_loja` (padrão `alternar`)
 escolhe quem começa: `alternar` reveza Shopee no ciclo ímpar e Mercado Livre no
 par; `mercado_livre` ou `shopee` põe a loja na frente com a outra de reserva.
-Sem oferta enviável da preferida, a reserva ocupa a vaga. `uma_loja_por_ciclo`
-continua alternando uma loja exclusiva e ignora essa prioridade.
+Sem oferta enviável da preferida (filtro, dedup ou falha de afiliado), a reserva
+ocupa a vaga no **mesmo** ciclo: a primeira falha de createLink/shortLink na
+preferida interrompe o restante dela; 401/403 bloqueia a plataforma até o
+próximo ciclo; oferta sem link grava `visto` (`mensagem=afiliado`) e não retenta.
+`uma_loja_por_ciclo` continua alternando uma loja exclusiva e ignora essa
+prioridade (sem reserva).
 `content.cupom_venda_indireta` (padrão false) coloca o cupom afiliado na vaga:
 primeiro o da loja preferida, depois o da outra. Shopee usa `voucherOfferV2`;
-ML só se houver item em `cupons_meli`. Sem link de afiliado, o produto segue.
-Freio,
-deduplicação por grupo e reenvio por queda de preço seguem iguais. A opção pode ser
-comparada num bot de teste e importada pelo fluxo existente; nenhum bot muda automaticamente.
+ML só se houver item em `cupons_meli` (lista vazia = zero cupom ML). Sem a flag,
+cupons capturados ficam atrás do produto e quase não saem. Sem link de afiliado,
+o produto segue. Freio e `max_cupons_por_dia` seguem iguais. Cupom deduplica
+**1× por dia (Brasília)** no grupo (não pela queda de preço). A opção pode ser
+comparada num bot de teste e importada pelo fluxo existente; nenhum bot muda
+automaticamente — no dashboard é preciso ligar a flag no bot.
 
 ```
 Dashboard ──HTTP/JSON──► API ──SQL──► Postgres ◄──SQL── Worker ──► plataformas

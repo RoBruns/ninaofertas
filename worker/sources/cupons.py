@@ -105,6 +105,12 @@ class CupomScraper(Scraper):
         nodes = self._shopee_voucher_nodes()
         if not nodes:
             nodes = self._shopee_offer_como_cupom()
+        if not nodes:
+            logger.warning(
+                "[Cupons] Shopee com credencial, mas voucherOfferV2/shopeeOfferV2 "
+                "não devolveram cupom utilizável."
+            )
+            return []
         out: list[OfertaCapturada] = []
         for item in nodes[:8]:
             try:
@@ -114,6 +120,11 @@ class CupomScraper(Scraper):
                 continue
             if oferta:
                 out.append(oferta)
+        if not out:
+            logger.warning(
+                "[Cupons] Shopee devolveu nós, mas nenhum passou no parse "
+                "(falta offerLink/código/desconto)."
+            )
         return out
 
     def _graphql(self, client: httpx.Client, query: str) -> dict:

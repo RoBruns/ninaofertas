@@ -85,15 +85,36 @@ def test_oferta_sem_link_de_afiliado_nao_e_enviada(monkeypatch, session_factory)
     assert enviados == []
     with session_factory() as session:
         assert session.scalar(select(func.count()).select_from(Envio).where(Envio.status != "visto")) == 0
+        assert session.scalar(
+            select(func.count()).select_from(Envio).where(
+                Envio.status == "visto", Envio.mensagem == "afiliado"
+            )
+        ) >= 1
 
-    # Com o link afiliado, a mesma oferta sai.
-    monkeypatch.setattr(
-        monitor.affiliate, "garantir_afiliado",
-        lambda _loja, _url, **_kw: affiliate.AffiliateLink("https://s.shopee.com.br/abc", None),
+    # A falha de afiliado fica gravada: a mesma oferta não retenta createLink.
+    chamadas = {"n": 0}
+
+    def garantir(_loja, _url, **_kw):
+        chamadas["n"] += 1
+        return affiliate.AffiliateLink("https://s.shopee.com.br/abc", None)
+
+    monkeypatch.setattr(monitor.affiliate, "garantir_afiliado", garantir)
+    with config_provider.usar_bot_runtime(runtime):
+        monitor.ciclo()
+    assert enviados == []
+    assert chamadas["n"] == 0
+
+    # Oferta nova, com link rastreado, sai normalmente.
+    nova = OfertaCapturada(
+        nome="Caneca", preco=50.0, preco_anterior=80.0, loja="Shopee",
+        url="https://shopee.com.br/caneca",
     )
+    fonte = type("Fonte", (), {"nome_fonte": "Teste", "executar": lambda self: [nova]})()
+    monkeypatch.setattr(monitor, "FONTES", [fonte])
     with config_provider.usar_bot_runtime(runtime):
         monitor.ciclo()
     assert len(enviados) == 2
+    assert chamadas["n"] >= 1
 
 
 _link_real = affiliate.link_rastreado
