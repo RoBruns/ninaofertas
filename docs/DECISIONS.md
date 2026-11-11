@@ -644,10 +644,12 @@ captcha/HTML vazio falha soft sem invalidar cookie. createLink error 111
 
 **Cadência no dashboard:** `content.aceitar_cupons` liga/desliga o envio;
 `content.intervalo_cupom_minutos` (padrão 90, mín. 15) define o intervalo entre
-cupons (pode repetir o mesmo); cupom **novo** disputa a vaga na hora.
-`cupons_meli` é reforço manual de links. Conta 1 no freio anti-ban. Sem link
-afiliado, o produto segue. Mensagem no formato urgência (Shopee `🚨` / MELI
-`🔥`). Imagem ML: `assets/cupom_meli.png`.
+cupons (pode repetir o mesmo); cupom **novo** sai na hora. `cupons_meli` é
+reforço manual. **Cupom e produto são trilhas separadas** no mesmo ciclo: um
+cupom devido + até `max_ofertas_por_ciclo` produtos. Intervalo/rajada de produto
+ignoram envios de cupom; tetos hora/dia continuam contando os dois (anti-ban).
+Sem link afiliado, o item é pulado. Mensagem urgência (Shopee `🚨` / MELI `🔥`).
+Imagem ML: `assets/cupom_meli.png`.
 
 ---
 

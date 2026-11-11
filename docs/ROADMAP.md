@@ -473,7 +473,12 @@ Playwright/Aplicar. Cache 30 min; captcha e error 111 fail-soft. Imagem
 
 `Enviar cupons` + `intervalo_cupom_minutos` (padrão 90) + links ML opcionais no
 BotDetail. Cupom novo na hora; pode repetir após o intervalo. ADR-033.
-**Pós-deploy:** ligar envio no bot; cookie ML; log `[Cupons]`.
+
+### B1e — Cupom e produto no mesmo ciclo ✅ 2026-11-11
+
+Trilhas separadas: cupom devido + produto(s) na mesma rodada; intervalo/rajada
+de produto ignoram cupom. Tetos hora/dia anti-ban seguem. ADR-033.
+**Pós-deploy:** ligar envio no bot; cookie ML; log `[Cupons]` + produto no mesmo ciclo.
 
 ### B1 — histórico: cupons adiados em 2026-09-22
 

@@ -197,6 +197,7 @@ def contar_envios_desde(
     *,
     escopo_bot_id: UUID | None = None,
     excluir_bots_teste: bool = False,
+    excluir_cupons: bool = False,
     tenant_id: UUID,
 ) -> int:
     # Na conta, uma oferta disparada para varios grupos consome um unico slot
@@ -207,6 +208,10 @@ def contar_envios_desde(
     )
     if grupo:
         q = q.filter(Envio.grupo == grupo)
+    if excluir_cupons:
+        q = q.join(Oferta, Oferta.id == Envio.oferta_id).filter(
+            or_(Oferta.categoria.is_(None), Oferta.categoria != "cupom")
+        )
     return _escopo_envios(q, escopo_bot_id, excluir_bots_teste, tenant_id=tenant_id).scalar() or 0
 
 
@@ -263,12 +268,17 @@ def minutos_desde_ultimo_envio(
     *,
     escopo_bot_id: UUID | None = None,
     excluir_bots_teste: bool = False,
+    excluir_cupons: bool = False,
     tenant_id: UUID,
 ) -> float | None:
     """Minutos desde o último envio com sucesso. None se nunca enviou."""
     q = session.query(Envio.enviado_em).filter(Envio.status == "sucesso")
     if grupo:
         q = q.filter(Envio.grupo == grupo)
+    if excluir_cupons:
+        q = q.join(Oferta, Oferta.id == Envio.oferta_id).filter(
+            or_(Oferta.categoria.is_(None), Oferta.categoria != "cupom")
+        )
     ultimo = (
         _escopo_envios(q, escopo_bot_id, excluir_bots_teste, tenant_id=tenant_id)
         .order_by(Envio.enviado_em.desc())

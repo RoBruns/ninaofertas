@@ -368,6 +368,7 @@ def test_cadencia_de_cupom_nao_cala_o_produto(monkeypatch, session_factory):
         categoria="cupom",
         codigo_cupom="NINA10",
         sku="cupom:nina10",
+        beneficio="20% OFF",
     )
     produto = OfertaCapturada(
         nome="Panela",
@@ -379,12 +380,38 @@ def test_cadencia_de_cupom_nao_cala_o_produto(monkeypatch, session_factory):
     _runtime, enviados = _preparar(monkeypatch, session_factory, [cupom, produto])
     monkeypatch.setattr(monitor.repositories, "minutos_desde_ultimo_cupom", lambda *_a, **_k: 10.0)
     monkeypatch.setattr(monitor.repositories, "sku_ja_enviado", lambda *_a, **_k: True)
-    monkeypatch.setattr(monitor, "_cupom_deve_disputar_vaga", lambda *_a, **_k: False)
     with config_provider.usar_bot_runtime(_runtime):
         monitor.ciclo()
     assert enviados
-    assert all("Panela" in mensagem for _, mensagem in enviados)
+    assert any("Panela" in mensagem for _, mensagem in enviados)
     assert all("NINA10" not in mensagem for _, mensagem in enviados)
+
+
+def test_ciclo_envia_cupom_e_produto_juntos(monkeypatch, session_factory):
+    cupom = OfertaCapturada(
+        nome="20% OFF",
+        preco=0,
+        loja="Shopee",
+        url="https://s.shopee.com.br/cupom",
+        categoria="cupom",
+        codigo_cupom="NINA10",
+        sku="cupom:nina10-novo",
+        beneficio="20% OFF",
+    )
+    produto = OfertaCapturada(
+        nome="Panela",
+        preco=80,
+        loja="Shopee",
+        url="https://s.shopee.com.br/panela",
+        comissao_pct=0.05,
+    )
+    runtime, enviados = _preparar(monkeypatch, session_factory, [produto, cupom])
+    monkeypatch.setattr(monitor.repositories, "minutos_desde_ultimo_cupom", lambda *_a, **_k: None)
+    with config_provider.usar_bot_runtime(runtime):
+        monitor.ciclo()
+    textos = [mensagem for _, mensagem in enviados]
+    assert any("NINA10" in t or "RESGATE" in t for t in textos)
+    assert any("Panela" in t for t in textos)
 
 
 def _preparar_duas_lojas(monkeypatch, session_factory, ofertas, filtros_extra=None):
