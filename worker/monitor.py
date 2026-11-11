@@ -337,7 +337,11 @@ def _baseline_oferta(session, oferta: OfertaCapturada, filtros: dict) -> bool:
 def _freio_anti_ban(
     session, filtros: dict, grupo: str, oferta: OfertaCapturada | None = None
 ) -> tuple[bool, str]:
-    """Ritmo da produção ou do próprio teste, mantendo proteção por grupo."""
+    """Ritmo da produção ou do próprio teste, mantendo proteção por grupo.
+
+    Cupom e produto são trilhas separadas: intervalo/rajada de produto ignoram
+    envios de cupom; cupom só usa a própria cadência (+ tetos hora/dia).
+    """
     from datetime import timedelta
 
     runtime = bot_runtime_atual()
@@ -349,26 +353,38 @@ def _freio_anti_ban(
         **({"escopo_bot_id": runtime.id} if teste else {"excluir_bots_teste": True}),
     }
     limite = "no bot de teste" if teste else "na conta"
-    decorridos_conta = repositories.minutos_desde_ultimo_envio(session, **escopo)
+    eh_cupom = bool(oferta and (oferta.categoria or "").lower() == "cupom")
+    # Produto não compete com cupom no intervalo/rajada.
+    decorridos_conta = repositories.minutos_desde_ultimo_envio(
+        session, excluir_cupons=True, **escopo
+    )
 
-    intervalo_min = filtros.get("intervalo_minutos_entre_ofertas")
-    if intervalo_min and decorridos_conta is not None and decorridos_conta < float(intervalo_min):
-        falta = float(intervalo_min) - decorridos_conta
-        return False, f"freio: intervalo {intervalo_min} min {limite} (faltam ~{falta:.0f} min)"
+    if not eh_cupom:
+        intervalo_min = filtros.get("intervalo_minutos_entre_ofertas")
+        if (
+            intervalo_min
+            and decorridos_conta is not None
+            and decorridos_conta < float(intervalo_min)
+        ):
+            falta = float(intervalo_min) - decorridos_conta
+            return False, f"freio: intervalo {intervalo_min} min {limite} (faltam ~{falta:.0f} min)"
 
-    max_rajada = int(filtros.get("max_ofertas_por_rajada") or 0)
-    janela = float(filtros.get("janela_rajada_minutos") or 12)
-    pausa = float(filtros.get("pausa_entre_rajadas_minutos") or 0)
-    if max_rajada and pausa:
-        n_janela = repositories.contar_envios_desde(
-            session, relogio.agora_banco() - timedelta(minutes=janela), **escopo
-        )
-        if n_janela >= max_rajada and decorridos_conta is not None and decorridos_conta < pausa:
-            falta = pausa - decorridos_conta
-            return False, (
-                f"freio: rajada de {n_janela}/{max_rajada} {limite} — "
-                f"pausa {pausa:.0f} min (faltam ~{falta:.0f} min)"
+        max_rajada = int(filtros.get("max_ofertas_por_rajada") or 0)
+        janela = float(filtros.get("janela_rajada_minutos") or 12)
+        pausa = float(filtros.get("pausa_entre_rajadas_minutos") or 0)
+        if max_rajada and pausa:
+            n_janela = repositories.contar_envios_desde(
+                session,
+                relogio.agora_banco() - timedelta(minutes=janela),
+                excluir_cupons=True,
+                **escopo,
             )
+            if n_janela >= max_rajada and decorridos_conta is not None and decorridos_conta < pausa:
+                falta = pausa - decorridos_conta
+                return False, (
+                    f"freio: rajada de {n_janela}/{max_rajada} {limite} — "
+                    f"pausa {pausa:.0f} min (faltam ~{falta:.0f} min)"
+                )
 
     max_hora_grupo = filtros.get("max_ofertas_por_hora")
     if max_hora_grupo and repositories.contar_envios_ultima_hora(
@@ -715,24 +731,27 @@ def _executar_ciclo() -> tuple[int, int, bool]:
                 f"[{nome_canal()}] Mais vendidos {loja}: "
                 f"{len(candidatos)} candidatos; top 3: {resumo}"
             )
-    n_cupons = sum(1 for o in todas_ofertas if (o.categoria or "").lower() == "cupom")
+    # Cupom e produto são trilhas separadas: ambos podem sair no mesmo ciclo.
+    cupons_capturados = [o for o in todas_ofertas if (o.categoria or "").lower() == "cupom"]
+    produtos_capturados = [o for o in todas_ofertas if (o.categoria or "").lower() != "cupom"]
     intervalo = intervalo_cupom_minutos(filtros)
-    cupom_na_frente = n_cupons > 0 and _cupom_deve_disputar_vaga(todas_ofertas, filtros)
-    if n_cupons and cupom_na_frente:
+    if cupons_capturados:
         logger.info(
-            f"[{nome_canal()}] [Cupons] {n_cupons} na fila — disputam a vaga "
-            f"(cadência {intervalo} min ou cupom novo)."
+            f"[{nome_canal()}] [Cupons] {len(cupons_capturados)} capturados "
+            f"(trilha própria, cadência {intervalo} min; não compete com produto)."
         )
-    todas_ofertas = _ordenar_envio(
-        todas_ofertas,
-        n,
-        prioridade,
-        origem_produtos,
-        empilhar,
-        cupom_na_frente,
+    cupons_fila = _ordenar_envio(
+        cupons_capturados, n, prioridade, origem_produtos, empilhar, cupom_indireta=True
     )
+    produtos_fila = _ordenar_envio(
+        produtos_capturados, n, prioridade, origem_produtos, empilhar, cupom_indireta=False
+    )
+    todas_ofertas = [*cupons_fila, *produtos_fila]
 
-    logger.info(f"[{nome_canal()}] {len(todas_ofertas)} ofertas encontradas na varredura.")
+    logger.info(
+        f"[{nome_canal()}] {len(todas_ofertas)} ofertas na varredura "
+        f"({len(cupons_fila)} cupom, {len(produtos_fila)} produto)."
+    )
 
     enviadas_ciclo = 0
     ofertas_enviadas = 0
@@ -786,20 +805,25 @@ def _executar_ciclo() -> tuple[int, int, bool]:
             sem_afiliado = 0
             # Com empilhar: uma falha de afiliado na preferida libera a reserva no mesmo ciclo.
             lojas_sem_afiliado: set[str] = set()
-            for oferta in todas_ofertas:
+            cupom_enviado = False
+            produtos_enviados = 0
+
+            def _processar(oferta: OfertaCapturada, *, trilha_cupom: bool) -> str:
+                """Tenta um item. Retorna enviou|pulou|freio|afiliado|erro."""
+                nonlocal puladas, falhas, sem_afiliado, enviadas_ciclo
                 slug = _SLUG_POR_LOJA.get(oferta.loja)
                 if slug and affiliate.plataforma_bloqueada_no_ciclo(slug):
                     puladas += 1
-                    continue
+                    return "pulou"
                 if empilhar and oferta.loja in lojas_sem_afiliado:
                     puladas += 1
-                    continue
+                    return "pulou"
                 try:
                     passou, motivo = passa_nos_filtros(oferta, filtros)
                     if not passou:
                         logger.debug(f"Descartada '{oferta.nome[:60]}': {motivo}")
                         puladas += 1
-                        continue
+                        return "pulou"
                     oferta_db = _salvar_oferta(session, oferta)
                     grupos_ordenados = repositories.ordenar_grupos_por_ultimo_envio(
                         session, grupos, tenant_id=_tenant_id_atual()
@@ -808,14 +832,14 @@ def _executar_ciclo() -> tuple[int, int, bool]:
                 except Exception as e:
                     logger.error(f"Erro ao processar oferta '{oferta.nome[:60]}': {e}")
                     falhas += 1
-                    continue
+                    return "erro"
                 if not candidatos:
                     puladas += 1
-                    continue
+                    return "pulou"
                 candidatos = _sem_afiliado_previo(session, oferta_db, candidatos)
                 if not candidatos:
                     puladas += 1
-                    continue
+                    return "pulou"
                 motivo_publico = _motivo_publico(oferta, filtros)
                 if motivo_publico:
                     candidatos = tuple(
@@ -832,26 +856,28 @@ def _executar_ciclo() -> tuple[int, int, bool]:
                     )
                 if not candidatos:
                     puladas += 1
-                    continue
+                    return "pulou"
                 publico_ok, probabilidade = _avaliar_publico(
                     session, oferta_db, oferta, filtros, candidatos
                 )
                 if not publico_ok:
                     puladas += 1
-                    continue
+                    return "pulou"
                 ok_ritmo, motivo_freio = _freio_anti_ban(session, filtros, candidatos[0], oferta)
                 if not ok_ritmo:
-                    if "próximo cupom" in motivo_freio:
+                    if trilha_cupom or "próximo cupom" in motivo_freio:
                         puladas += 1
-                        continue
+                        logger.debug(f"[{nome_canal()}] {motivo_freio}")
+                        return "pulou"
                     logger.warning(f"[{nome_canal()}] {motivo_freio}")
-                    break
+                    return "freio"
                 publico_log = (
                     f" (p={probabilidade:.2f} {filtros.get('classificador_publico', 'jev')})"
                     if probabilidade is not None
                     else ""
                 )
-                logger.info(f"[{nome_canal()}] Oferta NOVA{publico_log}: {oferta.nome}")
+                tipo = "Cupom" if trilha_cupom else "Oferta"
+                logger.info(f"[{nome_canal()}] {tipo} NOVA{publico_log}: {oferta.nome}")
                 mensagens_enviadas = 0
                 falhou_afiliado = False
                 for indice, grupo in enumerate(candidatos):
@@ -884,13 +910,30 @@ def _executar_ciclo() -> tuple[int, int, bool]:
                         )
                     if slug and affiliate.plataforma_bloqueada_no_ciclo(slug):
                         lojas_sem_afiliado.add(oferta.loja)
+                    return "afiliado"
                 enviadas_ciclo += mensagens_enviadas
-                if mensagens_enviadas:
+                return "enviou" if mensagens_enviadas else "pulou"
+
+            for oferta in cupons_fila:
+                resultado = _processar(oferta, trilha_cupom=True)
+                if resultado == "enviou":
+                    cupom_enviado = True
                     ofertas_enviadas += 1
-                if mensagens_enviadas and ofertas_enviadas >= max_por_ciclo:
+                    break
+
+            for oferta in produtos_fila:
+                resultado = _processar(oferta, trilha_cupom=False)
+                if resultado == "freio":
+                    break
+                if resultado == "enviou":
+                    produtos_enviados += 1
+                    ofertas_enviadas += 1
+                if produtos_enviados >= max_por_ciclo:
                     logger.info(
-                        f"[{nome_canal()}] Freio anti-ban: já enviou {ofertas_enviadas} neste ciclo "
-                        f"(máx {max_por_ciclo})."
+                        f"[{nome_canal()}] Freio anti-ban: já enviou {produtos_enviados} "
+                        f"produto(s) neste ciclo (máx {max_por_ciclo})"
+                        + ("; cupom também saiu" if cupom_enviado else "")
+                        + "."
                     )
                     break
             if enviadas_ciclo == 0:

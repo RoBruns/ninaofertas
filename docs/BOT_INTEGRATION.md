@@ -91,8 +91,9 @@ prioridade (sem reserva).
 Cupom de venda indireta: `aceitar_cupons` liga o envio; `intervalo_cupom_minutos`
 (padrão 90) define a cadência (pode repetir); cupom novo sai na hora.
 `cupons_meli` reforça links manuais. Shopee usa `voucherOfferV2`; ML faz scrape
-de `/cupons` → `_Container_` → createLink (`meli.la`). Sem link de afiliado, o
-produto segue. Freio anti-ban geral não muda.
+de `/cupons` → `_Container_` → createLink (`meli.la`). Cupom e produto saem na
+**mesma** ciclo em trilhas separadas (não competem pela vaga). Tetos hora/dia
+anti-ban seguem valendo para os dois.
 
 ```
 Dashboard ──HTTP/JSON──► API ──SQL──► Postgres ◄──SQL── Worker ──► plataformas
