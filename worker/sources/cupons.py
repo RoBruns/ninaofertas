@@ -55,14 +55,17 @@ _SHOPEE_VOUCHER_QUERIES = (
 )
 
 # Só a home de /cupons: /filter dispara captcha com mais frequência no cookie.
+# Railway (IP de datacenter) costuma cair em web-risk mesmo com cookie válido
+# para createLink — o createLink é API; /cupons é HTML com proteção anti-bot.
 CUPONS_ML_URLS = (
     "https://www.mercadolivre.com.br/cupons?source_page=mperfil",
 )
 CUPONS_ML_TTL_SEGUNDOS = 30 * 60
+CUPONS_ML_CAPTCHA_TTL_SEGUNDOS = 2 * 60 * 60
 _MAX_MELI = 8
 _BENEFICIO_GENERICO = "Cupom Mercado Livre"
-# Cache compartilhado entre ciclos: (monotonic_ts, ofertas).
-_cache_cupons_ml: tuple[float, list[OfertaCapturada]] | None = None
+# Cache: (monotonic_ts, ofertas, motivo) — motivo "captcha" usa TTL maior.
+_cache_cupons_ml: tuple[float, list[OfertaCapturada], str] | None = None
 
 _RE_CAMPAIGN_ID = re.compile(
     r"(?:coupon_campaign_id[=:\\\"'\s]+|_Container_|\"(?:coupon_)?campaign_id\"\s*:\s*\"?)(\d{5,})",
@@ -361,6 +364,12 @@ def limpar_cache_cupons_meli() -> None:
     _cache_cupons_ml = None
 
 
+def _ttl_cache_cupons(motivo: str) -> float:
+    if motivo == "captcha":
+        return float(CUPONS_ML_CAPTCHA_TTL_SEGUNDOS)
+    return float(CUPONS_ML_TTL_SEGUNDOS)
+
+
 class CupomScraper(Scraper):
     nome_fonte = "Cupons"
     timeout = 20.0
@@ -566,13 +575,13 @@ class CupomScraper(Scraper):
     def _scrape_cupons_meli(self) -> list[OfertaCapturada]:
         global _cache_cupons_ml
         agora = time.monotonic()
-        if (
-            _cache_cupons_ml is not None
-            and agora - _cache_cupons_ml[0] < CUPONS_ML_TTL_SEGUNDOS
-        ):
-            return list(_cache_cupons_ml[1])
+        if _cache_cupons_ml is not None:
+            ts, ofertas, motivo = _cache_cupons_ml
+            if agora - ts < _ttl_cache_cupons(motivo):
+                return list(ofertas)
 
         from core.platforms.affiliate import _ml_auth
+        from worker import telemetry
 
         _, auth = _ml_auth()
         if not auth.cookie:
@@ -580,9 +589,20 @@ class CupomScraper(Scraper):
             return []
 
         headers = dict(MELI_HTML_HEADERS)
-        headers["cookie"] = auth.cookie
+        headers.update(
+            {
+                "cookie": auth.cookie,
+                "referer": "https://www.mercadolivre.com.br/",
+                "sec-fetch-dest": "document",
+                "sec-fetch-mode": "navigate",
+                "sec-fetch-site": "same-origin",
+                "sec-fetch-user": "?1",
+                "upgrade-insecure-requests": "1",
+            }
+        )
         html_parts: list[str] = []
         bloqueado = False
+        detalhe_bloqueio = ""
         try:
             with httpx.Client(
                 timeout=self.timeout, headers=headers, follow_redirects=True
@@ -598,9 +618,12 @@ class CupomScraper(Scraper):
                     bloqueio = _html_bloqueado(str(resp.url), resp.status_code, resp.text)
                     if bloqueio:
                         bloqueado = True
+                        detalhe_bloqueio = bloqueio
                         logger.warning(
-                            f"[Cupons] scrape ML /cupons bloqueado ({bloqueio}) — "
-                            "cookie intacto; pausa o scrape até o cache expirar."
+                            f"[Cupons] scrape ML /cupons bloqueado ({bloqueio}). "
+                            "Cookie ainda serve pro createLink; o HTML de /cupons "
+                            "leva captcha no IP do worker. Abra /cupons no Chrome, "
+                            "passe o desafio e atualize o cookie no dashboard."
                         )
                         break
                     html_parts.append(resp.text or "")
@@ -609,9 +632,16 @@ class CupomScraper(Scraper):
             return []
 
         if not html_parts:
-            # Cacheia vazio no captcha para não bater /cupons a cada ciclo.
             if bloqueado:
-                _cache_cupons_ml = (agora, [])
+                _cache_cupons_ml = (agora, [], "captcha")
+                telemetry.registrar_evento(
+                    "ml_cupons_captcha",
+                    "Scrape de /cupons bloqueado por captcha/verificação no worker",
+                    entity_type="platform_account",
+                    entity_id=str(auth.account_id) if auth.account_id else None,
+                    detail={"motivo": detalhe_bloqueio},
+                    level="warning",
+                )
             return []
 
         itens = parse_cupons_meli_html("\n".join(html_parts))
@@ -620,7 +650,7 @@ class CupomScraper(Scraper):
                 "[Cupons] /cupons sem campaign_id no HTML (cookie pode estar sem "
                 "sessão /cupons — scrape não clica Aplicar)."
             )
-            _cache_cupons_ml = (agora, [])
+            _cache_cupons_ml = (agora, [], "vazio")
             return []
 
         out: list[OfertaCapturada] = []
@@ -648,7 +678,7 @@ class CupomScraper(Scraper):
             f"[Cupons] ML scrape: {len(out)} campanhas em /cupons "
             f"({genericos} sem título)."
         )
-        _cache_cupons_ml = (agora, list(out))
+        _cache_cupons_ml = (agora, list(out), "ok")
         return out
 
 
