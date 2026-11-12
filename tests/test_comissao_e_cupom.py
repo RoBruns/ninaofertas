@@ -178,6 +178,44 @@ def test_parse_cupons_meli_html_monta_container():
     assert "meli.la" not in url
     um = next(i for i in itens if i["campaign_id"] == "14548284")
     assert "25% OFF" in (um["beneficio"] or "")
+    assert "acima de R$79" in (um["beneficio"] or "")
+
+
+def test_parse_cupons_meli_titulo_com_loja_e_json():
+    html = """
+    <script type="application/json">
+    {"coupons":[{"coupon_campaign_id":"14548284","title":"30% OFF","subtitle":"em LIQUIDA"}]}
+    </script>
+    <div>outro {"campaign_id":99887766,"label":"15% OFF em Beleza"}</div>
+    """
+    itens = {i["campaign_id"]: i for i in cupons.parse_cupons_meli_html(html)}
+    assert itens["14548284"]["beneficio"] == "30% OFF em LIQUIDA"
+    assert itens["99887766"]["beneficio"] == "15% OFF em Beleza"
+
+
+def test_meli_manual_sem_titulo_herda_do_scrape(monkeypatch):
+    cupons.limpar_cache_cupons_meli()
+    url = cupons.url_container_meli("14548284")
+    scrape = [
+        OfertaCapturada(
+            nome="30% OFF em LIQUIDA",
+            preco=0,
+            loja="Mercado Livre",
+            url=url,
+            categoria="cupom",
+            sku="cupom:scrape1",
+            beneficio="30% OFF em LIQUIDA",
+        )
+    ]
+    monkeypatch.setattr(CupomScraper, "_scrape_cupons_meli", lambda self: scrape)
+    monkeypatch.setattr(
+        cupons,
+        "load_filtros",
+        lambda: {"cupons_meli": [{"url": url}]},
+    )
+    out = CupomScraper()._meli()
+    assert len(out) == 1
+    assert out[0].beneficio == "30% OFF em LIQUIDA"
 
 
 def test_meli_scrape_une_com_manual(monkeypatch):

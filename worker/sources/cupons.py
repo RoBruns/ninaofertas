@@ -2,9 +2,11 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import re
 import time
 from datetime import datetime, timezone
+from typing import Any
 
 import httpx
 
@@ -52,9 +54,14 @@ _SHOPEE_VOUCHER_QUERIES = (
     """,
 )
 
-CUPONS_ML_URL = "https://www.mercadolivre.com.br/cupons?source_page=mperfil"
+CUPONS_ML_URLS = (
+    # Lista completa (filtro) costuma trazer mais cards que a home de /cupons.
+    "https://www.mercadolivre.com.br/cupons/filter?all=true&source_page=int_view_all",
+    "https://www.mercadolivre.com.br/cupons?source_page=mperfil",
+)
 CUPONS_ML_TTL_SEGUNDOS = 30 * 60
 _MAX_MELI = 8
+_BENEFICIO_GENERICO = "Cupom Mercado Livre"
 # Cache compartilhado entre ciclos: (monotonic_ts, ofertas).
 _cache_cupons_ml: tuple[float, list[OfertaCapturada]] | None = None
 
@@ -62,16 +69,40 @@ _RE_CAMPAIGN_ID = re.compile(
     r"(?:coupon_campaign_id[=:\\\"'\s]+|_Container_|\"(?:coupon_)?campaign_id\"\s*:\s*\"?)(\d{5,})",
     re.IGNORECASE,
 )
+_RE_PCT_EM = re.compile(
+    # "30% OFF em LIQUIDA" — não "em R$79" (mínimo de compra).
+    r"(\d{1,2})\s*%\s*OFF\s+em\s+(?!R\$)([A-Za-zÀ-ÿ0-9][\wÀ-ÿ0-9 &'./\-]{1,48})",
+    re.IGNORECASE,
+)
 _RE_PCT = re.compile(r"(\d{1,2})\s*%\s*(?:OFF|off|de desconto)?", re.IGNORECASE)
+_RE_RS_OFF = re.compile(r"R\$\s*([\d.,]+)\s*OFF", re.IGNORECASE)
 _RE_LIMITE = re.compile(
-    r"(?:limite|até|ate)\s*R\$?\s*([\d.,]+)|R\$\s*([\d.,]+)\s*(?:OFF|off)",
+    r"(?:limite|até|ate|limitado a)\s*R\$?\s*([\d.,]+)",
     re.IGNORECASE,
 )
 _RE_MIN = re.compile(
-    r"(?:acima de|a partir de|mínimo|minimo|compras? (?:de|acima))\s*R\$?\s*([\d.,]+)",
+    r"(?:acima de|a partir de|mínimo|minimo|compras? (?:de|acima)|OFF\s+em)\s*R\$\s*([\d.,]+)",
     re.IGNORECASE,
 )
 _RE_CODIGO = re.compile(r"\b([A-Z0-9]{4,16})\b")
+_CAMPOS_TITULO_JSON = (
+    "title",
+    "subtitle",
+    "label",
+    "text",
+    "headline",
+    "description",
+    "coupon_title",
+    "discount_label",
+    "discount",
+    "name",
+    "store_name",
+    "brand_name",
+    "merchant_name",
+    "primary_text",
+    "secondary_text",
+    "value",
+)
 
 
 def _sku(loja: str, codigo: str, url: str) -> str:
@@ -113,6 +144,15 @@ def url_container_meli(campaign_id: str) -> str:
     return f"https://lista.mercadolivre.com.br/_Container_{cid}?coupon_campaign_id={cid}"
 
 
+def campaign_id_da_url(url: str) -> str | None:
+    texto = url or ""
+    m = re.search(r"coupon_campaign_id=(\d{5,})", texto, re.IGNORECASE)
+    if m:
+        return m.group(1)
+    m = re.search(r"_Container_(\d{5,})", texto, re.IGNORECASE)
+    return m.group(1) if m else None
+
+
 def _numero_br(raw: str) -> int | None:
     try:
         return int(float(raw.replace(".", "").replace(",", ".")))
@@ -120,26 +160,152 @@ def _numero_br(raw: str) -> int | None:
         return None
 
 
+def _limpar_loja(raw: str) -> str:
+    loja = (raw or "").strip()
+    loja = re.split(r"\s*(?:[|•\n]|limit|acima|a partir|,)\s*", loja, maxsplit=1, flags=re.I)[
+        0
+    ].strip(" .,-:;\"'")
+    return loja[:48]
+
+
+def _beneficio_de_texto(blob: str) -> str | None:
+    """Monta título no estilo da página: '30% OFF em LIQUIDA' / '25% OFF acima de R$79'."""
+    texto = (blob or "").replace("\\u0026", "&").replace("\\/", "/")
+    m_em = _RE_PCT_EM.search(texto)
+    if m_em:
+        loja = _limpar_loja(m_em.group(2))
+        if loja and loja.upper() not in {"OFF", "EM", "DE", "NO", "NA", "R"}:
+            return f"{m_em.group(1)}% OFF em {loja}"
+    pct = _RE_PCT.search(texto)
+    if pct:
+        beneficio = f"{pct.group(1)}% OFF"
+        min_m = _RE_MIN.search(texto)
+        if min_m:
+            valor = _numero_br(min_m.group(1))
+            if valor is not None:
+                beneficio += f" acima de R${valor}"
+        lim = _RE_LIMITE.search(texto)
+        if lim:
+            valor = _numero_br(lim.group(1))
+            if valor is not None and f"R${valor}" not in beneficio:
+                beneficio += f", limite R${valor}"
+        return beneficio
+    rs = _RE_RS_OFF.search(texto)
+    if rs:
+        valor = _numero_br(rs.group(1))
+        if valor is not None:
+            beneficio = f"R${valor} OFF"
+            min_m = _RE_MIN.search(texto)
+            if min_m:
+                minimo = _numero_br(min_m.group(1))
+                if minimo is not None:
+                    beneficio += f" acima de R${minimo}"
+            return beneficio
+    return None
+
+
+def _textos_do_objeto(obj: dict[str, Any]) -> list[str]:
+    textos: list[str] = []
+    for chave in _CAMPOS_TITULO_JSON:
+        valor = obj.get(chave)
+        if isinstance(valor, str) and valor.strip():
+            textos.append(valor.strip())
+        elif isinstance(valor, dict):
+            for sub in ("text", "label", "title", "value", "name"):
+                interno = valor.get(sub)
+                if isinstance(interno, str) and interno.strip():
+                    textos.append(interno.strip())
+        elif isinstance(valor, (int, float)) and chave in {"discount", "value"}:
+            textos.append(f"{int(valor)}% OFF")
+    return textos
+
+
+def _campaign_id_do_objeto(obj: dict[str, Any]) -> str | None:
+    for chave in ("coupon_campaign_id", "campaign_id", "id"):
+        valor = obj.get(chave)
+        if valor is None:
+            continue
+        texto = str(valor).strip()
+        if texto.isdigit() and len(texto) >= 5:
+            return texto
+    return None
+
+
+def _coleta_cupons_json(node: Any, out: dict[str, dict]) -> None:
+    if isinstance(node, dict):
+        cid = _campaign_id_do_objeto(node)
+        if cid:
+            textos = _textos_do_objeto(node)
+            # title + subtitle costumam vir separados ("30% OFF" / "em LIQUIDA").
+            beneficio = _beneficio_de_texto(" ".join(textos)) if textos else None
+            if not beneficio:
+                beneficio = _beneficio_de_texto(json.dumps(node, ensure_ascii=False)[:800])
+            codigo = None
+            for chave in ("coupon_code", "couponCode", "code", "voucherCode"):
+                codigo = _codigo_digitavel(node.get(chave) if isinstance(node.get(chave), str) else None)
+                if codigo:
+                    break
+            atual = out.get(cid)
+            if atual is None or (
+                atual.get("beneficio") in (None, _BENEFICIO_GENERICO)
+                and beneficio
+            ):
+                out[cid] = {
+                    "campaign_id": cid,
+                    "beneficio": beneficio or _BENEFICIO_GENERICO,
+                    "codigo": codigo or (atual or {}).get("codigo"),
+                }
+            elif codigo and not atual.get("codigo"):
+                atual["codigo"] = codigo
+        for valor in node.values():
+            _coleta_cupons_json(valor, out)
+    elif isinstance(node, list):
+        for item in node:
+            _coleta_cupons_json(item, out)
+
+
+def _extrair_json_embutidos(html: str) -> dict[str, dict]:
+    """Tenta decodificar blobs JSON próximos de campaign_id / coupons."""
+    out: dict[str, dict] = {}
+    texto = html or ""
+    decoder = json.JSONDecoder()
+    marcadores = (
+        r'"coupons"\s*:\s*',
+        r'"coupon_list"\s*:\s*',
+        r'"available_coupons"\s*:\s*',
+        r'"filtercoupons"\s*:\s*',
+        r'"results"\s*:\s*',
+        r'"polycards"\s*:\s*',
+        r'"cards"\s*:\s*',
+        r'"components"\s*:\s*',
+    )
+    for padrao in marcadores:
+        for match in re.finditer(padrao, texto):
+            try:
+                node, _ = decoder.raw_decode(texto[match.end() :].lstrip())
+            except json.JSONDecodeError:
+                continue
+            _coleta_cupons_json(node, out)
+    # Objetos soltos com coupon_campaign_id.
+    for match in re.finditer(r'\{\s*"[^"]*(?:campaign_id|coupon_campaign_id)"', texto):
+        inicio = match.start()
+        try:
+            node, _ = decoder.raw_decode(texto[inicio:])
+        except json.JSONDecodeError:
+            continue
+        if isinstance(node, dict):
+            _coleta_cupons_json(node, out)
+    return out
+
+
 def _beneficio_perto(html: str, campaign_id: str) -> str | None:
     idx = html.find(campaign_id)
     if idx < 0:
         return None
-    trecho = html[max(0, idx - 400) : idx + 400]
-    pct = _RE_PCT.search(trecho)
-    if not pct:
-        return None
-    beneficio = f"{pct.group(1)}% OFF"
-    min_m = _RE_MIN.search(trecho)
-    if min_m:
-        valor = _numero_br(min_m.group(1))
-        if valor is not None:
-            beneficio += f" acima de R${valor}"
-    lim = _RE_LIMITE.search(trecho)
-    if lim:
-        valor = _numero_br(lim.group(1) or lim.group(2) or "")
-        if valor is not None:
-            beneficio += f", limite R${valor}"
-    return beneficio
+    # Janela larga: título ("30% OFF em LIQUIDA") costuma ficar longe do id no JSON.
+    trecho = html[max(0, idx - 1200) : idx + 1200]
+    return _beneficio_de_texto(trecho)
+
 
 def _codigo_perto(html: str, campaign_id: str) -> str | None:
     idx = html.find(campaign_id)
@@ -156,25 +322,27 @@ def _codigo_perto(html: str, campaign_id: str) -> str | None:
 
 
 def parse_cupons_meli_html(html: str) -> list[dict]:
-    """Extrai campaign_ids e benefício aproximado do HTML de /cupons."""
-    ids: list[str] = []
-    vistos: set[str] = set()
+    """Extrai campaign_ids e benefício (ex.: '30% OFF em LIQUIDA') do HTML de /cupons."""
+    por_id = _extrair_json_embutidos(html or "")
     for match in _RE_CAMPAIGN_ID.finditer(html or ""):
         cid = match.group(1)
-        if cid in vistos:
+        if cid in por_id and por_id[cid].get("beneficio") not in (None, _BENEFICIO_GENERICO):
             continue
-        vistos.add(cid)
-        ids.append(cid)
-    out: list[dict] = []
-    for cid in ids:
-        out.append(
-            {
+        beneficio = _beneficio_perto(html, cid) or _BENEFICIO_GENERICO
+        codigo = _codigo_perto(html, cid)
+        atual = por_id.get(cid)
+        if atual is None:
+            por_id[cid] = {
                 "campaign_id": cid,
-                "beneficio": _beneficio_perto(html, cid) or "Cupom Mercado Livre",
-                "codigo": _codigo_perto(html, cid),
+                "beneficio": beneficio,
+                "codigo": codigo,
             }
-        )
-    return out
+        else:
+            if atual.get("beneficio") in (None, _BENEFICIO_GENERICO) and beneficio:
+                atual["beneficio"] = beneficio
+            if codigo and not atual.get("codigo"):
+                atual["codigo"] = codigo
+    return list(por_id.values())
 
 
 def _html_bloqueado(url: str, status: int, html: str) -> str | None:
@@ -343,13 +511,21 @@ class CupomScraper(Scraper):
     def _meli(self) -> list[OfertaCapturada]:
         """Scrape /cupons → URL _Container_ + cupons_meli manuais (união por SKU)."""
         scrapeados = self._scrape_cupons_meli()
-        manuais = self._meli_manuais()
+        por_cid = {
+            campaign_id_da_url(o.url): o
+            for o in scrapeados
+            if campaign_id_da_url(o.url)
+        }
+        manuais = self._meli_manuais(por_cid)
         return _unir_por_sku([*scrapeados, *manuais])[:_MAX_MELI]
 
-    def _meli_manuais(self) -> list[OfertaCapturada]:
+    def _meli_manuais(
+        self, por_cid: dict[str, OfertaCapturada] | None = None
+    ) -> list[OfertaCapturada]:
         manuais = load_filtros().get("cupons_meli") or []
         if not manuais:
             return []
+        por_cid = por_cid or {}
         out: list[OfertaCapturada] = []
         for item in manuais:
             if not isinstance(item, dict):
@@ -359,9 +535,16 @@ class CupomScraper(Scraper):
                 # Página genérica de cupons não é afiliada; createLink não salva.
                 continue
             codigo = str(item.get("codigo") or "").strip().upper() or None
-            titulo = str(
-                item.get("titulo") or item.get("beneficio") or "Cupom Mercado Livre"
-            ).strip()
+            titulo = str(item.get("titulo") or item.get("beneficio") or "").strip()
+            cid = campaign_id_da_url(url)
+            scrape = por_cid.get(cid) if cid else None
+            if not titulo or titulo == _BENEFICIO_GENERICO:
+                if scrape and scrape.beneficio:
+                    titulo = scrape.beneficio
+                else:
+                    titulo = _BENEFICIO_GENERICO
+            if not codigo and scrape and scrape.codigo_cupom:
+                codigo = scrape.codigo_cupom
             if not titulo:
                 continue
             linha = _linha_beneficio(titulo, codigo)
@@ -399,36 +582,51 @@ class CupomScraper(Scraper):
 
         headers = dict(MELI_HTML_HEADERS)
         headers["cookie"] = auth.cookie
+        html_parts: list[str] = []
         try:
             with httpx.Client(
                 timeout=self.timeout, headers=headers, follow_redirects=True
             ) as client:
-                resp = client.get(CUPONS_ML_URL)
+                for url in CUPONS_ML_URLS:
+                    try:
+                        resp = client.get(url)
+                    except httpx.HTTPError as exc:
+                        logger.warning(
+                            f"[Cupons] scrape ML {url} falhou: {safe_log_text(exc)}"
+                        )
+                        continue
+                    bloqueio = _html_bloqueado(str(resp.url), resp.status_code, resp.text)
+                    if bloqueio:
+                        logger.warning(
+                            f"[Cupons] scrape ML /cupons bloqueado ({bloqueio}) — "
+                            "cookie intacto."
+                        )
+                        continue
+                    html_parts.append(resp.text or "")
         except httpx.HTTPError as exc:
             logger.warning(f"[Cupons] scrape ML /cupons falhou: {safe_log_text(exc)}")
             return []
 
-        bloqueio = _html_bloqueado(str(resp.url), resp.status_code, resp.text)
-        if bloqueio:
-            logger.warning(
-                f"[Cupons] scrape ML /cupons bloqueado ({bloqueio}) — cookie intacto."
-            )
+        if not html_parts:
             return []
 
-        itens = parse_cupons_meli_html(resp.text)
+        itens = parse_cupons_meli_html("\n".join(html_parts))
         if not itens:
             logger.warning(
-                "[Cupons] /cupons sem campaign_id no HTML (login/Aplicar pode ser "
-                "necessário — scrape não clica Aplicar)."
+                "[Cupons] /cupons sem campaign_id no HTML (cookie pode estar sem "
+                "sessão /cupons — scrape não clica Aplicar)."
             )
             _cache_cupons_ml = (agora, [])
             return []
 
         out: list[OfertaCapturada] = []
+        genericos = 0
         for item in itens:
             cid = str(item["campaign_id"])
             url = url_container_meli(cid)
-            beneficio = str(item.get("beneficio") or "Cupom Mercado Livre")
+            beneficio = str(item.get("beneficio") or _BENEFICIO_GENERICO)
+            if beneficio == _BENEFICIO_GENERICO:
+                genericos += 1
             codigo = _codigo_digitavel(item.get("codigo"))
             out.append(
                 OfertaCapturada(
@@ -442,7 +640,10 @@ class CupomScraper(Scraper):
                     beneficio=beneficio,
                 )
             )
-        logger.info(f"[Cupons] ML scrape: {len(out)} campanhas em /cupons.")
+        logger.info(
+            f"[Cupons] ML scrape: {len(out)} campanhas em /cupons "
+            f"({genericos} sem título)."
+        )
         _cache_cupons_ml = (agora, list(out))
         return out
 
@@ -451,10 +652,15 @@ def _unir_por_sku(ofertas: list[OfertaCapturada]) -> list[OfertaCapturada]:
     vistos: set[str] = set()
     out: list[OfertaCapturada] = []
     for oferta in ofertas:
-        chave = oferta.sku or oferta.url
-        if chave in vistos:
+        chaves = {oferta.sku or oferta.url}
+        if oferta.url:
+            chaves.add(oferta.url)
+        cid = campaign_id_da_url(oferta.url or "")
+        if cid:
+            chaves.add(f"cid:{cid}")
+        if chaves & vistos:
             continue
-        vistos.add(chave)
+        vistos |= {c for c in chaves if c}
         out.append(oferta)
     return out
 
