@@ -210,6 +210,39 @@ it('prioriza o Mercado Livre e grava a loja na frente sem mudar o revezamento pa
   expect(saved).toMatchObject({ settings: { filters: { prioridade_loja: 'mercado_livre' } } })
 })
 
+it('permite colar links de cupom ML com espaços no título', async () => {
+  const user = userEvent.setup()
+  let saved: unknown
+  vi.stubGlobal('fetch', vi.fn(async (request: Request) => {
+    const path = new URL(request.url).pathname
+    if (request.method === 'PATCH') { saved = await request.json(); return json(bot) }
+    if (path === '/api/bots/bot-1') return json(bot)
+    if (path === '/api/niches') return json([])
+    if (path === '/api/phones') return json({ items: [phone] })
+    if (path === '/api/groups') return json({ items: [group] })
+    if (path === '/api/accounts' || path.endsWith('/runs') || path.endsWith('/config-backups')) return json({ items: [] })
+    return json({ status: 'ok', message: 'Funcionando', credential_issues: [], group_issues: [] })
+  }))
+  render(<Providers><MemoryRouter initialEntries={['/bots/bot-1']}><Routes><Route path="/bots/:id" element={<BotDetail />} /></Routes></MemoryRouter></Providers>)
+  const campo = await screen.findByLabelText(/Links de cupom do Mercado Livre/i)
+  const linha = 'https://lista.mercadolivre.com.br/_Container_14548284?coupon_campaign_id=14548284 | 30% OFF em LIQUIDA'
+  await user.clear(campo)
+  await user.type(campo, linha)
+  expect(campo).toHaveValue(linha)
+  await user.click(screen.getByRole('button', { name: 'Salvar alterações' }))
+  expect(await screen.findByText('Bot salvo.')).toBeInTheDocument()
+  expect(saved).toMatchObject({
+    settings: {
+      content: {
+        cupons_meli: [{
+          url: 'https://lista.mercadolivre.com.br/_Container_14548284?coupon_campaign_id=14548284',
+          titulo: '30% OFF em LIQUIDA',
+        }],
+      },
+    },
+  })
+})
+
 it('permite ligar envio de cupons e alterar o intervalo', async () => {
   const user = userEvent.setup()
   let saved: unknown
