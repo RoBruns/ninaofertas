@@ -54,9 +54,8 @@ _SHOPEE_VOUCHER_QUERIES = (
     """,
 )
 
+# Só a home de /cupons: /filter dispara captcha com mais frequência no cookie.
 CUPONS_ML_URLS = (
-    # Lista completa (filtro) costuma trazer mais cards que a home de /cupons.
-    "https://www.mercadolivre.com.br/cupons/filter?all=true&source_page=int_view_all",
     "https://www.mercadolivre.com.br/cupons?source_page=mperfil",
 )
 CUPONS_ML_TTL_SEGUNDOS = 30 * 60
@@ -424,6 +423,8 @@ class CupomScraper(Scraper):
         return []
 
     def _shopee_offer_como_cupom(self) -> list[dict]:
+        # Campos alinhados ao schema atual (igual core/platforms/shopee.py).
+        # discountPercentage/discountValue/capAmount não existem em ShopeeOfferV2.
         query = """
         {
           shopeeOfferV2(sortType: 1, page: 1, limit: 15) {
@@ -432,10 +433,8 @@ class CupomScraper(Scraper):
               offerLink
               originalLink
               imageUrl
-              periodEndTime
-              discountPercentage
-              discountValue
-              capAmount
+              offerType
+              periodStartTime
             }
           }
         }
@@ -583,6 +582,7 @@ class CupomScraper(Scraper):
         headers = dict(MELI_HTML_HEADERS)
         headers["cookie"] = auth.cookie
         html_parts: list[str] = []
+        bloqueado = False
         try:
             with httpx.Client(
                 timeout=self.timeout, headers=headers, follow_redirects=True
@@ -597,17 +597,21 @@ class CupomScraper(Scraper):
                         continue
                     bloqueio = _html_bloqueado(str(resp.url), resp.status_code, resp.text)
                     if bloqueio:
+                        bloqueado = True
                         logger.warning(
                             f"[Cupons] scrape ML /cupons bloqueado ({bloqueio}) — "
-                            "cookie intacto."
+                            "cookie intacto; pausa o scrape até o cache expirar."
                         )
-                        continue
+                        break
                     html_parts.append(resp.text or "")
         except httpx.HTTPError as exc:
             logger.warning(f"[Cupons] scrape ML /cupons falhou: {safe_log_text(exc)}")
             return []
 
         if not html_parts:
+            # Cacheia vazio no captcha para não bater /cupons a cada ciclo.
+            if bloqueado:
+                _cache_cupons_ml = (agora, [])
             return []
 
         itens = parse_cupons_meli_html("\n".join(html_parts))
