@@ -7,8 +7,17 @@ export type CupomMeliLinha = {
   beneficio?: string
 }
 
+/** Aceita o shape frouxo do OpenAPI (`{ [key: string]: unknown }[]`). */
+type CupomMeliEntrada = {
+  url?: unknown
+  titulo?: unknown
+  codigo?: unknown
+  beneficio?: unknown
+  [key: string]: unknown
+}
+
 /** Uma linha por cupom: `URL | título | código` (código opcional). */
-export function serializeCuponsMeli(items: readonly CupomMeliLinha[] | undefined): string {
+export function serializeCuponsMeli(items: readonly CupomMeliEntrada[] | undefined): string {
   return (items ?? [])
     .map((item) => {
       const url = String(item.url ?? '').trim()
