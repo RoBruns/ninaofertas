@@ -18557,7 +18557,9 @@
       "enum": [
        "alternar",
        "mercado_livre",
-       "shopee"
+       "shopee",
+       "magalu",
+       "amazon"
       ],
       "title": "Prioridade Loja",
       "default": "alternar"

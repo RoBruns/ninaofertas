@@ -85,7 +85,9 @@ class Filters(BaseModel):
     # 0 desliga. Não corta oferta sem taxa: o Mercado Livre não informa comissão na captura.
     comissao_minima_reais: float = Field(default=0, ge=0)
     # alternar reveza quem começa o ciclo. Uma loja escolhida vai inteira na frente.
-    prioridade_loja: Literal["alternar", "mercado_livre", "shopee"] = "alternar"
+    prioridade_loja: Literal["alternar", "mercado_livre", "shopee", "magalu", "amazon"] = (
+        "alternar"
+    )
     max_idade_oferta_horas: int = Field(default=0, ge=0)
     uma_loja_por_ciclo: bool = False
     ml_ignora_desconto_e_vendas: bool = False

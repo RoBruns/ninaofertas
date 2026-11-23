@@ -37,6 +37,11 @@ PLATFORMS = (
         },
     ),
     (
+        "magalu",
+        "Magalu",
+        {"offers": True, "affiliate_link": True, "coupons": False, "commission_api": False},
+    ),
+    (
         "amazon",
         "Amazon",
         {"offers": True, "affiliate_link": True, "coupons": False, "commission_api": False},

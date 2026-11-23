@@ -61,9 +61,11 @@ def test_comissao_maior_vai_na_frente_da_mesma_loja():
 def test_prioridade_loja_padrao_e_rejeita_valor_estranho():
     assert BotSettings().filters.prioridade_loja == "alternar"
     with pytest.raises(ValidationError):
-        BotSettings.model_validate({"filters": {"prioridade_loja": "amazon"}})
+        BotSettings.model_validate({"filters": {"prioridade_loja": "loja_inexistente"}})
     escolhida = BotSettings.model_validate({"filters": {"prioridade_loja": "mercado_livre"}})
     assert escolhida.filters.prioridade_loja == "mercado_livre"
+    amazon = BotSettings.model_validate({"filters": {"prioridade_loja": "amazon"}})
+    assert amazon.filters.prioridade_loja == "amazon"
 
 
 def test_alternar_revez_e_mercado_livre_empilha():
@@ -74,6 +76,8 @@ def test_alternar_revez_e_mercado_livre_empilha():
         True,
     )
     assert _prioridade_do_ciclo({"prioridade_loja": "shopee"}, 2) == ("Shopee", True)
+    assert _prioridade_do_ciclo({"prioridade_loja": "amazon"}, 1) == ("Amazon", True)
+    assert _prioridade_do_ciclo({"prioridade_loja": "magalu"}, 4) == ("Magalu", True)
 
 
 def test_mercado_livre_preferido_mantem_shopee_na_reserva():

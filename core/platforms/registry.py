@@ -13,8 +13,9 @@ from core.platforms.affiliate import (
     _create_link_url_recusada,
     _extrair_url_afiliada,
 )
-from core.http_headers import BROWSER_USER_AGENT
 from core.platforms.amazon import normalizar_tag_amazon
+from core.platforms.magalu import normalizar_loja_magalu
+from core.http_headers import BROWSER_USER_AGENT
 from core.platforms.shopee_api import graphql_request
 
 TEST_TIMEOUT_SECONDS = 5.0
@@ -162,6 +163,54 @@ class MercadoLivreClient:
         return CredentialTestResult(False, "createLink retornou uma resposta inválida")
 
 
+class MagaluClient:
+    def test_credentials(
+        self,
+        credentials: dict[str, str],
+        config: dict[str, Any],
+    ) -> CredentialTestResult:
+        bruto = str(credentials.get("store_tag") or config.get("store_slug") or "")
+        try:
+            loja = normalizar_loja_magalu(bruto)
+        except ValueError:
+            return CredentialTestResult(
+                False,
+                "Cole a página do Magazine Você (magazinevoce.com.br/suajoja) ou o nome da loja.",
+                invalid=True,
+            )
+        pagina = f"https://www.magazinevoce.com.br/{loja}/"
+        try:
+            with httpx.Client(timeout=TEST_TIMEOUT_SECONDS, follow_redirects=True) as client:
+                response = client.get(
+                    pagina,
+                    headers={
+                        "user-agent": BROWSER_USER_AGENT,
+                        "accept-language": "pt-BR,pt;q=0.9",
+                    },
+                )
+        except (httpx.TimeoutException, httpx.NetworkError):
+            return CredentialTestResult(
+                True,
+                (
+                    f"Loja {loja} salva. A Magalu não confirmou a página agora; "
+                    f"os links saem em {pagina}"
+                ),
+            )
+        if response.status_code == 404:
+            return CredentialTestResult(
+                False,
+                f"A página {pagina} não existe. Confira o nome da loja no Magazine Você.",
+                invalid=True,
+            )
+        if response.status_code == 200:
+            return CredentialTestResult(True, f"Loja confirmada. Os links saem em {pagina}")
+        return CredentialTestResult(
+            True,
+            f"Loja {loja} salva (HTTP {response.status_code}). "
+            f"A Magalu não confirmou a página; os links saem em {pagina}",
+        )
+
+
 class AmazonClient:
     def test_credentials(
         self,
@@ -189,6 +238,7 @@ class AmazonClient:
 _CLIENTS: dict[str, PlatformClient] = {
     "shopee": ShopeeClient(),
     "mercadolivre": MercadoLivreClient(),
+    "magalu": MagaluClient(),
     "amazon": AmazonClient(),
 }
 

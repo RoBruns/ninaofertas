@@ -21,13 +21,14 @@ def test_todos_os_modulos_importam_sem_ciclo() -> None:
         importlib.import_module(modulo)
 
 
-def test_fontes_ativas_incluem_amazon() -> None:
+def test_fontes_ativas_incluem_magalu() -> None:
     from worker.sources import FONTES
 
     assert [fonte.nome_fonte for fonte in FONTES] == [
         "Cupons",
         "Mercado Livre",
         "Shopee",
+        "Magalu",
         "Amazon",
     ]
 

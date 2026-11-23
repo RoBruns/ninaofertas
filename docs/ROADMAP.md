@@ -1,5 +1,12 @@
 # Roadmap de implementação
 
+## Prioridade da loja inclui Amazon e Magalu — 2026-11-23
+
+`filters.prioridade_loja` aceita `amazon` e `magalu`. No bot, a loja escolhida
+vai inteira na frente e as outras ficam de reserva no mesmo ciclo. `alternar`
+continua começando por Shopee ou Mercado Livre e misturando quem tem conta.
+O texto de “uma loja por ciclo” deixa de dizer que a fila é só Shopee e ML.
+
 ## Amazon por etiqueta, sem Creators API — 2026-11-23
 
 Conta `amazon`: ID da loja e ID de rastreamento (os dois terminam em `-20`).
@@ -13,6 +20,16 @@ segue sem oferta. Migration `0011_amazon_platform`.
 O botão Testar manda um produto fixo ao createLink. Se o anúncio saiu do ar,
 o ML responde 200 com `The condition is unknown` ou error 111. Isso passa a
 contar como sessão aceita; 401/403 continua invalidando o cookie.
+
+## Magalu pelo Magazine Você — 2026-11-18
+
+Conta `magalu` no dashboard: um campo com a página ou o nome da loja
+(`magazinevoce.com.br/suajoja`). Salvar grava `config.store_slug` e a credencial
+`store_tag` e testa a página. Não há cookie. O worker reescreve produto
+(`…/p/…`) para `https://www.magazinevoce.com.br/{loja}/…` e recusa URL crua ou
+de outra loja. A busca pública do catálogo responde 403 nesta rede: o ciclo
+avisa uma vez e segue sem oferta da Magalu. `uma_loja_por_ciclo` reveza
+Shopee, Mercado Livre, Magalu e Amazon. Migration `0012_magalu_platform`.
 
 ## Prioridade de loja: curto-circuito para a reserva — 2026-11-10
 

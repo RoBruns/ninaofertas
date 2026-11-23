@@ -94,8 +94,7 @@ def test_verificacao_interrompe_os_termos(monkeypatch) -> None:
     assert chamadas == ["https://www.amazon.com.br/s"]
 
 
-def test_uma_loja_inclui_amazon_na_terceira_volta() -> None:
-    plataformas = {"shopee", "mercadolivre", "amazon"}
-    assert _loja_unica_do_ciclo(1, plataformas) == "Shopee"
-    assert _loja_unica_do_ciclo(2, plataformas) == "Mercado Livre"
-    assert _loja_unica_do_ciclo(3, plataformas) == "Amazon"
+def test_uma_loja_inclui_amazon_na_quarta_volta() -> None:
+    plataformas = {"shopee", "mercadolivre", "magalu", "amazon"}
+    assert _loja_unica_do_ciclo(4, plataformas) == "Amazon"
+    assert _loja_unica_do_ciclo(3, {"shopee", "mercadolivre", "magalu"}) == "Magalu"

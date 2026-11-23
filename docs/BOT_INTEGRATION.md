@@ -81,17 +81,22 @@ Dentro de cada loja, a maior comissão estimada vai na frente. Sem taxa, a ordem
 anterior fica no fim. Fora de `novidades`, o score (demanda 45%, desconto 35%,
 nota 10%, comissão 10%) só desempata. `prioridade_loja` (padrão `alternar`)
 escolhe quem começa: `alternar` reveza Shopee no ciclo ímpar e Mercado Livre no
-par; `mercado_livre` ou `shopee` põe a loja na frente com a outra de reserva.
+par; `mercado_livre`, `shopee`, `magalu` ou `amazon` põe a loja na frente e as
+outras ficam de reserva.
 Sem oferta enviável da preferida (filtro, dedup ou falha de afiliado), a reserva
 ocupa a vaga no **mesmo** ciclo: a primeira falha de createLink/shortLink na
 preferida interrompe o restante dela; 401/403 bloqueia a plataforma até o
 próximo ciclo; oferta sem link grava `visto` (`mensagem=afiliado`) e não retenta.
 `uma_loja_por_ciclo` continua alternando uma loja exclusiva e ignora essa
-prioridade (sem reserva). A fila dessa opção é Shopee, Mercado Livre e Amazon,
-só entre as que o bot tem conta utilizável. A Amazon não usa cookie: a conta
-guarda o ID de rastreamento e o produto vira `amazon.com.br/dp/ASIN?tag=`.
+prioridade (sem reserva). A fila dessa opção é Shopee, Mercado Livre, Amazon
+e Magalu, só entre as que o bot tem conta utilizável. A Amazon não usa cookie:
+a conta guarda o ID de rastreamento e o produto vira `amazon.com.br/dp/ASIN?tag=`.
 URL crua, encurtada ou com etiqueta de outra pessoa não é enviada. A busca
 pode cair em verificação de robô; o ciclo avisa e segue sem oferta dela.
+A Magalu também não tem cookie: a conta guarda a loja do Magazine Você e o
+link do produto vira `magazinevoce.com.br/{loja}/…`. URL do site ou de outra
+loja não é enviada. A busca do catálogo pode responder 403; o ciclo avisa e
+segue sem oferta dela.
 Cupom de venda indireta: `aceitar_cupons` liga o envio; `intervalo_cupom_minutos`
 (padrão 90) define a cadência (pode repetir); cupom novo sai na hora.
 `cupons_meli` reforça links manuais. Shopee usa `voucherOfferV2`; ML faz scrape

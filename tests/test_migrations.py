@@ -231,7 +231,7 @@ def test_revisions_legado_seed_e_preservacao(
     assert (
         first
         == second
-        == {"platforms": 4, "expense_categories": 5, "niches": 2, "users": 1, "bots": 2}
+        == {"platforms": 5, "expense_categories": 5, "niches": 2, "users": 1, "bots": 2}
     )
 
     command.downgrade(config, "0002")

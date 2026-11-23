@@ -8,8 +8,8 @@ o código vence — e corrija este arquivo.
 
 **Nina Bot**, produto multi-conta de marketing de afiliados. A operação da Nina é
 uma conta interna; cada cliente tem seus próprios usuários e dados operacionais.
-Um worker Python captura ofertas da **Shopee**, do **Mercado Livre** e da
-**Amazon**, filtra por nicho, gera link de afiliado e publica em **grupos de
+Um worker Python captura ofertas da **Shopee**, do **Mercado Livre**, da
+**Amazon** e da **Magalu** (loja do Magazine Você), filtra por nicho, gera link de afiliado e publica em **grupos de
 WhatsApp** pela evolution-api. Uma **API FastAPI** e um **dashboard React** configuram e
 medem a operação: bots, telefones, grupos, contas de afiliado, filtros, ritmo, vendas,
 despesas e alertas.
@@ -70,7 +70,7 @@ nina-worker (APScheduler) ──────────────── nina-
 | `worker/filters.py` | filtros de nicho, bloqueios, preço, desconto (compara sem acento) |
 | `worker/formatter.py` | mensagem do WhatsApp (`*negrito*`, `~riscado~`); espelhada em `dashboard/src/lib/messagePreview.ts` |
 | `worker/dedup.py`, `worker/commands.py`, `worker/telemetry.py`, `worker/whatsapp.py` | dedup por grupo, comandos do dashboard, runs/eventos, Evolution |
-| `core/platforms/` | scrapers Shopee/ML/Amazon, `affiliate.py` (links de afiliado, `link_rastreado`) |
+| `core/platforms/` | scrapers Shopee/ML/Amazon/Magalu, `affiliate.py` (links de afiliado, `link_rastreado`) |
 | `core/sales_sync.py`, `core/importers/` | importação de vendas (Shopee: API `conversionReport`; ML: JSON do painel `/afiliados/dashboard`) |
 | `core/models.py`, `core/repositories.py`, `migrations/` | modelo de dados, tenants e consultas (Alembic 0001–0009); `owner_id` aponta para tenants |
 | `core/billing.py`, `core/billing_store.py` | métricas SaaS puras e escrita única de assinaturas com livro-razão (S2, ADR-030); sem bloqueio operacional |
@@ -148,8 +148,8 @@ nina-worker (APScheduler) ──────────────── nina-
   2026-09-30); falha dela vira o evento `ml_sales_sync_failed`.
 - **Opções por bot** vindas da V1 (ADR-022): `uma_loja_por_ciclo`,
   `ml_ignora_desconto_e_vendas`, `ml_categoria_dispensa_nicho`.
-  `prioridade_loja` (`alternar` por padrão; `mercado_livre` ou `shopee` põe
-  a loja na frente com a outra de reserva, ADR-032).
+  `prioridade_loja` (`alternar` por padrão; `mercado_livre`, `shopee`, `magalu`
+  ou `amazon` põe a loja na frente com as outras de reserva, ADR-032).
 - **Silêncio noturno** por bot (`schedule.quiet_hours`, padrão 00:00–08:00, Brasília).
 - **Recado do Instagram**: só bots com `content.recado_instagram=true`; padrão false
   para novos bots. Migration 0007 liga em todos os existentes para preservar o envio.

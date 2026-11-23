@@ -132,17 +132,24 @@ def _telemetria_best_effort(
         return default
 
 
+_NOME_DA_PRIORIDADE = {
+    "mercado_livre": "Mercado Livre",
+    "shopee": "Shopee",
+    "magalu": "Magalu",
+    "amazon": "Amazon",
+}
+
+
 def _prioridade_do_ciclo(filtros: dict, n: int) -> tuple[str, bool]:
     """Devolve a loja que começa a fila e se ela vai inteira na frente com reserva.
 
     `alternar` reveza: ciclo ímpar Shopee, par Mercado Livre. Uma loja escolhida
-    fica na frente; a outra permanece de reserva no mesmo ciclo.
+    fica na frente; as outras permanecem de reserva no mesmo ciclo.
     """
     escolha = filtros.get("prioridade_loja") or "alternar"
-    if escolha == "mercado_livre":
-        return "Mercado Livre", True
-    if escolha == "shopee":
-        return "Shopee", True
+    nome = _NOME_DA_PRIORIDADE.get(str(escolha))
+    if nome:
+        return nome, True
     return ("Shopee" if n % 2 == 1 else "Mercado Livre"), False
 
 
@@ -564,9 +571,10 @@ def _processar_oferta(session, oferta: OfertaCapturada, filtros: dict) -> str:
 _SLUG_POR_LOJA = {
     "Shopee": "shopee",
     "Mercado Livre": "mercadolivre",
+    "Magalu": "magalu",
     "Amazon": "amazon",
 }
-_ORDEM_UMA_LOJA = ("Shopee", "Mercado Livre", "Amazon")
+_ORDEM_UMA_LOJA = ("Shopee", "Mercado Livre", "Magalu", "Amazon")
 
 
 def _loja_unica_do_ciclo(n: int, plataformas: set[str]) -> str | None:
@@ -577,8 +585,6 @@ def _loja_unica_do_ciclo(n: int, plataformas: set[str]) -> str | None:
     if not disponiveis:
         return None
     return disponiveis[(n - 1) % len(disponiveis)]
-
-
 _MOTIVO_AFILIADO = "afiliado"
 _avisos_sem_conta: dict[str, frozenset[str]] = {}
 

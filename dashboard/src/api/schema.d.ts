@@ -2501,7 +2501,7 @@ export interface components {
              * @default alternar
              * @enum {string}
              */
-            prioridade_loja: "alternar" | "mercado_livre" | "shopee";
+            prioridade_loja: "alternar" | "mercado_livre" | "shopee" | "magalu" | "amazon";
             /**
              * Max Idade Oferta Horas
              * @default 0

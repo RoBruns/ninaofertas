@@ -210,6 +210,28 @@ it('prioriza o Mercado Livre e grava a loja na frente sem mudar o revezamento pa
   expect(saved).toMatchObject({ settings: { filters: { prioridade_loja: 'mercado_livre' } } })
 })
 
+it('coloca a Amazon na frente quando a prioridade da loja é Amazon', async () => {
+  const user = userEvent.setup()
+  let saved: unknown
+  vi.stubGlobal('fetch', vi.fn(async (request: Request) => {
+    const path = new URL(request.url).pathname
+    if (request.method === 'PATCH') { saved = await request.json(); return json(bot) }
+    if (path === '/api/bots/bot-1') return json(bot)
+    if (path === '/api/niches') return json([])
+    if (path === '/api/phones') return json({ items: [phone] })
+    if (path === '/api/groups') return json({ items: [group] })
+    if (path === '/api/accounts' || path.endsWith('/runs') || path.endsWith('/config-backups')) return json({ items: [] })
+    return json({ status: 'ok', message: 'Funcionando', credential_issues: [], group_issues: [] })
+  }))
+  render(<Providers><MemoryRouter initialEntries={['/bots/bot-1']}><Routes><Route path="/bots/:id" element={<BotDetail />} /></Routes></MemoryRouter></Providers>)
+  const priority = await screen.findByRole('combobox', { name: /^Prioridade da loja/ })
+  expect(screen.getByRole('option', { name: 'Amazon' })).toBeInTheDocument()
+  await user.selectOptions(priority, 'amazon')
+  await user.click(screen.getByRole('button', { name: 'Salvar alterações' }))
+  expect(await screen.findByText('Bot salvo.')).toBeInTheDocument()
+  expect(saved).toMatchObject({ settings: { filters: { prioridade_loja: 'amazon' } } })
+})
+
 it('permite colar links de cupom ML com espaços no título', async () => {
   const user = userEvent.setup()
   let saved: unknown

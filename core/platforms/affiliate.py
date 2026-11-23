@@ -15,6 +15,7 @@ from core.credentials import mark_account_credentials_invalid, runtime_account_c
 from core.http_headers import BROWSER_USER_AGENT
 from core.log_safe import safe_log_text
 from core.platforms.amazon import asin_amazon, normalizar_tag_amazon, url_afiliada_amazon
+from core.platforms.magalu import normalizar_loja_magalu, url_afiliada_magalu
 from core.platforms.shopee import shopee_app_credentials
 from core.platforms.shopee_api import generate_short_link
 
@@ -353,6 +354,17 @@ def garantir_afiliado(
             return AffiliateLink(url, f"shopee:{bot_sub}-{group_sub}")
         return AffiliateLink(url)
 
+    if "magalu" in loja or "magazine luiza" in loja:
+        cache_key = ("magalu", url)
+        cached = _cache_links_ciclo.get(cache_key)
+        if cached is not None:
+            return cached
+        loja_slug = _loja_magalu()
+        convertida = url_afiliada_magalu(url, loja_slug) if loja_slug else None
+        resultado = AffiliateLink(convertida or url, f"magalu:{loja_slug}" if convertida else None)
+        _cache_links_ciclo[cache_key] = resultado
+        return resultado
+
     if "amazon" in loja:
         cache_key = ("amazon", url)
         cached = _cache_links_ciclo.get(cache_key)
@@ -364,6 +376,19 @@ def garantir_afiliado(
         _cache_links_ciclo[cache_key] = resultado
         return resultado
     return AffiliateLink(url)
+
+
+def _loja_magalu() -> str:
+    """Slug da loja do Magazine Você da conta do bot, ou vazio se não houver."""
+    _runtime, account = _runtime_auth("magalu")
+    if account is None:
+        return ""
+    _account_id, config, values = account
+    bruto = str(values.get("store_tag") or config.get("store_slug") or "")
+    try:
+        return normalizar_loja_magalu(bruto)
+    except ValueError:
+        return ""
 
 
 def _tag_amazon() -> str:
@@ -391,9 +416,20 @@ def link_rastreado(loja: str, url: str) -> bool:
         return _ja_parece_afiliado_ml(url)
     if "shopee" in nome:
         return _ja_parece_afiliado_shopee(url)
+    if "magalu" in nome or "magazine luiza" in nome:
+        return _magalu_da_loja(url, _loja_magalu())
     if "amazon" in nome:
         return _amazon_da_tag(url, _tag_amazon())
     return True
+
+
+def _magalu_da_loja(url: str, loja: str) -> bool:
+    if not loja:
+        return False
+    parsed = urlparse(url or "")
+    host = parsed.netloc.lower().removeprefix("www.")
+    partes = [parte for parte in parsed.path.split("/") if parte]
+    return host == "magazinevoce.com.br" and bool(partes) and partes[0].lower() == loja
 
 
 def _amazon_da_tag(url: str, tag: str) -> bool:
