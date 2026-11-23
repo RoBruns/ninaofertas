@@ -326,6 +326,12 @@ def test_create_link_container_vira_meli_la_e_111_nao_invalida(monkeypatch):
         "total_error": 1,
     }
     assert affiliate._create_link_url_recusada(recusado) is True
+    desconhecido = {
+        "urls": [{"message": "The condition is unknown"}],
+        "total_success": 0,
+        "total_error": 1,
+    }
+    assert affiliate._create_link_url_recusada(desconhecido) is True
 
     invalidou = {"ok": False}
 

@@ -10,14 +10,16 @@ import httpx
 from core.platforms.affiliate import (
     ML_CREATE_LINK,
     _cookie_value,
+    _create_link_url_recusada,
     _extrair_url_afiliada,
 )
 from core.http_headers import BROWSER_USER_AGENT
 from core.platforms.shopee_api import graphql_request
 
 TEST_TIMEOUT_SECONDS = 5.0
-# Produto real de catálogo: com um id inventado o ML responde 200 com
-# "URL not allowed in affiliates program" e o teste reprovava cookie válido.
+# Só provoca o createLink. O anúncio não precisa continuar existindo:
+# recusa da URL (saiu do ar, fora do programa) ainda é sessão válida.
+# 401/403 é o que marca o cookie inválido.
 TEST_PRODUCT_URL = "https://www.mercadolivre.com.br/apple-iphone-15-128-gb-preto/p/MLB1027172669"
 
 
@@ -136,21 +138,27 @@ class MercadoLivreClient:
         except ValueError:
             data = None
         generated_url = _extrair_url_afiliada(data) if data is not None else None
-        if generated_url is None:
-            # Sessão recusada é 401/403 (tratado acima); aqui o ML aceitou o cookie
-            # e recusou o link — repassa o motivo dele em vez de "resposta invalida".
-            urls = data.get("urls") if isinstance(data, dict) else None
-            motivos = [
-                str(item["message"])
-                for item in urls or []
-                if isinstance(item, dict) and item.get("message")
-            ]
-            if motivos:
-                return CredentialTestResult(
-                    False, f"Sessão aceita, mas o ML recusou o link de teste: {motivos[0]}"
-                )
-            return CredentialTestResult(False, "createLink retornou uma resposta inválida")
-        return CredentialTestResult(True, "Credencial Mercado Livre válida")
+        if generated_url is not None:
+            return CredentialTestResult(True, "Credencial Mercado Livre válida")
+        # HTTP 200: a sessão entrou. Recusa do anúncio (sumiu, condição, error 111)
+        # não invalida o cookie — o produto de teste não é a credencial.
+        if isinstance(data, dict) and _create_link_url_recusada(data):
+            return CredentialTestResult(
+                True,
+                "Sessão aceita. O anúncio de teste não virou link; o cookie vale "
+                "mesmo se esse produto saiu do ar.",
+            )
+        urls = data.get("urls") if isinstance(data, dict) else None
+        motivos = [
+            str(item["message"])
+            for item in urls or []
+            if isinstance(item, dict) and item.get("message")
+        ]
+        if motivos:
+            return CredentialTestResult(
+                False, f"Sessão aceita, mas o ML recusou o link de teste: {motivos[0]}"
+            )
+        return CredentialTestResult(False, "createLink retornou uma resposta inválida")
 
 
 _CLIENTS: dict[str, PlatformClient] = {

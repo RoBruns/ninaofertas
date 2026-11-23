@@ -1,5 +1,11 @@
 # Roadmap de implementação
 
+## Teste do cookie ML não depende do anúncio — 2026-11-23
+
+O botão Testar manda um produto fixo ao createLink. Se o anúncio saiu do ar,
+o ML responde 200 com `The condition is unknown` ou error 111. Isso passa a
+contar como sessão aceita; 401/403 continua invalidando o cookie.
+
 ## Prioridade de loja: curto-circuito para a reserva — 2026-11-10
 
 Com `prioridade_loja` empilhada, falha de createLink na preferida não varre mais

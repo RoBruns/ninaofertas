@@ -222,7 +222,7 @@ def _create_link_url_recusada(data: Any) -> bool:
                 continue
             code = item.get("error_code")
             msg = str(item.get("message") or "").lower()
-            if code == 111 or "not allowed" in msg:
+            if code == 111 or "not allowed" in msg or "condition is unknown" in msg:
                 return True
     if data.get("error_code") == 111:
         return True

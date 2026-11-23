@@ -574,20 +574,42 @@ class MLSuccessHTTPClient(UnauthorizedHTTPClient):
         return httpx.Response(200, json=body, request=httpx.Request("POST", url))
 
 
-def test_ml_testa_com_produto_real_e_repassa_motivo_da_recusa(
+class MLCondicaoDesconhecidaHTTPClient(UnauthorizedHTTPClient):
+    def post(self, url: str, **kwargs: object) -> httpx.Response:
+        origin = kwargs["json"]["urls"][0]
+        body = {
+            "urls": [
+                {
+                    "origin_url": origin,
+                    "message": "The condition is unknown",
+                    "status": 200,
+                }
+            ],
+            "total_success": 0,
+            "total_error": 1,
+        }
+        return httpx.Response(200, json=body, request=httpx.Request("POST", url))
+
+
+def test_ml_anuncio_de_teste_sumido_nao_reprova_o_cookie(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     from core.platforms import registry
 
-    # Com o id inventado "MLB1" o ML reprovava todo cookie válido.
-    assert "/p/MLB1027172669" in registry.TEST_PRODUCT_URL
+    assert "MLB1" not in registry.TEST_PRODUCT_URL
 
     monkeypatch.setattr("core.platforms.registry.httpx.Client", MLSuccessHTTPClient)
     ok = MercadoLivreClient().test_credentials({"cookie": "ssid=a"}, {"affiliate_tag": "t"})
     assert ok.ok is True
+    assert ok.invalid is False
 
     monkeypatch.setattr("core.platforms.registry.httpx.Client", MLRejectsURLHTTPClient)
     recusa = MercadoLivreClient().test_credentials({"cookie": "ssid=a"}, {"affiliate_tag": "t"})
-    assert recusa.ok is False
+    assert recusa.ok is True
     assert recusa.invalid is False
-    assert "URL not allowed in affiliates program" in recusa.message
+    assert "Sessão aceita" in recusa.message
+
+    monkeypatch.setattr("core.platforms.registry.httpx.Client", MLCondicaoDesconhecidaHTTPClient)
+    condicao = MercadoLivreClient().test_credentials({"cookie": "ssid=a"}, {"affiliate_tag": "t"})
+    assert condicao.ok is True
+    assert condicao.invalid is False
