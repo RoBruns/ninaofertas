@@ -37,6 +37,11 @@ PLATFORMS = (
         },
     ),
     (
+        "amazon",
+        "Amazon",
+        {"offers": True, "affiliate_link": True, "coupons": False, "commission_api": False},
+    ),
+    (
         "aliexpress",
         "AliExpress",
         {"offers": False, "affiliate_link": True, "coupons": False, "commission_api": False},

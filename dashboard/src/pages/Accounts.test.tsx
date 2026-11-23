@@ -138,3 +138,46 @@ it('credencial da Shopee é cadastrada como app_secret', async () => {
   expect(await screen.findByText('Funcionou')).toBeInTheDocument()
   expect(requests).toContain('PUT /api/accounts/account-2/credentials/app_secret')
 })
+
+const amazon: Platform = { id: 5, slug: 'amazon', name: 'Amazon', is_active: true, capabilities: {} }
+
+it('nova conta Amazon grava a loja e o ID de rastreamento', async () => {
+  const calls: { method: string; path: string; body: unknown }[] = []
+  vi.stubGlobal('fetch', vi.fn(async (request: Request) => {
+    const url = new URL(request.url)
+    let body: unknown = null
+    if (request.method !== 'GET' && request.method !== 'HEAD') {
+      const text = await request.text()
+      body = text ? JSON.parse(text) as unknown : null
+    }
+    calls.push({ method: request.method, path: url.pathname, body })
+    if (url.pathname === '/api/platforms') return json([amazon])
+    if (request.method === 'POST' && url.pathname === '/api/accounts') {
+      return json({ ...account, id: 'account-amazon', platform: amazon, credentials: [] }, 201)
+    }
+    if (request.method === 'PUT') return new Response(null, { status: 204 })
+    if (url.pathname.endsWith('/test')) return json({ ok: true, checked_at: '2026-11-23T10:00:00Z', message: 'Etiqueta aceita' })
+    return json({ items: [], total: 0, page: 1, page_size: 100 })
+  }))
+  renderAccounts()
+  const user = userEvent.setup()
+  await user.click(await screen.findByRole('button', { name: 'Nova conta' }))
+  await user.type(screen.getByLabelText('Rótulo'), 'Amazon casa')
+  expect(screen.getByText(/Não há cookie/)).toBeInTheDocument()
+  await user.type(screen.getByLabelText('ID da loja'), 'achadinh0bed1-20')
+  await user.type(screen.getByLabelText('ID de rastreamento'), 'rdreviews04-20')
+  await user.click(screen.getByRole('button', { name: 'Salvar' }))
+  await waitFor(() => expect(calls.some((call) => call.method === 'PUT')).toBe(true))
+  const criada = calls.find((call) => call.method === 'POST' && call.path === '/api/accounts')
+  expect(criada?.body).toMatchObject({
+    platform_id: 5,
+    config: { store_id: 'achadinh0bed1-20', tracking_id: 'rdreviews04-20' },
+  })
+  expect(calls).toEqual(expect.arrayContaining([
+    expect.objectContaining({
+      method: 'PUT',
+      path: '/api/accounts/account-amazon/credentials/tracking_id',
+      body: { value: 'rdreviews04-20' },
+    }),
+  ]))
+})

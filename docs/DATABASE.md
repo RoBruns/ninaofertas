@@ -103,7 +103,7 @@ CREATE INDEX ON audit_logs (tenant_id, created_at DESC);
 ```sql
 platforms (
   id            SERIAL PK,
-  slug          TEXT UNIQUE NOT NULL,        -- 'shopee' | 'mercadolivre' | 'aliexpress'
+  slug          TEXT UNIQUE NOT NULL,        -- 'shopee' | 'mercadolivre' | 'amazon' | 'aliexpress'
   name          TEXT NOT NULL,
   is_active     BOOLEAN NOT NULL DEFAULT TRUE,
   capabilities  JSONB NOT NULL DEFAULT '{}'  -- {"offers":true,"affiliate_link":true,
@@ -134,7 +134,7 @@ AliExpress entra como linha + um cliente em `core/platforms/aliexpress.py`.
 platform_credentials (
   id               UUID PK DEFAULT gen_random_uuid(),
   account_id       UUID NOT NULL REFERENCES platform_accounts(id) ON DELETE CASCADE,
-  kind             TEXT NOT NULL,           -- 'cookie' | 'oauth_token' | 'api_key' | 'app_secret'
+  kind             TEXT NOT NULL,           -- 'cookie' | 'oauth_token' | 'api_key' | 'app_secret' | 'tracking_id'
   ciphertext       BYTEA NOT NULL,          -- AES-GCM; chave em CREDENTIALS_KEY (env)
   key_version      INT  NOT NULL DEFAULT 1, -- permite rotação de chave-mestra
   fingerprint      TEXT,                    -- sha256 dos 1ºs bytes: detecta "mudou?" sem decifrar

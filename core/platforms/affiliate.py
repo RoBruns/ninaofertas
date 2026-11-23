@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Any
+from urllib.parse import parse_qs, urlparse
 from uuid import UUID
 
 import httpx
@@ -13,6 +14,7 @@ from core.config_provider import bot_runtime_atual, registrar_evento_runtime
 from core.credentials import mark_account_credentials_invalid, runtime_account_credentials
 from core.http_headers import BROWSER_USER_AGENT
 from core.log_safe import safe_log_text
+from core.platforms.amazon import asin_amazon, normalizar_tag_amazon, url_afiliada_amazon
 from core.platforms.shopee import shopee_app_credentials
 from core.platforms.shopee_api import generate_short_link
 
@@ -350,7 +352,36 @@ def garantir_afiliado(
             )
             return AffiliateLink(url, f"shopee:{bot_sub}-{group_sub}")
         return AffiliateLink(url)
+
+    if "amazon" in loja:
+        cache_key = ("amazon", url)
+        cached = _cache_links_ciclo.get(cache_key)
+        if cached is not None:
+            return cached
+        tag = _tag_amazon()
+        convertida = url_afiliada_amazon(url, tag) if tag else None
+        resultado = AffiliateLink(convertida or url, f"amazon:{tag}" if convertida else None)
+        _cache_links_ciclo[cache_key] = resultado
+        return resultado
     return AffiliateLink(url)
+
+
+def _tag_amazon() -> str:
+    """ID de rastreamento da conta. Sem ele, o link da Amazon não sai."""
+    _runtime, account = _runtime_auth("amazon")
+    if account is None:
+        return ""
+    _account_id, config, values = account
+    bruto = str(
+        values.get("tracking_id")
+        or config.get("tracking_id")
+        or config.get("store_id")
+        or ""
+    )
+    try:
+        return normalizar_tag_amazon(bruto)
+    except ValueError:
+        return ""
 
 
 def link_rastreado(loja: str, url: str) -> bool:
@@ -360,7 +391,22 @@ def link_rastreado(loja: str, url: str) -> bool:
         return _ja_parece_afiliado_ml(url)
     if "shopee" in nome:
         return _ja_parece_afiliado_shopee(url)
+    if "amazon" in nome:
+        return _amazon_da_tag(url, _tag_amazon())
     return True
+
+
+def _amazon_da_tag(url: str, tag: str) -> bool:
+    if not tag:
+        return False
+    parsed = urlparse(url or "")
+    host = parsed.netloc.lower().removeprefix("www.")
+    if host != "amazon.com.br":
+        return False
+    if asin_amazon(url) is None:
+        return False
+    marcas = [item.lower() for item in parse_qs(parsed.query).get("tag", [])]
+    return tag.lower() in marcas
 
 
 __all__ = [

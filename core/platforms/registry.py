@@ -14,6 +14,7 @@ from core.platforms.affiliate import (
     _extrair_url_afiliada,
 )
 from core.http_headers import BROWSER_USER_AGENT
+from core.platforms.amazon import normalizar_tag_amazon
 from core.platforms.shopee_api import graphql_request
 
 TEST_TIMEOUT_SECONDS = 5.0
@@ -161,9 +162,34 @@ class MercadoLivreClient:
         return CredentialTestResult(False, "createLink retornou uma resposta inválida")
 
 
+class AmazonClient:
+    def test_credentials(
+        self,
+        credentials: dict[str, str],
+        config: dict[str, Any],
+    ) -> CredentialTestResult:
+        rastreio = str(credentials.get("tracking_id") or config.get("tracking_id") or "")
+        loja = str(config.get("store_id") or "")
+        try:
+            tag = normalizar_tag_amazon(rastreio)
+            if loja:
+                normalizar_tag_amazon(loja)
+        except ValueError:
+            return CredentialTestResult(
+                False,
+                "Use o ID da loja e o ID de rastreamento da Amazon. Os dois terminam em -20.",
+                invalid=True,
+            )
+        return CredentialTestResult(
+            True,
+            f"Etiqueta aceita. Os links saem como amazon.com.br/dp/ASIN?tag={tag}",
+        )
+
+
 _CLIENTS: dict[str, PlatformClient] = {
     "shopee": ShopeeClient(),
     "mercadolivre": MercadoLivreClient(),
+    "amazon": AmazonClient(),
 }
 
 

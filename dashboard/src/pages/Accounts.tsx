@@ -41,6 +41,13 @@ const PLATFORM_NEEDS: Readonly<Record<string, PlatformNeeds>> = {
     config: [{ key: 'affiliate_tag', label: 'Etiqueta de afiliado', hint: 'A etiqueta dos seus links, ex.: minhaetiqueta123.' }],
     credential: { kind: 'cookie', label: 'Cookie de sessão', hint: 'Do navegador logado no painel de afiliados do ML: cole o texto do cookie ou o JSON exportado pela extensão (ex.: Cookie-Editor).' },
   },
+  amazon: {
+    config: [
+      { key: 'store_id', label: 'ID da loja', hint: 'O ID da loja na Amazon Associados. Termina em -20.' },
+      { key: 'tracking_id', label: 'ID de rastreamento', hint: 'O que entra no link. Termina em -20. As vendas desse número aparecem separadas. Não use cookie.' },
+    ],
+    credential: { kind: 'tracking_id', label: 'ID de rastreamento', hint: 'O mesmo ID de rastreamento. O formulário da conta já grava isso ao salvar.' },
+  },
 }
 
 const FALLBACK_KINDS = [{ kind: 'cookie', label: 'Cookie' }, { kind: 'token', label: 'Token' }]
@@ -56,6 +63,17 @@ function credentialLabelFor(slug: string, kind: string): string {
   if (fallback) return fallback
   const humanized = kind.replaceAll('_', ' ')
   return humanized.charAt(0).toUpperCase() + humanized.slice(1)
+}
+
+async function gravarRastreioAmazon(accountId: string, slug: string, config: Record<string, string>) {
+  if (slug !== 'amazon') return
+  const rastreio = String(config.tracking_id || '').trim()
+  if (!rastreio) throw new Error('Informe o ID de rastreamento da Amazon.')
+  const put = await api.PUT('/api/accounts/{account_id}/credentials/{kind}', { params: { path: { account_id: accountId, kind: 'tracking_id' } }, body: { value: rastreio } })
+  if (put.response.status !== 204) throw apiFailure(put.error, put.response)
+  const tested = await api.POST('/api/accounts/{account_id}/credentials/{kind}/test', { params: { path: { account_id: accountId, kind: 'tracking_id' } } })
+  if (!tested.data) throw apiFailure(tested.error, tested.response)
+  if (!tested.data.ok) throw new Error(tested.data.message)
 }
 
 async function loadAccounts() {
@@ -89,11 +107,13 @@ function AccountForm({ platforms, account, onClose }: { platforms: Platform[]; a
     if (account) {
       const { data, error, response } = await api.PATCH('/api/accounts/{account_id}', { params: { path: { account_id: account.id } }, body: { label, external_id: externalId || null, notes: notes || null, config } })
       if (!data) throw apiFailure(error, response)
+      await gravarRastreioAmazon(data.id, slug, config)
       return data
     }
     const body: AccountCreate = { platform_id: platformId, label, external_id: externalId || null, notes: notes || null, config }
     const { data, error, response } = await api.POST('/api/accounts', { body })
     if (!data) throw apiFailure(error, response)
+    await gravarRastreioAmazon(data.id, slug, config)
     return data
   }, onSuccess: async () => {
     await queryClient.invalidateQueries({ queryKey: ['accounts'] })
@@ -101,7 +121,7 @@ function AccountForm({ platforms, account, onClose }: { platforms: Platform[]; a
     onClose()
   }, onError: (error) => { setFields(error instanceof ApiError ? error.fields : {}); showToast(errorMessage(error), 'error') } })
   const submit = (event: FormEvent) => { event.preventDefault(); setFields({}); save.mutate() }
-  return <Modal title={account ? 'Editar conta' : 'Nova conta'} onClose={onClose}><form className="form-grid" onSubmit={submit}>{!account && <Field label="Plataforma" error={fields.platform_id}><select value={platformId} onChange={(event) => setPlatformId(Number(event.target.value))}>{platforms.map((platform) => <option value={platform.id} key={platform.id}>{platform.name}</option>)}</select></Field>}<Field label="Rótulo" error={fields.label}><input required value={label} onChange={(event) => setLabel(event.target.value)} /></Field><Field label="ID externo" error={fields.external_id}><input value={externalId} onChange={(event) => setExternalId(event.target.value)} /></Field><Field label="Observações" error={fields.notes}><textarea value={notes} onChange={(event) => setNotes(event.target.value)} /></Field>{needs?.config.map((item) => <div key={item.key}><Field label={item.label} error={fields[`config.${item.key}`]}><input required value={configValue(item.key)} onChange={(event) => setConfigValue(item.key, event.target.value)} /></Field><small className="muted">{item.hint}</small></div>)}{needs && <p className="muted">Depois de salvar, cadastre o {needs.credential.label} em “Cadastrar credencial”.</p>}<fieldset className="config-editor"><legend>{needs ? 'Configuração extra (opcional)' : 'Configuração não sensível'}</legend>{configRows.map((row, index) => requiredKeys.has(row.key) ? null : <div className="config-row" key={`${index}-${row.key}`}><input aria-label="Chave" placeholder="chave" value={row.key} onChange={(event) => setConfigRows(configRows.map((item, itemIndex) => itemIndex === index ? { ...item, key: event.target.value } : item))} /><input aria-label="Valor" placeholder="valor" value={row.value} onChange={(event) => setConfigRows(configRows.map((item, itemIndex) => itemIndex === index ? { ...item, value: event.target.value } : item))} /><button className="icon-button" type="button" aria-label="Remover configuração" onClick={() => setConfigRows(configRows.filter((_, itemIndex) => itemIndex !== index))}>×</button></div>)}<button className="button ghost" type="button" onClick={() => setConfigRows([...configRows, { key: '', value: '' }])}>Adicionar configuração</button></fieldset><div className="form-actions"><button className="button ghost" type="button" onClick={onClose}>Cancelar</button><button className="button primary" disabled={save.isPending}>Salvar</button></div></form></Modal>
+  return <Modal title={account ? 'Editar conta' : 'Nova conta'} onClose={onClose}><form className="form-grid" onSubmit={submit}>{!account && <Field label="Plataforma" error={fields.platform_id}><select value={platformId} onChange={(event) => setPlatformId(Number(event.target.value))}>{platforms.map((platform) => <option value={platform.id} key={platform.id}>{platform.name}</option>)}</select></Field>}<Field label="Rótulo" error={fields.label}><input required value={label} onChange={(event) => setLabel(event.target.value)} /></Field><Field label="ID externo" error={fields.external_id}><input value={externalId} onChange={(event) => setExternalId(event.target.value)} /></Field><Field label="Observações" error={fields.notes}><textarea value={notes} onChange={(event) => setNotes(event.target.value)} /></Field>{needs?.config.map((item) => <div key={item.key}><Field label={item.label} error={fields[`config.${item.key}`]}><input required value={configValue(item.key)} onChange={(event) => setConfigValue(item.key, event.target.value)} /></Field><small className="muted">{item.hint}</small></div>)}{needs && slug !== 'amazon' && <p className="muted">Depois de salvar, cadastre o {needs.credential.label} em “Cadastrar credencial”.</p>}{slug === 'amazon' && <p className="muted">Não há cookie. Ao salvar, o ID de rastreamento já fica cadastrado e os links saem com essa etiqueta.</p>}<fieldset className="config-editor"><legend>{needs ? 'Configuração extra (opcional)' : 'Configuração não sensível'}</legend>{configRows.map((row, index) => requiredKeys.has(row.key) ? null : <div className="config-row" key={`${index}-${row.key}`}><input aria-label="Chave" placeholder="chave" value={row.key} onChange={(event) => setConfigRows(configRows.map((item, itemIndex) => itemIndex === index ? { ...item, key: event.target.value } : item))} /><input aria-label="Valor" placeholder="valor" value={row.value} onChange={(event) => setConfigRows(configRows.map((item, itemIndex) => itemIndex === index ? { ...item, value: event.target.value } : item))} /><button className="icon-button" type="button" aria-label="Remover configuração" onClick={() => setConfigRows(configRows.filter((_, itemIndex) => itemIndex !== index))}>×</button></div>)}<button className="button ghost" type="button" onClick={() => setConfigRows([...configRows, { key: '', value: '' }])}>Adicionar configuração</button></fieldset><div className="form-actions"><button className="button ghost" type="button" onClick={onClose}>Cancelar</button><button className="button primary" disabled={save.isPending}>Salvar</button></div></form></Modal>
 }
 
 function CredentialRenewal({ account, kind, newCredential = account.credentials.length === 0, onClose }: { account: Account; kind: string; newCredential?: boolean; onClose: () => void }) {

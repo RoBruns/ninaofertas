@@ -561,7 +561,24 @@ def _processar_oferta(session, oferta: OfertaCapturada, filtros: dict) -> str:
     return _enviar_oferta_no_grupo(session, oferta, oferta_db)
 
 
-_SLUG_POR_LOJA = {"Shopee": "shopee", "Mercado Livre": "mercadolivre"}
+_SLUG_POR_LOJA = {
+    "Shopee": "shopee",
+    "Mercado Livre": "mercadolivre",
+    "Amazon": "amazon",
+}
+_ORDEM_UMA_LOJA = ("Shopee", "Mercado Livre", "Amazon")
+
+
+def _loja_unica_do_ciclo(n: int, plataformas: set[str]) -> str | None:
+    """Revezamento fixo só entre as lojas que o bot consegue publicar."""
+    disponiveis = [
+        loja for loja in _ORDEM_UMA_LOJA if _SLUG_POR_LOJA.get(loja) in plataformas
+    ]
+    if not disponiveis:
+        return None
+    return disponiveis[(n - 1) % len(disponiveis)]
+
+
 _MOTIVO_AFILIADO = "afiliado"
 _avisos_sem_conta: dict[str, frozenset[str]] = {}
 
@@ -708,17 +725,12 @@ def _executar_ciclo() -> tuple[int, int, bool]:
     _ciclo_n[canal] = n
     prioridade, empilhar = _prioridade_do_ciclo(filtros, n)
     if filtros.get("uma_loja_por_ciclo") and len(plataformas) > 1:
-        loja_do_ciclo = "Mercado Livre" if n % 2 == 0 else "Shopee"
-        slug_do_ciclo = _SLUG_POR_LOJA[loja_do_ciclo]
-        if slug_do_ciclo not in plataformas:
-            # Alterna somente entre as plataformas utilizaveis pelo bot.
-            loja_do_ciclo = next(
-                loja for loja, slug in _SLUG_POR_LOJA.items() if slug in plataformas
-            )
-        todas_ofertas = [oferta for oferta in todas_ofertas if oferta.loja == loja_do_ciclo]
-        prioridade = loja_do_ciclo
-        empilhar = False
-        logger.info(f"[{nome_canal()}] Uma loja por ciclo: {loja_do_ciclo}.")
+        loja_do_ciclo = _loja_unica_do_ciclo(n, plataformas)
+        if loja_do_ciclo is not None:
+            todas_ofertas = [oferta for oferta in todas_ofertas if oferta.loja == loja_do_ciclo]
+            prioridade = loja_do_ciclo
+            empilhar = False
+            logger.info(f"[{nome_canal()}] Uma loja por ciclo: {loja_do_ciclo}.")
     elif empilhar:
         logger.info(f"[{nome_canal()}] Prioridade da loja: {prioridade}.")
     origem_produtos = filtros.get("origem_produtos", "novidades")

@@ -21,10 +21,15 @@ def test_todos_os_modulos_importam_sem_ciclo() -> None:
         importlib.import_module(modulo)
 
 
-def test_fontes_ativas_continuam_sendo_tres() -> None:
+def test_fontes_ativas_incluem_amazon() -> None:
     from worker.sources import FONTES
 
-    assert len(FONTES) == 3
+    assert [fonte.nome_fonte for fonte in FONTES] == [
+        "Cupons",
+        "Mercado Livre",
+        "Shopee",
+        "Amazon",
+    ]
 
 
 def test_core_nao_importa_worker() -> None:

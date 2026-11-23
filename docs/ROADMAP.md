@@ -1,5 +1,13 @@
 # Roadmap de implementação
 
+## Amazon por etiqueta, sem Creators API — 2026-11-23
+
+Conta `amazon`: ID da loja e ID de rastreamento (os dois terminam em `-20`).
+Salvar grava `tracking_id` cifrado para a conta contar como utilizável. O worker
+busca `/s` e só envia `amazon.com.br/dp/ASIN?tag=`. URL crua, `amzn.to` ou
+etiqueta de outra pessoa não sai. Verificação de robô avisa uma vez e o ciclo
+segue sem oferta. Migration `0011_amazon_platform`.
+
 ## Teste do cookie ML não depende do anúncio — 2026-11-23
 
 O botão Testar manda um produto fixo ao createLink. Se o anúncio saiu do ar,

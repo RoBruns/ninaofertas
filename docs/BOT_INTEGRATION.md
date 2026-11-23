@@ -87,7 +87,11 @@ ocupa a vaga no **mesmo** ciclo: a primeira falha de createLink/shortLink na
 preferida interrompe o restante dela; 401/403 bloqueia a plataforma até o
 próximo ciclo; oferta sem link grava `visto` (`mensagem=afiliado`) e não retenta.
 `uma_loja_por_ciclo` continua alternando uma loja exclusiva e ignora essa
-prioridade (sem reserva).
+prioridade (sem reserva). A fila dessa opção é Shopee, Mercado Livre e Amazon,
+só entre as que o bot tem conta utilizável. A Amazon não usa cookie: a conta
+guarda o ID de rastreamento e o produto vira `amazon.com.br/dp/ASIN?tag=`.
+URL crua, encurtada ou com etiqueta de outra pessoa não é enviada. A busca
+pode cair em verificação de robô; o ciclo avisa e segue sem oferta dela.
 Cupom de venda indireta: `aceitar_cupons` liga o envio; `intervalo_cupom_minutos`
 (padrão 90) define a cadência (pode repetir); cupom novo sai na hora.
 `cupons_meli` reforça links manuais. Shopee usa `voucherOfferV2`; ML faz scrape
