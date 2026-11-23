@@ -186,16 +186,19 @@ nina-worker (APScheduler) ──────────────── nina-
 
 `STATUS.md` é histórico da V1 (2026-09-07) — não reflete o projeto atual.
 
-## Pendências conhecidas (atualizado em 2026-10-14)
+## Pendências conhecidas (atualizado em 2026-11-23)
 
 - Backup do `nina-db`: scripts lógicos Python em `scripts/backup_db.py` e
-  `scripts/restore_db.py`, com restauração testada em Postgres real. Ainda faltam
-  cópia real antes do deploy e agendamento; o plano Hobby não tem backup nativo
-  (opção avaliada: backup agendado, criptografado, para Cloudflare R2).
+ `scripts/restore_db.py`, com restauração testada em Postgres real. Ainda faltam
+ cópia real antes do deploy e agendamento; o plano Hobby não tem backup nativo
+ (opção avaliada: backup agendado, criptografado, para Cloudflare R2).
 - Vendas: a importação do ML funciona desde 2026-09-30 (16 vendas, todas pendentes);
-  se falhar, o evento `ml_sales_sync_failed` traz o diagnóstico. Shopee retorna 0
-  conversões (aceito pelo dono).
+ se falhar, o evento `ml_sales_sync_failed` traz o diagnóstico. Shopee retorna 0
+ conversões (aceito pelo dono).
 - Fase 7b: as vendas do ML entram sem bot; falta atribuir pela etiqueta (`ml_tag`).
+- ML descoberta automática: HTML e `/highlights` bloqueados (ADR-035); envio via
+ `content.produtos_meli` + bookmarklet até haver conta de vendedor ou outra fonte.
+- Amazon: busca pública cai em verificação de robô em datacenter; etiqueta-only.
 - Revisão final de segurança e E2E (fase 14).
 
 ## Ao terminar uma tarefa

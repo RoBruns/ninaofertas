@@ -67,9 +67,10 @@ Não acessa banco nem WhatsApp.
 `filters.origem_produtos` aceita `novidades` (padrão, buscas e ordem anteriores),
 `mais_vendidos` ou `ambos`. Shopee usa relevância (`sortType: 1`) no caminho atual
 e vendas (`sortType: 2`) no ranking, com nota. A taxa `commissionRate` vem nas duas
-buscas. ML lê `/mais-vendidos`,
-seleciona as categorias do bot (ou `CATEGORIAS_CASA`) e tenta uma página por categoria
-ausente na raiz, usando o cookie da conta. Bloqueios não interrompem o ciclo.
+buscas. ML tenta `/mais-vendidos` e `/ofertas` com o cookie da conta; se cai em
+account-verification, pausa o HTML ~45 min. Enquanto isso, `content.produtos_meli`
+(fila manual / bookmarklet, TTL 48 h) alimenta o mesmo scraper e o createLink
+afilia. Bloqueios não interrompem o ciclo.
 
 Mais vendidos dispensam `max_vendas`, exigem desconto conhecido e o desconto mínimo,
 e aplicam `min_vendas` (padrão 100; 0 desliga) quando a fonte informa vendas. A exceção

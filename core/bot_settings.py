@@ -57,6 +57,7 @@ CONTENT_KEYS = {
     "max_cupons_por_dia",
     "intervalo_cupom_minutos",
     "cupons_meli",
+    "produtos_meli",
     "baseline_ciclos",
 }
 SCHEDULE_KEYS = {"check_interval", "quiet_hours"}
@@ -125,7 +126,56 @@ class Content(BaseModel):
     max_cupons_por_dia: int = Field(default=2, ge=0)
     intervalo_cupom_minutos: int = Field(default=90, ge=15)
     cupons_meli: list[dict] = Field(default_factory=list)
+    # Fila manual de produtos ML (URL + preço). HTML mais-vendidos está bloqueado.
+    produtos_meli: list[dict] = Field(default_factory=list, max_length=50)
     baseline_ciclos: int = Field(default=5, ge=0)
+
+    @field_validator("produtos_meli")
+    @classmethod
+    def validar_produtos_meli(cls, value: list[dict]) -> list[dict]:
+        import re
+        from decimal import Decimal, InvalidOperation
+
+        out: list[dict] = []
+        for raw in value or []:
+            if not isinstance(raw, dict):
+                continue
+            url = str(raw.get("url") or "").strip()
+            if not url:
+                continue
+            host_ok = "mercadolivre.com.br" in url.lower()
+            mlb = re.search(r"MLB-?(\d+)", url, re.IGNORECASE)
+            if not host_ok or mlb is None:
+                raise ValueError(
+                    "produtos_meli: cada item precisa de URL mercadolivre.com.br com id MLB"
+                )
+            titulo = str(raw.get("titulo") or "").strip()
+            preco_raw = raw.get("preco")
+            if preco_raw is None or str(preco_raw).strip() == "":
+                raise ValueError("produtos_meli: preco é obrigatório (string decimal)")
+            try:
+                preco = str(Decimal(str(preco_raw).replace(",", ".")))
+            except (InvalidOperation, ValueError) as exc:
+                raise ValueError("produtos_meli: preco inválido") from exc
+            item: dict[str, Any] = {
+                "url": url,
+                "titulo": titulo or f"Produto MLB{mlb.group(1)}",
+                "preco": preco,
+            }
+            ant = raw.get("preco_anterior")
+            if ant is not None and str(ant).strip() != "":
+                try:
+                    item["preco_anterior"] = str(Decimal(str(ant).replace(",", ".")))
+                except (InvalidOperation, ValueError) as exc:
+                    raise ValueError("produtos_meli: preco_anterior inválido") from exc
+            imagem = str(raw.get("imagem") or "").strip()
+            if imagem:
+                item["imagem"] = imagem
+            adicionado = str(raw.get("adicionado_em") or "").strip()
+            if adicionado:
+                item["adicionado_em"] = adicionado
+            out.append(item)
+        return out
 
 
 class QuietHours(BaseModel):

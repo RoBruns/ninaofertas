@@ -103,6 +103,7 @@ CONTENT_KEYS = (
     "intervalo_cupom_minutos",
     "baseline_ciclos",
     "cupons_meli",
+    "produtos_meli",
 )
 
 

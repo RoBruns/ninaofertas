@@ -6,14 +6,18 @@ página pública de ofertas por categoria:
 
     https://www.mercadolivre.com.br/ofertas?category=MLB1574
 
-Mais vendidos vêm das páginas públicas de ranking, sem usar a API oficial.
-O cookie da conta vinculada ao bot autentica o HTML e a geração do link afiliado.
+Mais vendidos vinham das páginas públicas de ranking. Desde 2026-11 o HTML
+cai em account-verification mesmo com cookie válido; a fila manual
+`content.produtos_meli` + createLink mantém o envio. A API oficial
+`/highlights` continua 403 PolicyAgent para conta de afiliado (ADR-024/035).
 """
 from __future__ import annotations
 
 import json
 import re
 import time
+from datetime import datetime, timedelta, timezone
+from decimal import Decimal, InvalidOperation
 from urllib.parse import quote_plus
 
 import httpx
@@ -22,6 +26,7 @@ from loguru import logger
 from core.platforms.base import OfertaCapturada, Scraper
 from core.config_provider import load_filtros_runtime as load_filtros
 from core.http_headers import MELI_HTML_HEADERS
+from core import relogio
 
 HEADERS = MELI_HTML_HEADERS
 
@@ -30,7 +35,11 @@ MAIS_VENDIDOS_URL = "https://www.mercadolivre.com.br/mais-vendidos"
 # O ranking muda devagar. Buscar a página a cada ciclo só aumentaria o risco de
 # captcha no cookie da conta, então cada página bem-sucedida vale por 30 minutos.
 MAIS_VENDIDOS_TTL_SEGUNDOS = 30 * 60
+# Depois de account-verification, não martelar o cookie a cada ciclo.
+BLOQUEIO_HTML_TTL_SEGUNDOS = 45 * 60
+PRODUTOS_MELI_TTL_HORAS = 48
 _cache_mais_vendidos: dict[str, tuple[float, dict[str, list[dict]]]] = {}
+_bloqueio_html_ate: float | None = None
 # Casa/móveis, eletro, beleza, moda, joias.
 CATEGORIAS_CASA = (
     "MLB1574",
@@ -41,6 +50,18 @@ CATEGORIAS_CASA = (
 )
 
 LISTA_URL = "https://lista.mercadolivre.com.br/"
+
+_MLB_RE = re.compile(r"MLB-?(\d+)", re.IGNORECASE)
+
+
+def limpar_cache_bloqueio_html() -> None:
+    """Só para testes: zera a pausa pós-bloqueio."""
+    global _bloqueio_html_ate
+    _bloqueio_html_ate = None
+
+
+def limpar_cache_mais_vendidos() -> None:
+    _cache_mais_vendidos.clear()
 
 
 def _extrair_items_json(html: str) -> list[dict]:
@@ -157,6 +178,74 @@ def _parse_card(card: dict) -> OfertaCapturada | None:
     )
 
 
+def _mlb_de_url(url: str) -> str | None:
+    match = _MLB_RE.search(url)
+    if match is None:
+        return None
+    return f"MLB{match.group(1)}"
+
+
+def _preco_decimal(valor: object) -> float | None:
+    if valor is None or str(valor).strip() == "":
+        return None
+    try:
+        return float(Decimal(str(valor).replace(",", ".")))
+    except (InvalidOperation, ValueError):
+        return None
+
+
+def _parse_adicionado_em(raw: object) -> datetime | None:
+    texto = str(raw or "").strip()
+    if not texto:
+        return None
+    try:
+        dt = datetime.fromisoformat(texto.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt
+
+
+def produtos_manuais_de_filtros(filtros: dict | None = None) -> list[OfertaCapturada]:
+    """Converte `content.produtos_meli` frescos em ofertas capturáveis."""
+    dados = filtros if filtros is not None else load_filtros()
+    itens = dados.get("produtos_meli") or []
+    agora = relogio.agora_banco()
+    limite = timedelta(hours=PRODUTOS_MELI_TTL_HORAS)
+    out: list[OfertaCapturada] = []
+    for raw in itens:
+        if not isinstance(raw, dict):
+            continue
+        url = str(raw.get("url") or "").strip()
+        mlb = _mlb_de_url(url)
+        if not url or mlb is None or "mercadolivre.com.br" not in url.lower():
+            continue
+        adicionado = _parse_adicionado_em(raw.get("adicionado_em"))
+        if adicionado is not None and agora - adicionado > limite:
+            continue
+        preco = _preco_decimal(raw.get("preco"))
+        if preco is None:
+            continue
+        titulo = str(raw.get("titulo") or "").strip() or f"Produto {mlb}"
+        anterior = _preco_decimal(raw.get("preco_anterior"))
+        imagem = str(raw.get("imagem") or "").strip() or None
+        out.append(
+            OfertaCapturada(
+                nome=titulo,
+                preco=preco,
+                preco_anterior=anterior,
+                loja="Mercado Livre",
+                url=url,
+                imagem=imagem,
+                sku=mlb,
+                product_url=url,
+                origem_categoria_meli=True,
+            )
+        )
+    return out
+
+
 class MercadoLivreScraper(Scraper):
     nome_fonte = "Mercado Livre"
     timeout = 25.0
@@ -175,9 +264,31 @@ class MercadoLivreScraper(Scraper):
         cats = filtros.get("categorias_meli") or CATEGORIAS_CASA
         return tuple(cats)
 
+    def _html_em_pausa(self) -> bool:
+        return _bloqueio_html_ate is not None and time.monotonic() < _bloqueio_html_ate
+
+    def _marcar_bloqueio_html(self) -> None:
+        global _bloqueio_html_ate
+        _bloqueio_html_ate = time.monotonic() + BLOQUEIO_HTML_TTL_SEGUNDOS
+
     def buscar(self) -> list[OfertaCapturada]:
         vistas: set[str] = set()
         ofertas: list[OfertaCapturada] = []
+        for manual in produtos_manuais_de_filtros():
+            chave = manual.sku or manual.url
+            if chave in vistas:
+                continue
+            vistas.add(chave)
+            ofertas.append(manual)
+
+        if self._html_em_pausa():
+            logger.info(
+                "[Mercado Livre] HTML em pausa após bloqueio; "
+                f"{len(ofertas)} oferta(s) da fila manual."
+            )
+            logger.info(f"[Mercado Livre] {len(ofertas)} ofertas capturadas.")
+            return ofertas
+
         headers = dict(HEADERS)
         # Mesma credencial cifrada da conta vinculada ao bot (ADR-020).
         from core.platforms.affiliate import _ml_auth
@@ -201,6 +312,7 @@ class MercadoLivreScraper(Scraper):
         if getattr(self, "_bloqueio_avisado", False):
             return
         self._bloqueio_avisado = True
+        self._marcar_bloqueio_html()
         logger.warning(f"[Mercado Livre] página de ofertas bloqueada ({detalhe}).")
 
     def _buscar_mais_vendidos(self, client: httpx.Client, vistas: set[str]) -> list[OfertaCapturada]:
@@ -248,7 +360,11 @@ class MercadoLivreScraper(Scraper):
     def _buscar_ofertas_categoria(self, client: httpx.Client, vistas: set[str]) -> list[OfertaCapturada]:
         out: list[OfertaCapturada] = []
         for cat in self._categorias_meli():
+            if self._html_em_pausa():
+                break
             for page in range(1, 4):
+                if self._html_em_pausa():
+                    break
                 params = {"category": cat}
                 if page > 1:
                     params["page"] = page
@@ -285,7 +401,11 @@ class MercadoLivreScraper(Scraper):
     def _buscar_lista_termos(self, client: httpx.Client, vistas: set[str]) -> list[OfertaCapturada]:
         """Tenta a listagem por termo. Se cair em captcha, só loga e segue."""
         out: list[OfertaCapturada] = []
+        if self._html_em_pausa():
+            return out
         for termo in self._termos_busca()[:8]:
+            if self._html_em_pausa():
+                break
             slug = quote_plus(termo).replace("+", "-")
             try:
                 resp = client.get(LISTA_URL + slug)
@@ -294,6 +414,7 @@ class MercadoLivreScraper(Scraper):
                 continue
             if "captcha" in str(resp.url) or "verification" in str(resp.url) or "suspicious" in str(resp.url):
                 logger.debug(f"[Mercado Livre] lista '{termo}' bloqueada (captcha/verificação).")
+                self._registrar_bloqueio(f"lista '{termo}'")
                 continue
             if resp.status_code != 200:
                 continue

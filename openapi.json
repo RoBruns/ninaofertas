@@ -17677,6 +17677,15 @@
       "type": "array",
       "title": "Cupons Meli"
      },
+     "produtos_meli": {
+      "items": {
+       "additionalProperties": true,
+       "type": "object"
+      },
+      "type": "array",
+      "maxItems": 50,
+      "title": "Produtos Meli"
+     },
      "baseline_ciclos": {
       "type": "integer",
       "minimum": 0.0,

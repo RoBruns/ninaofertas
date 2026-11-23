@@ -667,3 +667,27 @@ Feito. Há vários boards por usuário, cartões com prazo/prioridade/etiquetas,
 checklists e comentários. Board/lista/cartão arquivam; anexos, realtime,
 compartilhamento e automações ficam de fora.
 
+---
+
+## ADR-035 — Fila manual de produtos ML enquanto a descoberta HTML/API falha
+**Data:** 2026-11-23 · **Status:** aceita · **Decisor:** dono
+
+Medido em 2026-11-23: a página pública `/mais-vendidos` (e `/ofertas`, lista)
+responde HTTP 200 para `/gz/account-verification` com o cliente httpx do worker,
+com e sem cookie, inclusive no PC de casa. O navegador logado ainda mostra o
+ranking. A API oficial `GET /highlights/MLB/category/{id}` com token de usuário
+que inclui `urn:ml:mktp:metrics:/read-only` e refresh continua 403
+`PA_UNAUTHORIZED_RESULT_FROM_POLICIES` (conta de afiliado / app não certificado).
+createLink com o cookie da conta continua válido.
+
+Decisão: não Playwright, não proxy residencial, não PC ligado 24h. O bot ganha
+`content.produtos_meli` (até 50 linhas `URL | título | preço | …`, TTL 48 h).
+Um bookmarklet no Opera copia o ranking da página que o dono já vê. O worker
+mescla essa fila no `MercadoLivreScraper.buscar` e usa o createLink existente.
+Após o primeiro bloqueio HTML, pausa de ~45 min evita martelar o cookie a cada
+ciclo. Cupons manuais (`cupons_meli`) continuam só para cupom.
+
+Consequência: o envio de ML depende de colar a fila (1×/dia ou quando esvaziar),
+preferindo o bot de teste antes da produção. Se existir conta de vendedor com KYC
+depois, reteste de `/highlights` fica como trabalho separado.
+

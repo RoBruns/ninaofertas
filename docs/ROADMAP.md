@@ -1,5 +1,13 @@
 # Roadmap de implementação
 
+## Fila manual de produtos ML — 2026-11-23
+
+HTML `/mais-vendidos` e `/ofertas` caem em account-verification (mesmo no PC de
+casa, com cookie válido). `/highlights` com OAuth + metrics continua 403
+PolicyAgent na conta de afiliado. `content.produtos_meli` alimenta o scraper;
+bookmarklet no Opera copia o ranking; createLink afilia. Após bloqueio HTML o
+scraper pausa ~45 min para não martelar o cookie. Ver ADR-035.
+
 ## Prioridade da loja inclui Amazon e Magalu — 2026-11-23
 
 `filters.prioridade_loja` aceita `amazon` e `magalu`. No bot, a loja escolhida

@@ -2218,6 +2218,10 @@ export interface components {
             cupons_meli?: {
                 [key: string]: unknown;
             }[];
+            /** Produtos Meli */
+            produtos_meli?: {
+                [key: string]: unknown;
+            }[];
             /**
              * Baseline Ciclos
              * @default 5

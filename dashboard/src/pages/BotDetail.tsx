@@ -12,6 +12,11 @@ import { Spinner } from '../components/Spinner'
 import { useToast } from '../components/useToast'
 import { TestBotConfig } from '../components/TestBotConfig'
 import { parseCuponsMeli, serializeCuponsMeli } from '../lib/cuponsMeli'
+import {
+  parseProdutosMeli,
+  produtosMeliBookmarkletHref,
+  serializeProdutosMeli,
+} from '../lib/produtosMeli'
 import { healthText } from '../lib/format'
 import { renderMessagePreview } from '../lib/messagePreview'
 import { WhatsAppText } from '../components/WhatsAppText'
@@ -78,6 +83,7 @@ export function BotDetail() {
   const [fields, setFields] = useState<Readonly<Record<string, string>>>({})
   const [pacingError, setPacingError] = useState('')
   const [cuponsMeliDraft, setCuponsMeliDraft] = useState('')
+  const [produtosMeliDraft, setProdutosMeliDraft] = useState('')
   // Query data is copied into an editable draft only when a fresh server version arrives.
   // oxlint-disable react/set-state-in-effect
   useEffect(() => {
@@ -87,15 +93,19 @@ export function BotDetail() {
     const next = editableSettings(bot.data.settings)
     setSettings(next)
     setCuponsMeliDraft(serializeCuponsMeli(next.content?.cupons_meli))
+    setProdutosMeliDraft(serializeProdutosMeli(next.content?.produtos_meli))
     setGroupIds(bot.data.group_ids); setAccountIds(bot.data.account_ids)
   }, [bot.data])
   // oxlint-enable react/set-state-in-effect
   const invalidate = async () => { await Promise.all([queryClient.invalidateQueries({ queryKey: ['bot', id] }), queryClient.invalidateQueries({ queryKey: ['bots'] }), queryClient.invalidateQueries({ queryKey: ['bot-health', id] })]) }
   const save = useMutation({ mutationFn: async () => {
     const cupons_meli = parseCuponsMeli(cuponsMeliDraft)
+    const produtos_meli = parseProdutosMeli(produtosMeliDraft, {
+      existentes: settings.content?.produtos_meli,
+    })
     const bodySettings: BotSettings = {
       ...settings,
-      content: { ...(settings.content ?? defaultSettings.content!), cupons_meli },
+      content: { ...(settings.content ?? defaultSettings.content!), cupons_meli, produtos_meli },
     }
     setSettings(bodySettings)
     const result = await api.PATCH('/api/bots/{bot_id}', { params: { path: { bot_id: id } }, body: { name, slug, niche_id: nicheId ? Number(nicheId) : null, phone_id: phoneId || null, message_template: messageTemplate || null, settings: bodySettings } })
@@ -135,6 +145,15 @@ export function BotDetail() {
       content: { ...(current.content ?? defaultSettings.content!), cupons_meli },
     }))
   }
+  const syncProdutosMeliDraft = (text: string = produtosMeliDraft) => {
+    const produtos_meli = parseProdutosMeli(text, {
+      existentes: settings.content?.produtos_meli,
+    })
+    setSettings((current) => ({
+      ...current,
+      content: { ...(current.content ?? defaultSettings.content!), produtos_meli },
+    }))
+  }
   const submit = (event: FormEvent) => {
     event.preventDefault()
     setPacingError('')
@@ -169,5 +188,28 @@ export function BotDetail() {
           Ex.: <code>.../_Container_14548284?coupon_campaign_id=14548284 | 30% OFF em LIQUIDA</code>.
           Pode usar espaço à vontade. Não cole a página genérica /cupons.
         </small>
-      </Field><label className="check"><input disabled={!isAdmin} type="checkbox" checked={content.aceitar_campanhas} onChange={(event) => setSettings((current) => ({ ...current, content: { ...content, aceitar_campanhas: event.target.checked } }))} />Aceitar campanhas</label><label className="check"><input disabled={!isAdmin} type="checkbox" checked={content.recado_instagram ?? false} onChange={(event) => setSettings((current) => ({ ...current, content: { ...content, recado_instagram: event.target.checked } }))} />Recado do Instagram a cada 4 h</label></div></section><section className="panel"><h2>Agenda</h2><p>Horário de silêncio (Brasília) — nenhuma oferta nem recado entre o início e o fim. Início = fim desliga o silêncio.</p><div className="form-grid columns"><Field label="Intervalo de verificação (s)"><input disabled={!isAdmin} type="number" value={schedule.check_interval} onChange={(event) => setSettings((current) => ({ ...current, schedule: { ...schedule, check_interval: Number(event.target.value) } }))} /><small>Informativo na saúde do bot. O worker usa o intervalo global do serviço (CHECK_INTERVAL), não este campo.</small></Field><Field label="Silêncio começa"><input disabled={!isAdmin} type="time" value={schedule.quiet_hours?.start ?? ''} onChange={(event) => setSettings((current) => ({ ...current, schedule: { ...schedule, quiet_hours: { start: event.target.value, end: schedule.quiet_hours?.end ?? '08:00' } } }))} /></Field><Field label="Silêncio termina"><input disabled={!isAdmin} type="time" value={schedule.quiet_hours?.end ?? ''} onChange={(event) => setSettings((current) => ({ ...current, schedule: { ...schedule, quiet_hours: { start: schedule.quiet_hours?.start ?? '00:00', end: event.target.value } } }))} /></Field></div></section><section className="panel"><h2>Grupos e contas</h2><p>Destinos de publicação e contas usadas pelo bot.</p><div className="selection-columns"><fieldset><legend>Grupos</legend>{(groups.data ?? []).map((group: Group) => <label className="check" key={group.id}><input disabled={!isAdmin} type="checkbox" checked={groupIds.includes(group.id)} onChange={(event) => setGroupIds(event.target.checked ? [...groupIds, group.id] : groupIds.filter((value) => value !== group.id))} />{group.name ?? group.whatsapp_id}{group.warning && <small className="field-error">{group.warning}</small>}</label>)}</fieldset><fieldset><legend>Contas</legend>{(accounts.data ?? []).map((account: Account) => <label className="check" key={account.id}><input disabled={!isAdmin} type="checkbox" checked={accountIds.includes(account.id)} onChange={(event) => setAccountIds(event.target.checked ? [...accountIds, account.id] : accountIds.filter((value) => value !== account.id))} />{account.label} · {account.platform.name}</label>)}</fieldset></div></section>{isAdmin && <div className="sticky-save"><button className="button primary" disabled={save.isPending}>Salvar alterações</button></div>}</form><section className="panel runs-panel"><h2>Histórico de execuções</h2>{!runs.data?.items.length ? <p className="muted">Nenhuma execução registrada.</p> : <div className="responsive-table"><table><thead><tr><th>Início</th><th>Tipo</th><th>Status</th><th>Encontradas</th><th>Enviadas</th><th>Erro</th></tr></thead><tbody>{runs.data?.items.map((run) => <tr key={run.id}><td data-label="Início">{new Date(run.started_at).toLocaleString('pt-BR')}</td><td data-label="Tipo">{run.kind}</td><td data-label="Status"><StatusBadge value={run.status} /></td><td data-label="Encontradas">{run.offers_found ?? '—'}</td><td data-label="Enviadas">{run.offers_sent ?? '—'}</td><td data-label="Erro">{run.error ?? '—'}</td></tr>)}</tbody></table></div>}<div className="pagination"><button className="button ghost" disabled={runsPage === 1} onClick={() => setRunsPage((value) => value - 1)}>Anterior</button><span>P?gina {runsPage}</span><button className="button ghost" disabled={!runs.data || runsPage * runs.data.page_size >= runs.data.total} onClick={() => setRunsPage((value) => value + 1)}>Próxima</button></div></section></div>
+      </Field>
+      <Field label="Fila de produtos do Mercado Livre" className="wide">
+        <textarea
+          disabled={!isAdmin}
+          rows={10}
+          spellCheck={false}
+          value={produtosMeliDraft}
+          onChange={(event) => setProdutosMeliDraft(event.target.value)}
+          onBlur={() => syncProdutosMeliDraft()}
+          placeholder={"https://www.mercadolivre.com.br/produto/p/MLB123 | Panela antiaderente | 89.90 | 129.90 | https://http2.mlstatic.com/...webp"}
+        />
+        <small>
+          Um produto por linha: <code>URL | título | preço | preço_anterior | imagem</code>
+          (os dois últimos opcionais). Itens com mais de 48 h saem sozinhos. Enquanto o HTML
+          do ML estiver bloqueado, esta fila é a fonte do envio (createLink com o cookie).
+          {' '}
+          <a href={produtosMeliBookmarkletHref()} onClick={(event) => event.preventDefault()}>
+            Nina — copiar mais vendidos
+          </a>
+          {' '}
+          (arraste para os favoritos; no Opera aberto em /mais-vendidos logado, clique e cole aqui).
+        </small>
+      </Field>
+      <label className="check"><input disabled={!isAdmin} type="checkbox" checked={content.aceitar_campanhas} onChange={(event) => setSettings((current) => ({ ...current, content: { ...content, aceitar_campanhas: event.target.checked } }))} />Aceitar campanhas</label><label className="check"><input disabled={!isAdmin} type="checkbox" checked={content.recado_instagram ?? false} onChange={(event) => setSettings((current) => ({ ...current, content: { ...content, recado_instagram: event.target.checked } }))} />Recado do Instagram a cada 4 h</label></div></section><section className="panel"><h2>Agenda</h2><p>Horário de silêncio (Brasília) — nenhuma oferta nem recado entre o início e o fim. Início = fim desliga o silêncio.</p><div className="form-grid columns"><Field label="Intervalo de verificação (s)"><input disabled={!isAdmin} type="number" value={schedule.check_interval} onChange={(event) => setSettings((current) => ({ ...current, schedule: { ...schedule, check_interval: Number(event.target.value) } }))} /><small>Informativo na saúde do bot. O worker usa o intervalo global do serviço (CHECK_INTERVAL), não este campo.</small></Field><Field label="Silêncio começa"><input disabled={!isAdmin} type="time" value={schedule.quiet_hours?.start ?? ''} onChange={(event) => setSettings((current) => ({ ...current, schedule: { ...schedule, quiet_hours: { start: event.target.value, end: schedule.quiet_hours?.end ?? '08:00' } } }))} /></Field><Field label="Silêncio termina"><input disabled={!isAdmin} type="time" value={schedule.quiet_hours?.end ?? ''} onChange={(event) => setSettings((current) => ({ ...current, schedule: { ...schedule, quiet_hours: { start: schedule.quiet_hours?.start ?? '00:00', end: event.target.value } } }))} /></Field></div></section><section className="panel"><h2>Grupos e contas</h2><p>Destinos de publicação e contas usadas pelo bot.</p><div className="selection-columns"><fieldset><legend>Grupos</legend>{(groups.data ?? []).map((group: Group) => <label className="check" key={group.id}><input disabled={!isAdmin} type="checkbox" checked={groupIds.includes(group.id)} onChange={(event) => setGroupIds(event.target.checked ? [...groupIds, group.id] : groupIds.filter((value) => value !== group.id))} />{group.name ?? group.whatsapp_id}{group.warning && <small className="field-error">{group.warning}</small>}</label>)}</fieldset><fieldset><legend>Contas</legend>{(accounts.data ?? []).map((account: Account) => <label className="check" key={account.id}><input disabled={!isAdmin} type="checkbox" checked={accountIds.includes(account.id)} onChange={(event) => setAccountIds(event.target.checked ? [...accountIds, account.id] : accountIds.filter((value) => value !== account.id))} />{account.label} · {account.platform.name}</label>)}</fieldset></div></section>{isAdmin && <div className="sticky-save"><button className="button primary" disabled={save.isPending}>Salvar alterações</button></div>}</form><section className="panel runs-panel"><h2>Histórico de execuções</h2>{!runs.data?.items.length ? <p className="muted">Nenhuma execução registrada.</p> : <div className="responsive-table"><table><thead><tr><th>Início</th><th>Tipo</th><th>Status</th><th>Encontradas</th><th>Enviadas</th><th>Erro</th></tr></thead><tbody>{runs.data?.items.map((run) => <tr key={run.id}><td data-label="Início">{new Date(run.started_at).toLocaleString('pt-BR')}</td><td data-label="Tipo">{run.kind}</td><td data-label="Status"><StatusBadge value={run.status} /></td><td data-label="Encontradas">{run.offers_found ?? '—'}</td><td data-label="Enviadas">{run.offers_sent ?? '—'}</td><td data-label="Erro">{run.error ?? '—'}</td></tr>)}</tbody></table></div>}<div className="pagination"><button className="button ghost" disabled={runsPage === 1} onClick={() => setRunsPage((value) => value - 1)}>Anterior</button><span>P?gina {runsPage}</span><button className="button ghost" disabled={!runs.data || runsPage * runs.data.page_size >= runs.data.total} onClick={() => setRunsPage((value) => value + 1)}>Próxima</button></div></section></div>
 }
