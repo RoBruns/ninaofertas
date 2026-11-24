@@ -752,8 +752,10 @@ ausente). Testes ligam a flag no `conftest`.
 O título da oferta é o nome do item na página. Com `OPENAI_API_KEY` só no
 worker, esse nome ganha dois pontos, uma frase curta e um ou dois emojis. A
 chamada manda apenas o título, no modelo `gpt-4.1-nano`. A linha só entra se
-conservar marca e modelo. Sem chave, em falha ou em linha que troca o nome, a
-oferta sai com o título da página. A API e o dashboard não recebem a chave.
+conservar marca e modelo e se for diferente do título do grupo de origem. Sem
+chave, em falha ou em linha que troca o nome, a oferta sai com o título da
+página. Se esse título for igual ao do grupo, a oferta não sai. A API e o
+dashboard não recebem a chave.
 
 ## ADR-038 — Prévia nativa do link na Shopee e no Mercado Livre
 **Data:** 2026-11-24 · **Status:** aceita · **Decisor:** dono

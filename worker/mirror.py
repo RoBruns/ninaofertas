@@ -21,7 +21,7 @@ from core.models import MirrorInbox, Phone
 from core.platforms import affiliate
 from core.platforms.base import OfertaCapturada
 from worker import channels, filters, formatter, monitor, telemetry, whatsapp
-from worker.titulo_enfeite import enfeitar_titulo
+from worker.titulo_enfeite import enfeitar_titulo, titulo_igual
 from worker.logger import logger
 
 _BATCH = 8
@@ -108,6 +108,7 @@ def processar_pendentes() -> int:
                     continue
 
                 titulo = filters.titulo_mensagem_espelho(item.body_text)
+                titulo_grupo = titulo
                 nome_nicho = " ".join(filters.linhas_uteis_espelho(item.body_text)) or titulo
                 passou_nicho = False
                 motivo_nicho = "fora do nicho do grupo"
@@ -189,7 +190,12 @@ def processar_pendentes() -> int:
                     _marcar(item, "skipped", motivo)
                     processados += 1
                     continue
-                titulo = enfeitar_titulo(titulo)
+                titulo = enfeitar_titulo(titulo, titulo_grupo)
+                if titulo_igual(titulo, titulo_grupo):
+                    logger.info(f"[espelho] título igual ao do grupo; oferta não enviada {item.id}")
+                    _marcar(item, "skipped", "titulo_igual")
+                    processados += 1
+                    continue
 
                 enviou_algum = False
                 falhou_total = True

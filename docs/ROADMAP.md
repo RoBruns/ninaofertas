@@ -3,8 +3,9 @@
 ## Título enfeitado — 2026-11-24
 
 Com `OPENAI_API_KEY` no worker, o nome já conferido com a página ganha uma frase
-curta e um ou dois emojis. Marca e modelo permanecem. Sem chave ou com linha
-que troca o nome, sai o título limpo.
+curta e um ou dois emojis. Marca e modelo permanecem, e a linha não repete o
+título do grupo de origem. Sem chave ou com linha que troca o nome, sai o
+título da página — e, se ele for igual ao do grupo, a oferta não sai.
 
 ## Prévia só com a foto — 2026-11-24
 

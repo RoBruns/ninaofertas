@@ -18,6 +18,7 @@ _CACHE_MAX = 300
 _PEDIDO = (
     "Enfeite o título para uma oferta de WhatsApp. "
     "Mantenha marca, modelo e medidas exatamente como vieram. "
+    "A oferta é espelho de outro grupo: a linha final não pode ser igual ao título de lá. "
     "Acrescente dois pontos, uma frase de no máximo seis palavras e um ou dois emojis. "
     "Não descreva o produto, não invente preço, cupom ou loja. "
     "Responda só a linha final.\n"
@@ -26,24 +27,29 @@ _PEDIDO = (
 )
 
 
-def enfeitar_titulo(titulo: str) -> str:
-    """Devolve o título enfeitado, ou o original se a chave faltar ou a linha não servir."""
+def enfeitar_titulo(titulo: str, titulo_grupo: str) -> str:
+    """Enfeite diferente do título do grupo. Sem chave, devolve o título da página."""
     base = " ".join((titulo or "").split())
     if len(base) < 8 or not settings.openai_api_key:
         return titulo
     chave = base.casefold()
     guardado = _CACHE.get(chave)
-    if guardado is not None:
+    if guardado is not None and not titulo_igual(guardado, titulo_grupo):
         return guardado
-    linha = _pedir(base)
-    if not _linha_serve(base, linha):
+    linha = _pedir(base, titulo_grupo)
+    if not _linha_serve(base, linha, titulo_grupo):
         logger.info("[espelho] enfeite recusado; título da página permanece")
         return titulo
-    _guardar(chave, linha)
-    return linha
+    _guardar(chave, linha or "")
+    return linha or titulo
 
 
-def _pedir(titulo: str) -> str | None:
+def titulo_igual(titulo: str, outro: str) -> bool:
+    """Mesmo texto, sem diferença de maiúscula ou espaço."""
+    return " ".join((titulo or "").casefold().split()) == " ".join((outro or "").casefold().split())
+
+
+def _pedir(titulo: str, titulo_grupo: str) -> str | None:
     try:
         with httpx.Client(timeout=8.0) as client:
             response = client.post(
@@ -55,7 +61,13 @@ def _pedir(titulo: str) -> str | None:
                     "max_tokens": 80,
                     "messages": [
                         {"role": "system", "content": _PEDIDO},
-                        {"role": "user", "content": titulo},
+                        {
+                            "role": "user",
+                            "content": (
+                                f"Título do grupo de origem:\n{titulo_grupo}\n\n"
+                                f"Nome do produto:\n{titulo}"
+                            ),
+                        },
                     ],
                 },
             )
@@ -73,8 +85,8 @@ def _pedir(titulo: str) -> str | None:
     return linha[:160] or None
 
 
-def _linha_serve(titulo: str, linha: str | None) -> bool:
-    if not linha or "\n" in linha:
+def _linha_serve(titulo: str, linha: str | None, titulo_grupo: str) -> bool:
+    if not linha or "\n" in linha or titulo_igual(linha, titulo_grupo):
         return False
     if not re.search(r":\s*\S", linha):
         return False
