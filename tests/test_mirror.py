@@ -549,6 +549,11 @@ def test_midia_webhook_e_sendmedia_usam_base64_cru(monkeypatch: pytest.MonkeyPat
         "core.mirror_media.midia_whatsapp_em_memoria",
         lambda instance, key: "B" * 80,
     )
+    monkeypatch.setattr(
+        "core.mirror_media.imagem_do_link_produto",
+        lambda url, loja=None: None,
+    )
+    # Sem CDN: cai na mídia capturada no webhook (base64 cru).
     foto = resolver_imagem_espelho(
         listen_instance="nina1",
         message_key="120@g.us:MSG1",
@@ -557,3 +562,17 @@ def test_midia_webhook_e_sendmedia_usam_base64_cru(monkeypatch: pytest.MonkeyPat
         media_path=env,
     )
     assert foto == env
+
+    # Com CDN do produto: prioridade sobre a mídia do WhatsApp.
+    monkeypatch.setattr(
+        "core.mirror_media.imagem_do_link_produto",
+        lambda url, loja=None: "https://down-br.img.susercontent.com/oficial.jpg",
+    )
+    foto_cdn = resolver_imagem_espelho(
+        listen_instance="nina1",
+        message_key="120@g.us:MSG1",
+        product_url="https://s.shopee.com.br/x",
+        loja="shopee",
+        media_path=env,
+    )
+    assert foto_cdn == "https://down-br.img.susercontent.com/oficial.jpg"

@@ -254,7 +254,15 @@ def resolver_imagem_espelho(
     loja: str | None,
     media_path: str | None = None,
 ) -> str | None:
-    """Ordem: base64 na fila → getBase64 → CDN https."""
+    """Ordem: foto do produto (og:image/CDN) → mídia na fila → getBase64 WhatsApp.
+
+    Grupos de origem às vezes mandam só a foto do anúncio (sem bytes úteis) ou
+    uma arte com link desenhado. Com a URL do marketplace na legenda/texto,
+    preferimos a imagem oficial da página do produto.
+    """
+    cdn = imagem_do_link_produto(product_url, loja)
+    if cdn:
+        return cdn
     if isinstance(media_path, str) and media_path.startswith("https://"):
         return media_path
     if isinstance(media_path, str):
@@ -262,7 +270,5 @@ def resolver_imagem_espelho(
         if got:
             return got
     if listen_instance:
-        wa = midia_whatsapp_em_memoria(listen_instance, message_key)
-        if wa:
-            return wa
-    return imagem_do_link_produto(product_url, loja)
+        return midia_whatsapp_em_memoria(listen_instance, message_key)
+    return None
