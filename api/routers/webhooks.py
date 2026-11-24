@@ -16,7 +16,11 @@ from api.deps import get_db
 from api.errors import APIError
 from core.bot_settings import BotSettings
 from core.mirror_match import nome_na_allowlist
-from core.mirror_media import capturar_midia_no_webhook, mensagem_tem_imagem
+from core.mirror_media import (
+    capturar_midia_no_webhook,
+    mensagem_tem_imagem,
+    midia_do_payload_webhook,
+)
 from core.mirror_sources import allowlist_para_bot
 from core.mirror_webhook import webhook_secret
 from core.models import Bot, BotGroup, Group, MirrorCapture, MirrorInbox, Phone
@@ -176,10 +180,10 @@ async def evolution_messages(
                     nome_grupo = raw.strip()
                     break
 
-        # Captura neutra. Foto: payload ou getBase64 imediato (mídia ainda fresca).
-        has_media = mensagem_tem_imagem(message_obj)
-        media_path = None
-        if has_media:
+        # Captura neutra. Foto anexada ou miniatura da prévia do link.
+        media_path = midia_do_payload_webhook(message_obj)
+        has_media = bool(media_path) or mensagem_tem_imagem(message_obj)
+        if has_media and not media_path:
             media_path = capturar_midia_no_webhook(
                 message_obj,
                 instance=phone.evolution_instance,

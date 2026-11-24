@@ -148,7 +148,7 @@ def processar_pendentes() -> int:
                     logger.info(f"[espelho] adiando {item.id}: {motivo}")
                     continue
 
-                # Foto: fila (thumbnail/base64) → getBase64 Nina 1 → CDN.
+                # Foto: página do produto; se ela não vier, a prévia do link ou o anexo.
                 listen = session.get(Phone, item.listen_phone_id)
                 imagem = resolver_imagem_espelho(
                     listen_instance=listen.evolution_instance if listen else None,

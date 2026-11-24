@@ -130,13 +130,54 @@ def midia_do_payload_webhook(message: dict[str, Any] | None) -> str | None:
         if got:
             return got
     image = msg.get("imageMessage")
-    if not isinstance(image, dict):
-        return None
-    for key in ("base64", "media"):
-        got = base64_puro(image.get(key) if isinstance(image.get(key), str) else None)
-        if got:
-            return got
-    return _thumb_para_base64(image.get("jpegThumbnail"))
+    if isinstance(image, dict):
+        for key in ("base64", "media"):
+            got = base64_puro(image.get(key) if isinstance(image.get(key), str) else None)
+            if got:
+                return got
+        thumb = _thumb_para_base64(image.get("jpegThumbnail"))
+        if thumb:
+            return thumb
+    # Link com prévia: a foto não é imageMessage, vem no extendedTextMessage.
+    return midia_preview_do_link(msg)
+
+
+def _nos_preview(message: dict[str, Any] | None) -> list[dict[str, Any]]:
+    msg = _unwrap_message(message)
+    if not isinstance(msg, dict):
+        return []
+    nos: list[dict[str, Any]] = []
+    ext = msg.get("extendedTextMessage")
+    if isinstance(ext, dict):
+        nos.append(ext)
+        ctx = ext.get("contextInfo")
+        if isinstance(ctx, dict):
+            anuncio = ctx.get("externalAdReply")
+            if isinstance(anuncio, dict):
+                nos.append(anuncio)
+    return nos
+
+
+def midia_preview_do_link(message: dict[str, Any] | None) -> str | None:
+    """URL ou miniatura da prévia do link. Não usa a foto de uma mensagem citada.
+
+    A URL do CDN vem antes do jpegThumbnail: a miniatura embutida é pequena.
+    """
+    nos = _nos_preview(message)
+    for node in nos:
+        for key in ("thumbnailUrl", "mediaUrl"):
+            url = node.get(key)
+            if isinstance(url, str) and url.startswith("https://") and _host_permitido(url):
+                return url.split("#", 1)[0]
+        thumb = node.get("thumbnail")
+        if isinstance(thumb, str) and thumb.startswith("https://") and _host_permitido(thumb):
+            return thumb.split("#", 1)[0]
+    for node in nos:
+        for key in ("jpegThumbnail", "thumbnail"):
+            got = _thumb_para_base64(node.get(key))
+            if got:
+                return got
+    return None
 
 
 def _host_permitido(url: str) -> bool:

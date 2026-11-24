@@ -1,5 +1,12 @@
 # Roadmap de implementação
 
+## Prévia do link também vira foto — 2026-11-24
+
+Grupo de origem que manda o link (e o WhatsApp mostra a foto na prévia, sem
+anexo) gravava `has_media=false`. O espelho agora guarda `jpegThumbnail` ou
+`thumbnailUrl` do `extendedTextMessage` e envia essa foto quando o `og:image`
+da página não vem.
+
 ## Só espelho (sem scraper) — 2026-11-24
 
 `ENABLE_SCRAPER_DISCOVERY` off por padrão (ADR-037): worker não roda

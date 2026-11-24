@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import base64
 from uuid import uuid4
 
 import httpx
@@ -203,6 +204,69 @@ def test_webhook_fanout_dois_tenants(
         assert {str(i.bot_id) for i in items} == {str(bot_a), str(bot_b)}
         assert all(i.listen_phone_id == listen_id for i in items)
         assert all(i.status == "pending" for i in items)
+
+
+def test_webhook_guarda_miniatura_da_previa_do_link(
+    client,
+    session_factory: sessionmaker[Session],
+    webhook_secret: str,
+) -> None:
+    admin = add_user(session_factory, email="mirror-previa@nina.test", role="admin")
+    send = uuid4()
+    bot_id = uuid4()
+    with session_factory.begin() as session:
+        _seed_platform_listen(session)
+        session.add(
+            Phone(
+                id=send,
+                owner_id=admin.tenant_id,
+                label="Nina 2",
+                number="5511999000099",
+                evolution_instance="nina2-previa",
+            )
+        )
+        session.add(
+            Bot(
+                id=bot_id,
+                owner_id=admin.tenant_id,
+                name="Casa prévia",
+                slug="casa-previa",
+                status="active",
+                phone_id=send,
+                settings=BotSettings(mirror=Mirror(enabled=True)).model_dump(mode="json"),
+            )
+        )
+
+    thumb = {"type": "Buffer", "data": [255, 216, 255, 224] + [7] * 40}
+    response = client.post(
+        f"/api/webhooks/evolution?token={webhook_secret}",
+        json={
+            "event": "messages.upsert",
+            "instance": "nina1-listen",
+            "data": {
+                "key": {
+                    "remoteJid": "120363origem@g.us",
+                    "fromMe": False,
+                    "id": "MSG-PREVIA",
+                },
+                "message": {
+                    "extendedTextMessage": {
+                        "text": "Fogão https://s.shopee.com.br/AKcPabeH50",
+                        "jpegThumbnail": thumb,
+                    }
+                },
+            },
+        },
+    )
+    assert response.status_code == 200, response.text
+    esperado = base64.b64encode(bytes([255, 216, 255, 224] + [7] * 40)).decode("ascii")
+    with session_factory() as session:
+        captura = session.query(MirrorCapture).one()
+        assert captura.has_media is True
+        assert captura.media_path == esperado
+        item = session.query(MirrorInbox).one()
+        assert item.has_media is True
+        assert item.media_path == esperado
 
 
 def test_webhook_ignora_phone_sem_flag_plataforma(
@@ -525,6 +589,37 @@ def test_midia_webhook_e_sendmedia_usam_base64_cru(monkeypatch: pytest.MonkeyPat
     assert mensagem_tem_imagem({"imageMessage": {"caption": "oi"}})
     assert mensagem_tem_imagem({"base64": "A" * 80})
     assert not mensagem_tem_imagem({"conversation": "só texto"})
+
+    preview = midia_do_payload_webhook(
+        {
+            "extendedTextMessage": {
+                "text": "Fogão https://s.shopee.com.br/AKcPabeH50",
+                "jpegThumbnail": {"type": "Buffer", "data": [255, 216, 255, 224] + [1] * 40},
+                "contextInfo": {
+                    "quotedMessage": {
+                        "imageMessage": {"jpegThumbnail": {"type": "Buffer", "data": [9] * 40}}
+                    }
+                },
+            }
+        }
+    )
+    assert preview and preview != base64.b64encode(bytes([9] * 40)).decode("ascii")
+
+    url_preview = midia_do_payload_webhook(
+        {
+            "extendedTextMessage": {
+                "text": "https://s.shopee.com.br/abc",
+                "contextInfo": {
+                    "externalAdReply": {
+                        "thumbnailUrl": "https://down-br.img.susercontent.com/file/foto.jpg",
+                        "sourceUrl": "https://s.shopee.com.br/abc",
+                    }
+                },
+            }
+        }
+    )
+    assert url_preview == "https://down-br.img.susercontent.com/file/foto.jpg"
+    assert midia_do_payload_webhook({"conversation": "só o link https://s.shopee.com.br/abc"}) is None
 
     # Evolution com webhookBase64: base64 no envelope.
     env = midia_do_payload_webhook({"base64": "A" * 80, "imageMessage": {"caption": "x"}})
