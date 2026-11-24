@@ -755,6 +755,8 @@ class MirrorCapture(Base):
     source_group_name: Mapped[str | None] = mapped_column(Text, nullable=True)
     message_key: Mapped[str] = mapped_column(Text)
     body_text: Mapped[str] = mapped_column(Text, server_default=text("''"))
+    has_media: Mapped[bool] = mapped_column(Boolean, server_default=text("false"))
+    media_path: Mapped[str | None] = mapped_column(Text, nullable=True)
     status: Mapped[str] = mapped_column(Text, server_default=text("'routed'"))
     created_at: Mapped[datetime] = mapped_column(TIMESTAMPTZ, server_default=text("now()"))
 
@@ -790,6 +792,8 @@ class MirrorInbox(Base):
     source_group_name: Mapped[str | None] = mapped_column(Text, nullable=True)
     message_key: Mapped[str] = mapped_column(Text)
     body_text: Mapped[str] = mapped_column(Text, server_default=text("''"))
+    has_media: Mapped[bool] = mapped_column(Boolean, server_default=text("false"))
+    media_path: Mapped[str | None] = mapped_column(Text, nullable=True)
     status: Mapped[str] = mapped_column(Text, server_default=text("'pending'"))
     skip_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(TIMESTAMPTZ, server_default=text("now()"))

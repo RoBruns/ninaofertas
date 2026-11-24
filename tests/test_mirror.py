@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 from uuid import uuid4
 
 import pytest
@@ -14,7 +15,15 @@ from core.mirror_sources import allowlist_para_bot, platform_source_group_names
 from core.models import Bot, Group, MirrorCapture, MirrorInbox, Phone, Tenant
 from core.platforms.base import OfertaCapturada
 from tests.test_api import add_user, client, session_factory
-from worker.filters import passa_filtros_espelho, titulo_mensagem_espelho
+from core.mirror_media import mensagem_tem_imagem, salvar_midia_base64
+from worker import formatter
+from worker.filters import (
+    extrair_cupom_mensagem,
+    extrair_precos_mensagem,
+    passa_filtros_espelho,
+    titulo_mensagem_espelho,
+)
+from worker.mirror import _oferta_template
 
 
 def test_detectar_loja_por_host():
@@ -394,3 +403,123 @@ def test_webhook_ignora_grupo_fora_da_allowlist(
     )
     assert response.status_code == 200
     assert response.json()["accepted"] == 0
+
+
+def test_extrair_precos_e_cupom_da_mensagem() -> None:
+    texto = "De R$ 189,90 por R$ 129,90\nCupom: NINA10\nhttps://meli.la/x"
+    preco, anterior = extrair_precos_mensagem(texto)
+    assert preco == 129.9
+    assert anterior == 189.9
+    assert extrair_cupom_mensagem(texto) == "NINA10"
+
+
+def test_oferta_espelho_usa_template_afiliado_sem_origem(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "worker.formatter.load_filtros",
+        lambda: {
+            "mensagem_template": "◼️ *{nome}*\n\n💰 {de_por}\n\n🛒 {url}",
+        },
+    )
+    oferta = _oferta_template(
+        titulo="Jogo de cama",
+        loja="mercado livre",
+        url_afiliado="https://meli.la/nina-aff",
+        url_origem="https://produto.mercadolivre.com.br/MLB-1",
+        body_text="Jogo de cama\nDe R$ 200,00 por R$ 100,00\nhttps://produto.mercadolivre.com.br/MLB-1",
+        sku="mirror:1",
+        imagem=None,
+    )
+    mensagem = formatter.montar_mensagem(oferta)
+    assert "Espelho ·" not in mensagem
+    assert "PROMO CASINHA" not in mensagem
+    assert "https://meli.la/nina-aff" in mensagem
+    assert "Jogo de cama" in mensagem
+    assert "R$ 100" in mensagem
+
+
+def test_mensagem_tem_imagem_e_grava_arquivo(tmp_path, monkeypatch) -> None:
+    monkeypatch.setattr("core.mirror_media._MIRROR_DIR", tmp_path)
+    # JPEG 1x1 mínimo
+    jpeg_b64 = (
+        "/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0a"
+        "HBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/2wBDAQkJCQwLDBgNDRgyIRwhMjIyMjIy"
+        "MjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjL/wAARCAABAAEDASIA"
+        "AhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAn/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFQEB"
+        "AQAAAAAAAAAAAAAAAAAAAAX/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIQAxAAAAGf/9k="
+    )
+    assert mensagem_tem_imagem({"imageMessage": {"caption": "oi", "base64": jpeg_b64}})
+    path = salvar_midia_base64(jpeg_b64, "teste-img")
+    assert path is not None
+    assert path.endswith((".jpg", ".jpeg", ".png"))
+    assert (tmp_path / "teste-img.jpg").exists() or Path(path).exists()
+
+
+def test_webhook_marca_has_media(
+    client,
+    session_factory: sessionmaker[Session],
+    webhook_secret: str,
+    tmp_path,
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr("core.mirror_media._MIRROR_DIR", tmp_path)
+    admin = add_user(session_factory, email="mirror-media@nina.test", role="admin")
+    send_id = uuid4()
+    with session_factory.begin() as session:
+        listen = _seed_platform_listen(session, instance="nina1-media")
+        session.add(
+            Phone(
+                id=send_id,
+                owner_id=admin.tenant_id,
+                label="Nina 2",
+                number="5511999000044",
+                evolution_instance="send-media",
+            )
+        )
+        session.add(
+            Bot(
+                id=uuid4(),
+                owner_id=admin.tenant_id,
+                name="Bot Media",
+                slug="bot-mirror-media",
+                status="active",
+                phone_id=send_id,
+                settings=BotSettings(mirror=Mirror(enabled=True)).model_dump(mode="json"),
+            )
+        )
+
+    jpeg_b64 = (
+        "/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0a"
+        "HBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/2wBDAQkJCQwLDBgNDRgyIRwhMjIyMjIy"
+        "MjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjL/wAARCAABAAEDASIA"
+        "AhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAn/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFQEB"
+        "AQAAAAAAAAAAAAAAAAAAAAX/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIQAxAAAAGf/9k="
+    )
+    response = client.post(
+        f"/api/webhooks/evolution?token={webhook_secret}",
+        json={
+            "event": "messages.upsert",
+            "instance": "nina1-media",
+            "data": {
+                "key": {
+                    "remoteJid": "120363origem@g.us",
+                    "fromMe": False,
+                    "id": "MSG-MEDIA",
+                },
+                "message": {
+                    "imageMessage": {
+                        "caption": "Panela https://shopee.com.br/product/1/2",
+                        "base64": jpeg_b64,
+                    }
+                },
+            },
+        },
+    )
+    assert response.status_code == 200, response.text
+    assert response.json()["accepted"] >= 1
+    with session_factory() as session:
+        cap = session.query(MirrorCapture).one()
+        inbox = session.query(MirrorInbox).one()
+        assert cap.has_media is True
+        assert inbox.has_media is True
+        assert cap.media_path
+        assert Path(cap.media_path).is_file()

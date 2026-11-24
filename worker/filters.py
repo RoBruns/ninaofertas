@@ -550,8 +550,75 @@ def titulo_mensagem_espelho(texto: str) -> str:
     """Primeira linha útil sem URL, para o nicho ler o título da oferta."""
     limpo = re.sub(r"https?://\S+", " ", texto or "")
     for linha in limpo.splitlines():
-        t = " ".join(linha.split()).strip()
+        t = " ".join(linha.split()).strip(" -•*|")
+        t = re.sub(r"^[\W_]+", "", t)
         if len(t) >= 3:
             return t[:200]
     t = " ".join(limpo.split()).strip()
     return (t or "oferta espelhada")[:200]
+
+
+_PRECO_BR_RE = re.compile(
+    r"R\$\s*(\d{1,3}(?:\.\d{3})*,\d{2}|\d{1,3}(?:\.\d{3})+|\d+(?:,\d{2})?)",
+    re.IGNORECASE,
+)
+_CUPOM_RE = re.compile(
+    r"(?:cupom|codigo|código)\s*[:\-–]?\s*[*_~`]{0,2}([A-Za-z0-9]{4,16})[*_~`]{0,2}",
+    re.IGNORECASE,
+)
+
+
+def _parse_preco_br(raw: str) -> float | None:
+    texto = (raw or "").strip()
+    if not texto:
+        return None
+    if "," in texto:
+        texto = texto.replace(".", "").replace(",", ".")
+    else:
+        texto = texto.replace(".", "")
+    try:
+        valor = float(texto)
+    except ValueError:
+        return None
+    return valor if valor > 0 else None
+
+
+def extrair_precos_mensagem(texto: str) -> tuple[float | None, float | None]:
+    """Retorna (preço atual, preço anterior) a partir de 'R$ …' no texto."""
+    valores = [
+        v
+        for m in _PRECO_BR_RE.finditer(texto or "")
+        if (v := _parse_preco_br(m.group(1))) is not None
+    ]
+    if not valores:
+        return None, None
+    if len(valores) == 1:
+        return valores[0], None
+    primeiro, segundo = valores[0], valores[1]
+    if abs(primeiro - segundo) < 0.01:
+        return primeiro, None
+    # "De R$ maior por R$ menor" — ou o inverso na ordem do texto.
+    atual = min(primeiro, segundo)
+    anterior = max(primeiro, segundo)
+    return atual, anterior
+
+
+def _cupom_espelho_ok(codigo: str | None) -> str | None:
+    code = (codigo or "").strip().upper()
+    if re.fullmatch(r"[A-Z0-9]{4,16}", code) is None:
+        return None
+    if code in {"HTTP", "HTTPS", "MLB", "JSON", "TYPE", "CUPOM", "OFF"}:
+        return None
+    return code
+
+
+def extrair_cupom_mensagem(texto: str) -> str | None:
+    """Cupom digitável citado no texto de origem (4–16 letras/números)."""
+    match = _CUPOM_RE.search(texto or "")
+    if match:
+        return _cupom_espelho_ok(match.group(1))
+    for bruto in re.findall(r"\*([A-Za-z0-9]{4,16})\*", texto or ""):
+        codigo = _cupom_espelho_ok(bruto)
+        if codigo:
+            return codigo
+    return None

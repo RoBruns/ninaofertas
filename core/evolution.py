@@ -207,18 +207,70 @@ class EvolutionClient:
         except (httpx.HTTPError, ValueError, TypeError, AttributeError) as exc:
             raise EvolutionUnavailable("evolution-api indisponível") from exc
 
+    def get_base64_from_media_message(
+        self,
+        instance: str,
+        *,
+        remote_jid: str,
+        message_id: str,
+        from_me: bool = False,
+    ) -> str | None:
+        """Baixa mídia de uma mensagem já recebida (imagem do espelho)."""
+        if not instance or not remote_jid or not message_id:
+            raise EvolutionUnavailable("Parâmetros de mídia incompletos")
+        body = {
+            "message": {
+                "key": {
+                    "remoteJid": remote_jid,
+                    "id": message_id,
+                    "fromMe": from_me,
+                }
+            },
+            "convertToMp4": False,
+        }
+        try:
+            with httpx.Client(timeout=30.0) as client:
+                response = client.post(
+                    f"{self.base_url}/chat/getBase64FromMediaMessage/{instance}",
+                    headers=self.headers,
+                    json=body,
+                )
+            if response.status_code >= 400:
+                raise EvolutionUnavailable(
+                    f"evolution-api recusou mídia ({response.status_code})"
+                )
+            payload = response.json()
+        except (httpx.HTTPError, ValueError, TypeError) as exc:
+            raise EvolutionUnavailable("evolution-api indisponível") from exc
+        if isinstance(payload, str) and len(payload) > 64:
+            return payload
+        if not isinstance(payload, dict):
+            return None
+        for key in ("base64", "data"):
+            raw = payload.get(key)
+            if isinstance(raw, str) and len(raw) > 64:
+                return raw
+        nested = payload.get("message")
+        if isinstance(nested, dict):
+            for key in ("base64", "data"):
+                raw = nested.get(key)
+                if isinstance(raw, str) and len(raw) > 64:
+                    return raw
+        return None
+
     def set_webhook(self, instance: str, url: str, *, events: list[str] | None = None) -> None:
         """Registra webhook de mensagens na instância (Evolution v2)."""
         if not instance:
             raise EvolutionUnavailable("Telefone sem instância da evolution-api")
         event_list = events or ["MESSAGES_UPSERT"]
+        # webhookBase64=True: a foto do espelho pode vir no próprio upsert.
         payloads = (
             {
                 "webhook": {
                     "enabled": True,
                     "url": url,
                     "webhookByEvents": False,
-                    "webhookBase64": False,
+                    "webhookBase64": True,
                     "events": event_list,
                 }
             },
@@ -226,7 +278,7 @@ class EvolutionClient:
                 "enabled": True,
                 "url": url,
                 "webhookByEvents": False,
-                "webhookBase64": False,
+                "webhookBase64": True,
                 "events": event_list,
             },
         )

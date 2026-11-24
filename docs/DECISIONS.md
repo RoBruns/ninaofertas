@@ -706,9 +706,12 @@ Webhook Evolution `MESSAGES_UPSERT` → captura neutra `mirror_captures` → fan
 para todo bot `active` em **qualquer** tenant → `mirror_inbox` por bot.
 No drain, por bot: classificar loja → exigir conta afiliado daquele bot →
 `passa_filtros_espelho` (nicho/bloqueios; sem preço/desconto) →
-`garantir_afiliado` no runtime do bot → freio → envio. Link nunca é
-compartilhado entre tenants. Mensagens `fromMe` e JIDs dos destinos do bot são
-ignoradas (anti-eco). Canal Shopee (`@newsletter`) pode ser frágil.
+`garantir_afiliado` no runtime do bot → freio → mensagem no **template do bot**
+(com foto reenviada quando houver; **sem** prefixo `Espelho · origem`) →
+envio. Link nunca é compartilhado entre tenants. Mensagens `fromMe` e JIDs dos
+destinos do bot são ignoradas (anti-eco). Canal Shopee (`@newsletter`) pode ser
+frágil. Mídia: `webhookBase64` + fallback `getBase64FromMediaMessage`
+(migration `0017`).
 
 Consequência: `PUBLIC_API_BASE_URL` + `EVOLUTION_WEBHOOK_SECRET` na API e no
 worker. O telefone com rótulo **Nina 1** é a escuta chumbada (`is_platform_listen`

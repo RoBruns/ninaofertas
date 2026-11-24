@@ -4,11 +4,12 @@ from __future__ import annotations
 
 import secrets
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Annotated, Any
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query, Request
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
 
@@ -16,9 +17,26 @@ from api.deps import get_db
 from api.errors import APIError
 from core.bot_settings import BotSettings
 from core.mirror_match import nome_na_allowlist
+from core.mirror_media import base64_da_mensagem, mensagem_tem_imagem, salvar_midia_base64
 from core.mirror_sources import allowlist_para_bot
 from core.mirror_webhook import webhook_secret
 from core.models import Bot, BotGroup, Group, MirrorCapture, MirrorInbox, Phone
+
+
+def _renomear_midia(path: str | None, stem: str) -> str | None:
+    if not path:
+        return None
+    origem = Path(path)
+    if not origem.is_file():
+        return path
+    destino = origem.with_name(f"{stem}{origem.suffix}")
+    if destino == origem:
+        return path
+    try:
+        origem.replace(destino)
+        return str(destino)
+    except OSError:
+        return path
 
 router = APIRouter(prefix="/webhooks", tags=["webhooks"])
 
@@ -158,13 +176,19 @@ async def evolution_messages(
         if not msg_id:
             continue
         message_key = f"{remote}:{msg_id}"
-        body = _texto_mensagem(
-            item.get("message") if isinstance(item.get("message"), dict) else None
-        ).strip()
+        message_obj = item.get("message") if isinstance(item.get("message"), dict) else None
+        body = _texto_mensagem(message_obj).strip()
         if not body:
             continue
         if len(body) > 4000:
             body = body[:4000]
+        has_media = mensagem_tem_imagem(message_obj)
+        media_path: str | None = None
+        if has_media:
+            raw_b64 = base64_da_mensagem(message_obj)
+            if raw_b64:
+                # stem provisório até ter o id da captura
+                media_path = salvar_midia_base64(raw_b64, f"tmp-{msg_id}")
 
         grupo = session.scalar(
             select(Group).where(Group.phone_id == phone.id, Group.whatsapp_id == remote)
@@ -186,6 +210,8 @@ async def evolution_messages(
                 source_group_name=nome_grupo,
                 message_key=message_key,
                 body_text=body,
+                has_media=has_media,
+                media_path=media_path,
                 status="routed",
                 created_at=datetime.now(timezone.utc),
             )
@@ -196,13 +222,24 @@ async def evolution_messages(
         if cap_row:
             capture_id = cap_row[0]
             captures += 1
+            if media_path and capture_id:
+                media_path = _renomear_midia(media_path, f"cap-{capture_id}")
+                session.execute(
+                    update(MirrorCapture)
+                    .where(MirrorCapture.id == capture_id)
+                    .values(media_path=media_path)
+                )
         else:
-            capture_id = session.scalar(
-                select(MirrorCapture.id).where(
+            capture = session.scalar(
+                select(MirrorCapture).where(
                     MirrorCapture.listen_phone_id == phone.id,
                     MirrorCapture.message_key == message_key,
                 )
             )
+            capture_id = capture.id if capture else None
+            if capture is not None:
+                has_media = bool(capture.has_media) or has_media
+                media_path = capture.media_path or media_path
 
         for bot, settings in candidatos:
             dest_ids = set(
@@ -228,6 +265,8 @@ async def evolution_messages(
                     source_group_name=nome_grupo,
                     message_key=message_key,
                     body_text=body,
+                    has_media=has_media,
+                    media_path=media_path,
                     status="pending",
                     created_at=datetime.now(timezone.utc),
                 )

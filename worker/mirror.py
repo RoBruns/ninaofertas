@@ -1,4 +1,4 @@
-"""Drena a fila do espelho: nicho + credencial + afiliado + freio + envio."""
+"""Drena a fila do espelho: nicho + credencial + afiliado + template + foto."""
 
 from __future__ import annotations
 
@@ -9,12 +9,13 @@ from sqlalchemy import select
 from core import db, relogio, repositories
 from core.config_provider import bots_ativos, load_filtros_runtime, usar_bot_runtime
 from core.credentials import platforms_with_usable_credentials
-from core.link_parser import extrair_links_oferta, loja_para_platform_slug, substituir_urls
+from core.link_parser import extrair_links_oferta, loja_para_platform_slug
+from core.mirror_media import resolver_caminho_midia
 from core.mirror_webhook import ensure_platform_listen_webhook
-from core.models import MirrorInbox
+from core.models import MirrorInbox, Phone
 from core.platforms import affiliate
 from core.platforms.base import OfertaCapturada
-from worker import channels, filters, monitor, telemetry, whatsapp
+from worker import channels, filters, formatter, monitor, telemetry, whatsapp
 from worker.logger import logger
 
 _BATCH = 8
@@ -28,6 +29,31 @@ def _marcar(item: MirrorInbox, status: str, reason: str | None = None) -> None:
 
 def _token_canal(runtime, grupo_jid: str) -> str:
     return f"db:{runtime.id}:{grupo_jid}"
+
+
+def _oferta_template(
+    *,
+    titulo: str,
+    loja: str,
+    url_afiliado: str,
+    url_origem: str,
+    body_text: str,
+    sku: str,
+    imagem: str | None,
+) -> OfertaCapturada:
+    preco, preco_anterior = filters.extrair_precos_mensagem(body_text)
+    return OfertaCapturada(
+        nome=titulo[:120],
+        preco=float(preco or 0.0),
+        preco_anterior=preco_anterior,
+        loja=loja,
+        url=url_afiliado,
+        product_url=url_origem,
+        sku=sku[:120],
+        categoria="espelho",
+        codigo_cupom=filters.extrair_cupom_mensagem(body_text),
+        imagem=imagem,
+    )
 
 
 def processar_pendentes() -> int:
@@ -76,6 +102,7 @@ def processar_pendentes() -> int:
                 titulo = filters.titulo_mensagem_espelho(item.body_text)
                 passou_nicho = False
                 motivo_nicho = "fora do nicho do grupo"
+                link_nicho = links_ok[0]
                 for link in links_ok:
                     oferta_nicho = OfertaCapturada(
                         nome=titulo,
@@ -90,6 +117,7 @@ def processar_pendentes() -> int:
                     )
                     if ok_nicho:
                         passou_nicho = True
+                        link_nicho = link
                         break
                 if not passou_nicho:
                     _marcar(item, "skipped", f"nicho:{motivo_nicho}")
@@ -105,8 +133,8 @@ def processar_pendentes() -> int:
                 oferta_probe = OfertaCapturada(
                     nome=titulo[:80],
                     preco=0.0,
-                    loja=links_ok[0].loja,
-                    url=links_ok[0].url,
+                    loja=link_nicho.loja,
+                    url=link_nicho.url,
                     sku=f"mirror:{item.id}"[:120],
                     categoria="espelho",
                 )
@@ -117,45 +145,62 @@ def processar_pendentes() -> int:
                     logger.info(f"[espelho] adiando {item.id}: {motivo}")
                     continue
 
+                listen = session.get(Phone, item.listen_phone_id)
+                imagem = resolver_caminho_midia(
+                    media_path=item.media_path,
+                    has_media=bool(item.has_media),
+                    message_key=item.message_key,
+                    listen_instance=listen.evolution_instance if listen else None,
+                    stem=item.id,
+                )
+                if imagem and imagem != item.media_path:
+                    item.media_path = imagem
+
                 enviou_algum = False
                 falhou_total = True
                 for jid in grupos:
                     canal = _token_canal(runtime, jid)
                     with channels.usar_canal(canal):
                         group_id = channels.grupo_db_id()
-                        mapa: dict[str, str] = {}
-                        sub_id = None
-                        for link in links_ok:
-                            convertido = affiliate.garantir_afiliado(
-                                link.loja,
-                                link.url,
-                                group_id=group_id,
-                                origin_url=link.url,
+                        convertido = affiliate.garantir_afiliado(
+                            link_nicho.loja,
+                            link_nicho.url,
+                            group_id=group_id,
+                            origin_url=link_nicho.url,
+                        )
+                        url_afiliado = str(convertido)
+                        if not affiliate.link_rastreado(link_nicho.loja, url_afiliado):
+                            logger.warning(
+                                f"[espelho] sem afiliado rastreado para {item.id}"
                             )
-                            mapa[link.url] = str(convertido)
-                            if getattr(convertido, "sub_id", None):
-                                sub_id = convertido.sub_id
-                        if not any(
-                            affiliate.link_rastreado(link.loja, mapa.get(link.url, link.url))
-                            for link in links_ok
-                        ):
-                            logger.warning(f"[espelho] sem afiliado rastreado para {item.id}")
                             continue
+                        sub_id = getattr(convertido, "sub_id", None)
 
-                        mensagem = substituir_urls(item.body_text, mapa)
-                        if item.source_group_name:
-                            mensagem = f"Espelho · {item.source_group_name}\n\n{mensagem}"
-
-                        ok_envio = whatsapp.enviar_mensagem(mensagem, grupo=jid)
+                        oferta = _oferta_template(
+                            titulo=titulo,
+                            loja=link_nicho.loja,
+                            url_afiliado=url_afiliado,
+                            url_origem=link_nicho.url,
+                            body_text=item.body_text,
+                            sku=f"mirror:{item.id}",
+                            imagem=imagem,
+                        )
+                        # Template do bot — sem citar o grupo de origem.
+                        mensagem = formatter.montar_mensagem(oferta)
+                        ok_envio = whatsapp.enviar_mensagem(
+                            mensagem, imagem=oferta.imagem, grupo=jid
+                        )
                         oferta_db = monitor._salvar_oferta(  # noqa: SLF001
                             session,
                             OfertaCapturada(
                                 nome=titulo[:120],
-                                preco=0.0,
-                                loja=links_ok[0].loja,
-                                url=mapa.get(links_ok[0].url, links_ok[0].url),
+                                preco=float(oferta.preco or 0.0),
+                                preco_anterior=oferta.preco_anterior,
+                                loja=link_nicho.loja,
+                                url=url_afiliado,
                                 sku=f"mirror:{item.id}"[:120],
                                 categoria="espelho",
+                                imagem=imagem,
                             ),
                         )
                         repositories.registrar_envio(
@@ -163,7 +208,7 @@ def processar_pendentes() -> int:
                             oferta_id=oferta_db.id,
                             grupo=jid,
                             mensagem=mensagem[:2000],
-                            preco=0.0,
+                            preco=float(oferta.preco or 0.0),
                             status="sucesso" if ok_envio else "falha",
                             bot_id=runtime.id,
                             group_id=group_id,
@@ -180,7 +225,11 @@ def processar_pendentes() -> int:
                         "Oferta espelhada enviada",
                         bot_id=runtime.id,
                         level="info",
-                        detail={"inbox_id": str(item.id), "source": item.source_group_name},
+                        detail={
+                            "inbox_id": str(item.id),
+                            "source": item.source_group_name,
+                            "has_media": bool(imagem),
+                        },
                     )
                     processados += 1
                 elif falhou_total:
