@@ -31,6 +31,7 @@ from worker.filters import (
     extrair_cupom_mensagem,
     extrair_precos_mensagem,
     passa_filtros_espelho,
+    titulo_bate_com_pagina,
     titulo_mensagem_espelho,
 )
 from worker.mirror import _oferta_template
@@ -79,6 +80,25 @@ def test_passa_filtros_espelho_nicho_sem_preco():
     )
     assert not bad
     assert "nicho" in motivo
+
+
+def test_titulo_ignora_faixa_e_usa_o_nome_do_item():
+    texto = (
+        "COZINHA MAIS PRÁTICA 💎\n\n"
+        "Micro-ondas Electrolux Efficient 34L Branco ME34B\n\n"
+        "De: 759 | Por: R$485 💵\n"
+        "Use o cupom: TECHHOME\n\n"
+        "Pegar promoção ➡️ https://meli.la/2Vs7mtF\n"
+    )
+    assert titulo_mensagem_espelho(texto).startswith("Micro-ondas Electrolux")
+    assert not titulo_bate_com_pagina(
+        "COZINHA MAIS PRÁTICA",
+        "Micro-ondas Electrolux Efficient 34L Branco",
+    )
+    assert titulo_bate_com_pagina(
+        "Micro-ondas Electrolux Efficient 34L",
+        "Micro-ondas Electrolux Efficient 34L | Mercado Livre",
+    )
 
 
 def test_titulo_mensagem_espelho_ignora_url():

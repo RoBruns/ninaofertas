@@ -28,6 +28,16 @@ _HOST_OK = (
     "m.media-amazon.com",
 )
 
+_OG_TITLE_RE = re.compile(
+    r'<meta[^>]+property=["\']og:title["\'][^>]+content=["\']([^"\']+)["\']',
+    re.IGNORECASE,
+)
+_OG_TITLE_RE_ALT = re.compile(
+    r'<meta[^>]+content=["\']([^"\']+)["\'][^>]+property=["\']og:title["\']',
+    re.IGNORECASE,
+)
+_titulos_pagina: dict[str, str] = {}
+
 _OG_IMAGE_RE = re.compile(
     r'<meta[^>]+property=["\']og:image["\'][^>]+content=["\']([^"\']+)["\']',
     re.IGNORECASE,
@@ -265,6 +275,21 @@ def _extrair_og_image(html: str, base_url: str) -> str | None:
     return None
 
 
+def _lembrar_titulo_pagina(url: str, html: str) -> None:
+    for regex in (_OG_TITLE_RE, _OG_TITLE_RE_ALT):
+        match = regex.search(html or "")
+        if not match:
+            continue
+        titulo = match.group(1).replace("&amp;", "&").strip()
+        if titulo:
+            _titulos_pagina[url] = titulo
+            return
+
+
+def titulo_pagina_visto(url: str) -> str | None:
+    return _titulos_pagina.get((url or "").strip())
+
+
 def imagem_do_link_produto(url: str, loja: str | None = None) -> str | None:
     alvo = (url or "").strip()
     if not alvo.startswith("https://"):
@@ -288,6 +313,7 @@ def imagem_do_link_produto(url: str, loja: str | None = None) -> str | None:
         logger.info(f"[espelho] sem foto CDN ({loja or '?'}): HTTP {response.status_code}")
         return None
     html = response.text[:250_000]
+    _lembrar_titulo_pagina(alvo, html)
     if _eh_shopee(loja, final):
         imagens, tem_video = _galeria_shopee(html)
         if imagens or tem_video:

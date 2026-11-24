@@ -11,7 +11,11 @@ from core import db, relogio, repositories
 from core.config_provider import bots_ativos, load_filtros_runtime, usar_bot_runtime
 from core.credentials import platforms_with_usable_credentials
 from core.link_parser import extrair_links_oferta, loja_para_platform_slug
-from core.mirror_media import ProdutoSomenteVideo, resolver_imagem_espelho
+from core.mirror_media import (
+    ProdutoSomenteVideo,
+    resolver_imagem_espelho,
+    titulo_pagina_visto,
+)
 from core.mirror_webhook import ensure_platform_listen_webhook
 from core.models import MirrorInbox, Phone
 from core.platforms import affiliate
@@ -103,12 +107,13 @@ def processar_pendentes() -> int:
                     continue
 
                 titulo = filters.titulo_mensagem_espelho(item.body_text)
+                nome_nicho = " ".join(filters.linhas_uteis_espelho(item.body_text)) or titulo
                 passou_nicho = False
                 motivo_nicho = "fora do nicho do grupo"
                 link_nicho = links_ok[0]
                 for link in links_ok:
                     oferta_nicho = OfertaCapturada(
-                        nome=titulo,
+                        nome=nome_nicho[:200],
                         preco=0.0,
                         loja=link.loja,
                         url=link.url,
@@ -170,6 +175,13 @@ def processar_pendentes() -> int:
                         somente_video = True
 
                 garantir_foto()
+                pagina = titulo_pagina_visto(link_nicho.url)
+                if pagina and not filters.titulo_bate_com_pagina(titulo, pagina):
+                    logger.info(
+                        f"[espelho] título não bate com o link; usando o nome da página "
+                        f"({titulo[:40]!r})"
+                    )
+                    titulo = filters.limpar_titulo_pagina(pagina)
                 if somente_video or not imagem:
                     motivo = "somente_video" if somente_video else "sem_foto"
                     logger.info(f"[espelho] sem representação ({motivo}) {item.id}")

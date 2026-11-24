@@ -556,7 +556,9 @@ _LINHA_RUIDO_ESPELHO = re.compile(
     r"^\s*compre\s+aqui\s*:?\s*$|"
     r"^\s*link\s*:?\s*$|"
     r"grupo\s+da\s+gio|"
-    r"ei,?\s*convide"
+    r"ei,?\s*convide|"
+    r"pegar\s+promo|"
+    r"siga\s+a\s+nossa\s+p[aá]gina"
     r")"
 )
 _LINHA_SO_PRECO = re.compile(
@@ -574,21 +576,82 @@ def _normalizar_espacos_espelho(texto: str) -> str:
     )
 
 
-def titulo_mensagem_espelho(texto: str) -> str:
-    """Primeira linha útil sem URL/ruído, para o nicho e o template."""
+_STOP_TITULO = {
+    "de", "da", "do", "das", "dos", "com", "para", "por", "mais", "uma", "uns",
+    "um", "em", "no", "na", "nos", "nas", "the", "and", "of",
+}
+
+
+def _linha_slogan(texto: str) -> bool:
+    """Faixa de seção, tipo 'COZINHA MAIS PRÁTICA', não o nome do item."""
+    nucleo = re.sub(r"[^\w\s]", " ", texto, flags=re.UNICODE)
+    palavras = [p for p in nucleo.split() if p]
+    if not 2 <= len(palavras) <= 8:
+        return False
+    if any(any(ch.isdigit() for ch in p) for p in palavras):
+        return False
+    letras = "".join(ch for p in palavras for ch in p if ch.isalpha())
+    return bool(letras) and letras == letras.upper()
+
+
+def _linha_e_preco(linha: str) -> bool:
+    if _LINHA_SO_PRECO.search(linha):
+        return True
+    sem = _PRECO_BR_RE.sub(" ", linha)
+    sem = re.sub(r"(?i)\b(de|por)\b", " ", sem)
+    sem = re.sub(r"[\d|:./]+", " ", sem)
+    return len(re.sub(r"\W+", "", sem, flags=re.UNICODE)) < 3
+
+
+def linhas_uteis_espelho(texto: str) -> list[str]:
     limpo = re.sub(r"https?://\S+", " ", _normalizar_espacos_espelho(texto))
+    saida: list[str] = []
     for linha in limpo.splitlines():
-        if _LINHA_RUIDO_ESPELHO.search(linha) or _LINHA_SO_PRECO.search(linha):
+        if _LINHA_RUIDO_ESPELHO.search(linha) or _linha_e_preco(linha):
             continue
         t = " ".join(linha.split()).strip(" -•*|")
         t = re.sub(r"^[\W_]+", "", t)
-        # Só emoji / "❌" / "🔥" sobrando.
         if len(re.sub(r"\W+", "", t, flags=re.UNICODE)) < 3:
             continue
         if len(t) >= 3:
-            return t[:200]
+            saida.append(t[:200])
+    return saida
+
+
+def titulo_mensagem_espelho(texto: str) -> str:
+    """Nome do item. Faixa em caixa alta ('COZINHA MAIS PRÁTICA') não serve."""
+    linhas = linhas_uteis_espelho(texto)
+    for linha in linhas:
+        if not _linha_slogan(linha):
+            return linha
+    if linhas:
+        return linhas[0]
+    limpo = re.sub(r"https?://\S+", " ", _normalizar_espacos_espelho(texto))
     t = " ".join(limpo.split()).strip()
     return (t or "oferta espelhada")[:200]
+
+
+def _tokens_titulo(texto: str) -> set[str]:
+    bruto = re.sub(r"[^\w\s]", " ", (texto or "").lower(), flags=re.UNICODE)
+    return {
+        p
+        for p in bruto.split()
+        if len(p) >= 3 and p not in _STOP_TITULO and not p.isdigit()
+    }
+
+
+def titulo_bate_com_pagina(titulo: str, pagina: str) -> bool:
+    """True se o título e o nome da página falam do mesmo item."""
+    nosso = _tokens_titulo(titulo)
+    deles = _tokens_titulo(pagina)
+    if not nosso or not deles:
+        return True
+    return bool(nosso & deles)
+
+
+def limpar_titulo_pagina(titulo: str) -> str:
+    partes = re.split(r"\s+[|\-–]\s+", (titulo or "").strip())
+    return (partes[0] or titulo).strip()[:120]
 
 
 _PRECO_BR_RE = re.compile(
