@@ -478,7 +478,11 @@ def _enviar_oferta_no_grupo(session, oferta: OfertaCapturada, oferta_db) -> str:
     logger.info(f"[{nome_canal()}] Enviando para WhatsApp...")
     if previa:
         sucesso = whatsapp.enviar_mensagem(
-            mensagem, imagem=None, grupo=grupo, previa_do_link=True
+            mensagem,
+            imagem=None,
+            grupo=grupo,
+            previa_do_link=True,
+            previa_imagem=oferta.imagem,
         )
     else:
         sucesso = whatsapp.enviar_mensagem(mensagem, imagem=oferta.imagem, grupo=grupo)

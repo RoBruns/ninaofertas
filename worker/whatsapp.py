@@ -72,11 +72,13 @@ def enviar_mensagem(
     grupo: str | None = None,
     *,
     previa_do_link: bool = False,
+    previa_imagem: str | None = None,
 ) -> bool:
     """Envia texto e, apenas quando permitida, uma imagem para o grupo atual.
 
-    previa_do_link pede o cartão do WhatsApp: a imagem é a prévia e o toque
-    abre o link. Nesse caso a foto não vai como anexo.
+    previa_imagem pede o cartão só com a foto: sem título nem descrição da
+    página, e o toque abre o link do texto. Se a Evolution recusar esse
+    formato, a mensagem sai com a prévia automática da página.
     """
     from worker.channels import grupo_whatsapp, instancia_evolution
 
@@ -95,8 +97,12 @@ def enviar_mensagem(
     token = runtime.instance_token if runtime else None
     headers = {"apikey": token or settings.evolution_api_key, "Content-Type": "application/json"}
     url = f"{settings.evolution_api_url}/message/sendText/{instancia}"
-    payload: dict[str, str | bool] = {"number": destino, "text": texto}
-    if previa_do_link:
+    payload: dict[str, object] = {"number": destino, "text": texto}
+    cartao = _cartao_so_foto(texto, previa_imagem) if previa_imagem else None
+    if cartao:
+        payload["linkPreview"] = cartao
+        imagem = None
+    elif previa_do_link:
         payload["linkPreview"] = True
         imagem = None
     if imagem:
@@ -131,6 +137,10 @@ def enviar_mensagem(
                 logger.warning("Token da instância rejeitado; envio tentado com chave geral")
                 headers["apikey"] = settings.evolution_api_key
                 response = client.post(url, json=payload, headers=headers)
+            if response.status_code == 400 and isinstance(payload.get("linkPreview"), dict):
+                logger.info("Evolution recusou a prévia só com foto; usando a prévia da página")
+                payload["linkPreview"] = True
+                response = client.post(url, json=payload, headers=headers)
         if response.status_code >= 400:
             # O corpo explica a falha (número inválido, sessão caída); as chaves saem dele.
             logger.error(
@@ -145,6 +155,22 @@ def enviar_mensagem(
             f"{_sem_chaves(exc, token, settings.evolution_api_key)}"
         )
         return False
+
+
+def _cartao_so_foto(texto: str, imagem: str) -> dict[str, str] | None:
+    """Foto clicável, sem título nem descrição. O link do texto é o destino."""
+    media = _media_payload(imagem)
+    if not media:
+        return None
+    cartao: dict[str, str] = {}
+    if media.startswith("https://"):
+        cartao["thumbnailUrl"] = media
+    else:
+        cartao["thumbnailBase64"] = media
+    achado = re.search(r"https://[^\s<>]+", texto or "")
+    if achado:
+        cartao["canonicalUrl"] = achado.group(0).rstrip(").,]")
+    return cartao
 
 
 def _sem_chaves(texto: object, *chaves: str | None) -> str:

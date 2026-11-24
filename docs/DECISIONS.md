@@ -753,8 +753,10 @@ A foto anexada abre em tela cheia. O dono pediu a imagem do link: o toque abre
 a loja. Uma página nossa no lugar do `meli.la` chegou no grupo sem foto.
 
 A mensagem leva o link de afiliado (`meli.la` ou `s.shopee.com.br`) e pede a
-prévia do WhatsApp. Não anexa foto. Cupom com card impresso continua anexo.
-Magalu e Amazon continuam com a foto anexada.
+prévia só com a foto, sem o título da página. A Evolution 2.3.7 recusa esse
+formato e, nesse caso, a oferta sai com a prévia automática (foto e título).
+Não anexa foto. Cupom com card impresso continua anexo. Magalu e Amazon
+continuam com a foto anexada.
 
 `GET /api/p/{token}` permanece só para os links que já saíram com o endereço
 da prévia. Mensagem nova não usa esse endereço.

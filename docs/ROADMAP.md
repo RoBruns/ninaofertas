@@ -1,10 +1,10 @@
 # Roadmap de implementação
 
-## Prévia nativa do link — 2026-11-24
+## Prévia só com a foto — 2026-11-24
 
-Shopee e Mercado Livre saem com o link de afiliado no texto (`s.shopee.com.br`,
-`meli.la`). A prévia do WhatsApp é a imagem, e o toque abre a loja. O endereço
-`/api/p/{token}` não entra mais na mensagem; fica só para os links que já saíram.
+Shopee e Mercado Livre pedem o cartão só com a imagem do produto, sem o título
+da página. O texto continua com o link da loja. A Evolution 2.3.7 só aceita
+prévia automática (foto e título juntos); se recusar, a oferta sai nessa prévia.
 
 ## Foto da Shopee pula o vídeo da galeria — 2026-11-24
 

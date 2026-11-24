@@ -107,9 +107,47 @@ def test_envio_com_previa_nao_anexa_foto(monkeypatch: pytest.MonkeyPatch) -> Non
         imagem=_FOTO,
         grupo="grupo@g.us",
         previa_do_link=True,
+        previa_imagem=_FOTO,
     )
     url, payload = _Client.calls[0]
     assert url.endswith("/message/sendText/instancia")
-    assert payload["linkPreview"] is True
+    cartao = payload["linkPreview"]
+    assert isinstance(cartao, dict)
+    assert cartao["thumbnailUrl"] == _FOTO
+    assert cartao["canonicalUrl"] == _LINK
+    assert "title" not in cartao
+    assert "description" not in cartao
     assert payload["text"] == f"oferta {_LINK}"
     assert "mediatype" not in payload
+
+
+def test_previa_recusada_cai_na_previa_da_pagina(monkeypatch: pytest.MonkeyPatch) -> None:
+    class _Recusa:
+        def __init__(self, **_kwargs: object) -> None:
+            pass
+
+        def __enter__(self) -> _Recusa:
+            return self
+
+        def __exit__(self, *_args: object) -> None:
+            return None
+
+        def post(
+            self, url: str, *, json: dict[str, object], headers: dict[str, str]
+        ) -> httpx.Response:
+            _Client.calls.append((url, json))
+            status = 400 if len(_Client.calls) == 1 else 200
+            return httpx.Response(status, text="linkPreview")
+
+    _Client.calls = []
+    monkeypatch.setattr(httpx, "Client", _Recusa)
+    monkeypatch.setattr(channels, "grupo_whatsapp", lambda: "grupo@g.us")
+    monkeypatch.setattr(channels, "instancia_evolution", lambda: "instancia")
+    assert whatsapp.enviar_mensagem(
+        f"oferta {_LINK}",
+        grupo="grupo@g.us",
+        previa_do_link=True,
+        previa_imagem=_FOTO,
+    )
+    assert not isinstance(_Client.calls[0][1]["linkPreview"], bool)
+    assert _Client.calls[1][1]["linkPreview"] is True

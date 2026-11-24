@@ -224,10 +224,15 @@ def processar_pendentes() -> int:
                         # Template do bot — sem citar o grupo de origem.
                         mensagem = formatter.montar_mensagem(oferta)
                         if usa_cartao:
-                            imagem_envio = None
+                            garantir_foto()
+                            imagem_envio = imagem
                             teve_foto = True
                             ok_envio = whatsapp.enviar_mensagem(
-                                mensagem, imagem=None, grupo=jid, previa_do_link=True
+                                mensagem,
+                                imagem=None,
+                                grupo=jid,
+                                previa_do_link=True,
+                                previa_imagem=imagem if isinstance(imagem, str) else None,
                             )
                         else:
                             garantir_foto()
