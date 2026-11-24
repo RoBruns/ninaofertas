@@ -16,6 +16,7 @@ from core.models import Bot, Group, MirrorCapture, MirrorInbox, Phone, Tenant
 from core.platforms.base import OfertaCapturada
 from tests.test_api import add_user, client, session_factory
 from core.mirror_media import (
+    base64_puro,
     imagem_do_link_produto,
     mensagem_tem_imagem,
     midia_do_payload_webhook,
@@ -520,26 +521,39 @@ def test_imagem_do_link_produto_usa_og_image(monkeypatch: pytest.MonkeyPatch) ->
     assert foto == "https://down-br.img.susercontent.com/foto.jpg"
 
 
-def test_mensagem_tem_imagem_e_resolver_prioriza_fila(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_midia_webhook_e_sendmedia_usam_base64_cru(monkeypatch: pytest.MonkeyPatch) -> None:
     assert mensagem_tem_imagem({"imageMessage": {"caption": "oi"}})
+    assert mensagem_tem_imagem({"base64": "A" * 80})
     assert not mensagem_tem_imagem({"conversation": "só texto"})
-    thumb = midia_do_payload_webhook(
-        {"imageMessage": {"caption": "oi", "jpegThumbnail": "QQ==" + ("A" * 40)}}
+
+    # Evolution com webhookBase64: base64 no envelope.
+    env = midia_do_payload_webhook({"base64": "A" * 80, "imageMessage": {"caption": "x"}})
+    assert env == "A" * 80
+
+    # Thumbnail Buffer JSON (Node).
+    thumb_buf = midia_do_payload_webhook(
+        {
+            "imageMessage": {
+                "caption": "oi",
+                "jpegThumbnail": {"type": "Buffer", "data": [255, 216, 255, 224] + [1] * 40},
+            }
+        }
     )
-    assert thumb and thumb.startswith("data:image/jpeg;base64,")
+    assert thumb_buf and len(thumb_buf) >= 32
+
+    data_url = "data:image/jpeg;base64," + ("C" * 80)
+    assert base64_puro(data_url) == "C" * 80
+    assert _media_payload(data_url) == "C" * 80
 
     monkeypatch.setattr(
         "core.mirror_media.midia_whatsapp_em_memoria",
-        lambda instance, key: "data:image/jpeg;base64," + ("B" * 80),
+        lambda instance, key: "B" * 80,
     )
-    # Fila ganha de getBase64.
     foto = resolver_imagem_espelho(
         listen_instance="nina1",
         message_key="120@g.us:MSG1",
         product_url="https://s.shopee.com.br/x",
         loja="shopee",
-        media_path=thumb,
+        media_path=env,
     )
-    assert foto == thumb
-    # sendMedia recebe data-URL intacta.
-    assert _media_payload(thumb) == thumb
+    assert foto == env

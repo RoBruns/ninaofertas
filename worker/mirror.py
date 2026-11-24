@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import time
 from datetime import datetime, timezone
 
 from sqlalchemy import select
@@ -19,6 +20,8 @@ from worker import channels, filters, formatter, monitor, telemetry, whatsapp
 from worker.logger import logger
 
 _BATCH = 8
+_ultimo_webhook_ts = 0.0
+_WEBHOOK_TTL_S = 120.0
 
 
 def _marcar(item: MirrorInbox, status: str, reason: str | None = None) -> None:
@@ -248,15 +251,22 @@ def processar_pendentes() -> int:
     return processados
 
 
-def garantir_webhooks() -> None:
+def garantir_webhooks(*, forcar: bool = False) -> None:
     """Reaplica webhook na instância de escuta da plataforma (Nina 1)."""
+    global _ultimo_webhook_ts
+    agora = time.monotonic()
+    if not forcar and (agora - _ultimo_webhook_ts) < _WEBHOOK_TTL_S:
+        return
     with db.get_session() as session:
         status = ensure_platform_listen_webhook(session)
         logger.info(f"[espelho] webhook plataforma: {status}")
+    _ultimo_webhook_ts = agora
 
 
 def ciclo() -> None:
     try:
+        # Garante webhookBase64=true (foto no upsert) sem martelar a Evolution.
+        garantir_webhooks()
         n = processar_pendentes()
         if n:
             logger.info(f"[espelho] processados={n}")

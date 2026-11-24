@@ -90,7 +90,7 @@ def enviar_mensagem(texto: str, imagem: str | None = None, grupo: str | None = N
         media = _media_payload(imagem)
         if media:
             url = f"{settings.evolution_api_url}/message/sendMedia/{instancia}"
-            # Evolution aceita URL https ou data-URL / base64 (preferimos data-URL).
+            # Evolution (Baileys) faz Buffer.from(media, 'base64') — base64 CRU, não data-URL.
             payload = {
                 "number": destino,
                 "mediatype": "image",
@@ -98,11 +98,13 @@ def enviar_mensagem(texto: str, imagem: str | None = None, grupo: str | None = N
                 "caption": texto,
             }
             if not str(media).startswith("http"):
-                eh_jpeg = "image/png" not in str(imagem)[:40].lower()
-                payload["mimetype"] = "image/jpeg" if eh_jpeg else "image/png"
-                payload["fileName"] = "foto.jpg" if eh_jpeg else "cupom.png"
+                payload["mimetype"] = "image/jpeg"
+                payload["fileName"] = "foto.jpg"
         else:
-            logger.warning("Imagem rejeitada (URL/path não permitido); enviando só texto.")
+            logger.warning(
+                "Imagem rejeitada (URL/base64 inválido); enviando só texto. "
+                f"prefixo={str(imagem)[:48]!r}"
+            )
     try:
         with httpx.Client(timeout=25.0) as client:
             response = client.post(url, json=payload, headers=headers)
@@ -150,22 +152,19 @@ def _media_payload(imagem: str) -> str | None:
     if imagem.startswith("http://"):
         logger.warning("URL http:// não permitida para mídia; use https ou arquivo local.")
         return None
-    if imagem.startswith("data:image/") and ";base64," in imagem:
-        # Evolution sendMedia prefere data-URL completa (não só o base64 cru).
-        return imagem
+    from core.mirror_media import base64_puro
+
+    # data-URL ou base64 cru → sempre base64 puro (sendMedia / Buffer.from).
+    if imagem.startswith("data:image/") or "base64," in imagem[:80]:
+        return base64_puro(imagem)
     path = Path(imagem)
-    if path.is_file():
+    # Evita tratar base64 longo como "caminho" inexistente.
+    if len(imagem) < 512 and path.is_file():
         if not _path_local_permitido(path):
             logger.warning(f"Arquivo de mídia fora de data/ ou assets/: {imagem}")
             return None
-        raw = base64.b64encode(path.read_bytes()).decode("ascii")
-        mime = "image/jpeg" if path.suffix.lower() in {".jpg", ".jpeg"} else "image/png"
-        return f"data:{mime};base64,{raw}"
-    # Base64 cru → envelopa como data-URL.
-    compacto = "".join(imagem.split())
-    if len(compacto) > 200 and re.fullmatch(r"[A-Za-z0-9+/]+=*", compacto):
-        return f"data:image/jpeg;base64,{compacto}"
-    return None
+        return base64.b64encode(path.read_bytes()).decode("ascii")
+    return base64_puro(imagem)
 
 
 def _participante_do_numero(part: dict, numero: str) -> bool:

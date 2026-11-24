@@ -164,11 +164,12 @@ def _registrar_jobs(scheduler: BackgroundScheduler) -> None:
         max_instances=1,
         coalesce=True,
     )
+    # Webhook também é reaplicado no início de cada mirror.ciclo.
     scheduler.add_job(
         mirror.garantir_webhooks,
         "interval",
-        minutes=30,
-        next_run_time=agora + timedelta(minutes=1),
+        minutes=5,
+        next_run_time=agora + timedelta(seconds=30),
         id="mirror-webhook",
         max_instances=1,
         coalesce=True,
