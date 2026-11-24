@@ -13,10 +13,11 @@ no fan-out sem toggle (subset opcional `source_group_names`). Webhook
 `POST /api/webhooks/evolution` → `mirror_captures` (neutra) → `mirror_inbox`
 por bot (migrations `0013`–`0017`). Worker: parse loja → credencial do bot →
 `passa_filtros_espelho` (nicho/bloqueios, sem preço) → `garantir_afiliado` →
-freio → **template do bot** + foto (mídia WhatsApp em memória; fallback CDN)
-+ link afiliado (sem citar origem) → envio no phone do bot. Env:
-`PUBLIC_API_BASE_URL`, `EVOLUTION_WEBHOOK_SECRET`, opcional
-`MIRROR_SOURCE_GROUPS`. Ver ADR-036.
+freio → **template do bot** + foto (CDN/`og:image` primeiro; fallback WA)
++ link afiliado da **conta do bot** (sem citar origem) → envio. ML: resolve
+`meli.la` → `/social/?ref=` → PDP `/p/MLB…` → `createLink` (não reusa
+afiliado de terceiro). Env: `PUBLIC_API_BASE_URL`, `EVOLUTION_WEBHOOK_SECRET`,
+opcional `MIRROR_SOURCE_GROUPS`. Ver ADR-036.
 
 ## Coletor local ML (Chromium) — 2026-11-23
 

@@ -177,12 +177,24 @@ def processar_pendentes() -> int:
                             origin_url=link_nicho.url,
                         )
                         url_afiliado = str(convertido)
+                        sub_id = getattr(convertido, "sub_id", None)
+                        loja_l = (link_nicho.loja or "").lower()
+                        # ML/Shopee: só envia se a conversão da CONTA do bot gerou sub_id.
+                        # Link de afiliado de terceiro (meli.la alheio) não conta.
+                        if (
+                            ("mercado" in loja_l or "shopee" in loja_l)
+                            and not sub_id
+                        ):
+                            logger.warning(
+                                f"[espelho] sem afiliado da conta do bot para {item.id} "
+                                f"(loja={link_nicho.loja})"
+                            )
+                            continue
                         if not affiliate.link_rastreado(link_nicho.loja, url_afiliado):
                             logger.warning(
                                 f"[espelho] sem afiliado rastreado para {item.id}"
                             )
                             continue
-                        sub_id = getattr(convertido, "sub_id", None)
 
                         oferta = _oferta_template(
                             titulo=titulo,

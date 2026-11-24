@@ -154,7 +154,7 @@ def test_ml_sem_tag_do_bot_usa_tag_da_conta(monkeypatch: pytest.MonkeyPatch) -> 
     assert post["json"]["tag"] == "tag_conta"
 
 
-def test_falha_shopee_mantem_offerlink_emite_evento_e_envio_continua(
+def test_falha_shopee_mantem_offerlink_sem_fingir_sub_id(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     runtime = _runtime(UUID("1a2b3c4d-0000-4000-8000-000000000001"))
@@ -177,7 +177,7 @@ def test_falha_shopee_mantem_offerlink_emite_evento_e_envio_continua(
             "Shopee", offer_link, group_id=group_id, origin_url="https://shopee.com.br/p"
         )
     assert fallback == offer_link
-    assert fallback.sub_id == "shopee:b1a2b3c4d-g5d6e7f80"
+    assert fallback.sub_id is None
     assert events == ["attribution_link_failed"]
 
     sent: list[str] = []
@@ -209,7 +209,7 @@ def test_falha_shopee_mantem_offerlink_emite_evento_e_envio_continua(
         )
     assert result == "enviou"
     assert sent == [offer_link]
-    assert stored[0]["sub_id"] == "shopee:b1a2b3c4d-g5d6e7f80"
+    assert stored[0]["sub_id"] is None
 
 
 def test_parser_utm_content_isolado() -> None:
@@ -413,3 +413,77 @@ def test_prefixo_ambiguo_deixa_bot_null_e_grava_evento(
         assert len(events) == 1
         event = events[0]
         assert event.detail["failures"]["bot"] == "ambiguous"
+
+
+def test_resolver_ml_limpa_pdp_com_matt_e_extrai_social() -> None:
+    affiliate.reset_aviso_ciclo()
+    suja = (
+        "https://www.mercadolivre.com.br/projetor-smart/p/MLB64305534"
+        "?matt_word=outro&matt_tool=1&wid=MLB4422182615"
+    )
+    limpa = affiliate.resolver_url_produto_ml(suja)
+    assert limpa == (
+        "https://www.mercadolivre.com.br/projetor-smart/p/MLB64305534?wid=MLB4422182615"
+    )
+
+    html = (
+        '<a href="https://www.mercadolivre.com.br/projetor-smart-portatil/'
+        'p/MLB64305534?matt_tracing_id=x">x</a>'
+        '<a href="https://www.mercadolivre.com.br/outro/p/MLB111">y</a>'
+    )
+    assert affiliate._extrair_produto_do_html_social(html) == (
+        "https://www.mercadolivre.com.br/projetor-smart-portatil/p/MLB64305534"
+    )
+
+
+def test_meli_la_nao_reusa_link_alheio_converte_pdp(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    runtime = _runtime(ml_tag="tag_bot")
+    account = (runtime.account_ids[0], {"affiliate_tag": "tag_conta"}, {"cookie": "x=1"})
+    social_html = (
+        '<html><a href="https://www.mercadolivre.com.br/projetor-x/'
+        'p/MLB64305534?matt_word=gagi">p</a></html>'
+    )
+    posts: list[dict[str, object]] = []
+
+    class _Client:
+        def __init__(self, **_kwargs: object) -> None:
+            pass
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args: object) -> None:
+            return None
+
+        def get(self, url: str, **_kwargs: object) -> httpx.Response:
+            if "meli.la" in url or "/social/" in url:
+                return httpx.Response(
+                    200,
+                    text=social_html,
+                    request=httpx.Request("GET", url),
+                )
+            return httpx.Response(200, request=httpx.Request("GET", url))
+
+        def post(self, url: str, **kwargs: object) -> httpx.Response:
+            posts.append({"url": url, **kwargs})
+            return httpx.Response(
+                200,
+                json={"urls": [{"short_url": "https://meli.la/nosso"}], "total_success": 1},
+                request=httpx.Request("POST", url),
+            )
+
+    monkeypatch.setattr(affiliate.httpx, "Client", _Client)
+    monkeypatch.setattr(affiliate, "_runtime_auth", lambda _slug: (runtime, account))
+    affiliate.reset_aviso_ciclo()
+
+    with usar_bot_runtime(runtime):
+        link = affiliate.garantir_afiliado("Mercado Livre", "https://meli.la/link-alheio")
+
+    assert link == "https://meli.la/nosso"
+    assert link.sub_id == "ml:tag_bot"
+    assert posts and posts[0]["json"]["urls"] == [
+        "https://www.mercadolivre.com.br/projetor-x/p/MLB64305534"
+    ]
+    assert posts[0]["json"]["tag"] == "tag_bot"

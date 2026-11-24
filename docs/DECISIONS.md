@@ -712,11 +712,13 @@ envio. Da origem só entram título, De/Por, cupom (se a linha acompanhar o
 link de compra) e URL de marketplace; convite WhatsApp, PIX e disclaimer
 são descartados. Link nunca é compartilhado entre tenants. Mensagens
 `fromMe` e JIDs dos destinos do bot são ignoradas (anti-eco). Canal Shopee
-(`@newsletter`) pode ser frágil. Foto: no webhook captura base64 cru
-(`message.base64` com webhookBase64, `jpegThumbnail` ou getBase64 imediato
-na Nina 1) em `media_path`; no drain reforça getBase64/CDN. `sendMedia`
-recebe **base64 cru** (Baileys `Buffer.from(media,'base64')` — data-URL
-quebrava o envio).
+(`@newsletter`) pode ser frágil. Foto: prioriza CDN/`og:image` do produto;
+fallback webhook base64/getBase64. `sendMedia` recebe **base64 cru**.
+
+Afiliado ML: `meli.la` de terceiros **não** é reenviado. O fluxo resolve
+`meli.la` → landing `/social/{tag}?ref=…` → primeira PDP `/p/MLB…` no HTML →
+`createLink` com cookie/tag da **conta do bot**. Sem `sub_id` da conversão,
+o espelho pula a oferta (não publica comissão alheia).
 
 Consequência: `PUBLIC_API_BASE_URL` + `EVOLUTION_WEBHOOK_SECRET` na API e no
 worker. O telefone com rótulo **Nina 1** é a escuta chumbada (`is_platform_listen`

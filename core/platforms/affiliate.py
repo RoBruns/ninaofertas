@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from typing import Any
-from urllib.parse import parse_qs, urlparse
+from urllib.parse import parse_qs, urlencode, urlparse, urlunparse
 from uuid import UUID
 
 import httpx
@@ -21,17 +22,29 @@ from core.platforms.shopee_api import generate_short_link
 
 ML_CREATE_LINK = "https://www.mercadolivre.com.br/affiliate-program/api/v2/affiliates/createLink"
 ML_LINKBUILDER = "https://www.mercadolivre.com.br/afiliados/linkbuilder"
+_ML_PRODUCT_RE = re.compile(
+    r"https://(?:www\.)?mercadolivre\.com\.br/[^\s\"'<>]+?/p/MLB\d+",
+    re.IGNORECASE,
+)
+_ML_KEEP_QUERY = frozenset({"pdp_filters", "wid"})
 _aviso_createlink_neste_ciclo = False
 _plataformas_bloqueadas_ciclo: set[str] = set()
 _cache_links_ciclo: dict[tuple[str, str], AffiliateLink] = {}
+_cache_produto_ml: dict[str, str | None] = {}
 
 
 def reset_aviso_ciclo() -> None:
     """Limpa aviso, bloqueio e cache de links no início de cada ciclo do bot."""
-    global _aviso_createlink_neste_ciclo, _plataformas_bloqueadas_ciclo, _cache_links_ciclo
+    global (
+        _aviso_createlink_neste_ciclo,
+        _plataformas_bloqueadas_ciclo,
+        _cache_links_ciclo,
+        _cache_produto_ml,
+    )
     _aviso_createlink_neste_ciclo = False
     _plataformas_bloqueadas_ciclo = set()
     _cache_links_ciclo = {}
+    _cache_produto_ml = {}
 
 
 def plataforma_bloqueada_no_ciclo(slug: str) -> bool:
@@ -99,6 +112,120 @@ def _ja_parece_afiliado_ml(url: str) -> bool:
     )
 
 
+def _host_ml(url: str) -> str:
+    host = (urlparse(url).hostname or "").lower()
+    return host[4:] if host.startswith("www.") else host
+
+
+def _eh_url_produto_ml(url: str) -> bool:
+    """PDP real (/p/MLB… ou produto.mercadolivre), não perfil /social/."""
+    host = _host_ml(url)
+    path = (urlparse(url).path or "").lower()
+    if host == "produto.mercadolivre.com.br":
+        return "mlb" in path
+    if host not in {"mercadolivre.com.br", "mercadolibre.com", "mercadolibre.com.br"}:
+        return False
+    if "/social/" in path:
+        return False
+    return bool(re.search(r"/p/mlb\d+", path)) or bool(re.search(r"/mlb-?\d+", path))
+
+
+def _precisa_expandir_ml(url: str) -> bool:
+    """Link de afiliado de terceiros: curto, /sec/, ou landing /social/."""
+    lowered = (url or "").lower()
+    host = _host_ml(url)
+    path = (urlparse(url).path or "").lower()
+    if host in {"meli.la", "click1.mercadolivre.com.br"}:
+        return True
+    if "/sec/" in path:
+        return True
+    if host.endswith("mercadolivre.com.br") and "/social/" in path:
+        return True
+    if _eh_url_produto_ml(url) and any(
+        marker in lowered for marker in ("matt_tool=", "matt_word=", "matt_tool_id=")
+    ):
+        # Já é PDP com tracking alheio — só limpar, sem fetch.
+        return False
+    return False
+
+
+def _limpar_url_produto_ml(url: str) -> str:
+    """Remove tracking de afiliado alheio; mantém wid/pdp_filters do item."""
+    parsed = urlparse(url)
+    query = parse_qs(parsed.query, keep_blank_values=False)
+    kept = {key: vals[0] for key, vals in query.items() if key in _ML_KEEP_QUERY and vals}
+    clean = parsed._replace(
+        scheme="https",
+        netloc=parsed.netloc or "www.mercadolivre.com.br",
+        query=urlencode(kept) if kept else "",
+        fragment="",
+    )
+    return urlunparse(clean)
+
+
+def _extrair_produto_do_html_social(html: str) -> str | None:
+    """No perfil /social/?ref=… o produto compartilhado vem primeiro no HTML."""
+    match = _ML_PRODUCT_RE.search(html or "")
+    if not match:
+        return None
+    return _limpar_url_produto_ml(match.group(0).replace("&amp;", "&"))
+
+
+def resolver_url_produto_ml(url: str) -> str | None:
+    """meli.la / social → URL pura do produto; PDP com matt_* → limpa.
+
+    Links de afiliado do ML caem em /social/{tag}?ref=…; o createLink só
+    aceita bem a PDP (/p/MLB…). Sem reaproveitar meli.la de terceiros.
+    """
+    alvo = (url or "").strip()
+    if not alvo.startswith("http"):
+        return None
+    if alvo in _cache_produto_ml:
+        return _cache_produto_ml[alvo]
+    if _eh_url_produto_ml(alvo):
+        limpa = _limpar_url_produto_ml(alvo)
+        _cache_produto_ml[alvo] = limpa
+        return limpa
+    if not _precisa_expandir_ml(alvo):
+        _cache_produto_ml[alvo] = alvo
+        return alvo
+
+    produto: str | None = None
+    try:
+        with httpx.Client(
+            timeout=20.0,
+            follow_redirects=True,
+            headers={
+                "user-agent": BROWSER_USER_AGENT,
+                "accept-language": "pt-BR,pt;q=0.9",
+                "accept": "text/html,application/xhtml+xml",
+            },
+        ) as client:
+            response = client.get(alvo)
+    except httpx.HTTPError as exc:
+        logger.info(f"[afiliado] MELI expandir link falhou: {safe_log_text(exc)}")
+        _cache_produto_ml[alvo] = None
+        return None
+
+    final = str(response.url)
+    if _eh_url_produto_ml(final):
+        produto = _limpar_url_produto_ml(final)
+    else:
+        # /social/?ref=… (ou HTML pós-meli.la): o produto compartilhado vem primeiro.
+        produto = _extrair_produto_do_html_social(response.text[:500_000])
+        if not produto:
+            path = (urlparse(final).path or "").lower()
+            logger.info(
+                f"[afiliado] MELI sem PDP após expandir "
+                f"(final=…{path[-40:] if path else '?'})"
+            )
+
+    _cache_produto_ml[alvo] = produto
+    if produto:
+        logger.info(f"[afiliado] MELI produto resolvido: {produto}")
+    return produto
+
+
 def _extrair_url_afiliada(data: Any) -> str | None:
     """createLink devolve snake_case: urls[].short_url (ex.: https://meli.la/xxxx)."""
     keys = ("short_url", "shortUrl", "affiliateLink", "affineLink", "url", "link")
@@ -148,8 +275,14 @@ def _converter_mercadolivre_com_tag(
     if not tag or not auth.cookie:
         _avisar_createlink("[afiliado] MELI sem TAG/COOKIE — createLink não roda neste ciclo.")
         return None
-    if _ja_parece_afiliado_ml(url):
-        return url
+
+    # Nunca reaproveitar meli.la/social de outro afiliado: resolve a PDP pura.
+    produto = resolver_url_produto_ml(url)
+    if not produto:
+        _avisar_createlink(
+            "[afiliado] MELI não achou URL de produto para converter (meli.la/social?)."
+        )
+        return None
 
     csrf = _cookie_value(auth.cookie, "_csrf") or _cookie_value(auth.cookie, "csrf") or ""
     headers = {
@@ -175,7 +308,7 @@ def _converter_mercadolivre_com_tag(
             response = client.post(
                 ML_CREATE_LINK,
                 headers=headers,
-                json={"urls": [url], "tag": tag},
+                json={"urls": [produto], "tag": tag},
             )
             if response.status_code >= 400:
                 if response.status_code in {401, 403} and auth.account_id is not None:
@@ -347,11 +480,12 @@ def garantir_afiliado(
             bot_sub, group_sub = _tracking_ids(runtime.id, group_id)
             registrar_evento_runtime(
                 "attribution_link_failed",
-                "Falha ao gerar link atribuido da Shopee; usando offerLink afiliado",
+                "Falha ao gerar link atribuido da Shopee; oferta pulada",
                 detail={"platform": "shopee", "sub_ids": [bot_sub, group_sub]},
                 level="warning",
             )
-            return AffiliateLink(url, f"shopee:{bot_sub}-{group_sub}")
+            # Sem shortLink nosso: não reenviar offerLink de terceiro como se fosse nosso.
+            return AffiliateLink(url)
         return AffiliateLink(url)
 
     if "magalu" in loja or "magazine luiza" in loja:
@@ -452,5 +586,6 @@ __all__ = [
     "garantir_afiliado",
     "link_rastreado",
     "plataforma_bloqueada_no_ciclo",
+    "resolver_url_produto_ml",
     "reset_aviso_ciclo",
 ]
