@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 import time
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
-from sqlalchemy import select
+from sqlalchemy import select, update
 
 from core import db, relogio, repositories
 from core.config_provider import bots_ativos, load_filtros_runtime, usar_bot_runtime
@@ -64,8 +64,36 @@ def _oferta_template(
     )
 
 
+def corte_fila_do_dia(quando: datetime | None = None) -> datetime:
+    """Último 23:59 de Brasília que já chegou. Oferta anterior a isso não sai."""
+    agora = relogio.agora_br() if quando is None else quando.astimezone(relogio.BR)
+    corte = agora.replace(hour=23, minute=59, second=0, microsecond=0)
+    if agora < corte:
+        corte -= timedelta(days=1)
+    return corte
+
+
+def expirar_pendentes(quando: datetime | None = None) -> int:
+    """Tira da fila o que chegou antes do último 23:59. Não apaga o registro."""
+    corte = corte_fila_do_dia(quando)
+    with db.get_session() as session:
+        resultado = session.execute(
+            update(MirrorInbox)
+            .where(MirrorInbox.status == "pending", MirrorInbox.created_at < corte)
+            .values(
+                status="skipped",
+                skip_reason="passou_o_dia",
+                processed_at=datetime.now(timezone.utc),
+            )
+        )
+        return int(resultado.rowcount or 0)
+
+
 def processar_pendentes() -> int:
     """Processa até _BATCH itens pending. Retorna quantos saíram de pending."""
+    encerradas = expirar_pendentes()
+    if encerradas:
+        logger.info(f"[espelho] {encerradas} oferta(s) do dia anterior saíram da fila")
     processados = 0
     with db.get_session() as session:
         itens = session.scalars(

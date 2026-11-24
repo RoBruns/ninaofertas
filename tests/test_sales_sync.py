@@ -410,3 +410,8 @@ def test_job_diario_registrado_as_seis_com_max_instances_um() -> None:
     assert daily[2]["hour"] == 6
     assert daily[2]["minute"] == 0
     assert daily[2]["max_instances"] == 1
+    fila = next(job for job in scheduler.jobs if job[2]["id"] == "mirror-fila-do-dia")
+    assert fila[1] == "cron"
+    assert fila[2]["hour"] == 23
+    assert fila[2]["minute"] == 59
+    assert fila[2]["max_instances"] == 1

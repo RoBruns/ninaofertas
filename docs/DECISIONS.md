@@ -746,6 +746,20 @@ ausente). Testes ligam a flag no `conftest`.
 
 ---
 
+## ADR-040 — A fila do espelho não atravessa a noite
+**Data:** 2026-11-24 · **Status:** aceita · **Decisor:** dono
+
+Oferta adiada pelo freio ficava `pending` e saía no dia seguinte, quando o
+preço e o anúncio já tinham passado. O dono pediu para esvaziar essa fila
+todo dia às 23:59, depois que o envio entra no silêncio.
+
+Decisão: às 23:59 de Brasília o worker marca como `skipped` / `passou_o_dia`
+tudo que ainda está pendente e chegou antes desse horário. O registro fica.
+O que a Nina 1 capturar depois das 23:59 permanece na fila e sai quando o
+silêncio acaba. Se o worker reiniciar até uma hora depois, a limpeza ainda
+corre. O ciclo do espelho também recusa pendência anterior ao último 23:59,
+para um job perdido não publicar oferta velha.
+
 ## ADR-039 — Enfeite do título pela OpenAI
 **Data:** 2026-11-24 · **Status:** aceita · **Decisor:** dono
 

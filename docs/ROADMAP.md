@@ -1,5 +1,11 @@
 # Roadmap de implementação
 
+## Fila do dia encerra às 23:59 — 2026-11-24
+
+O que ainda está pendente às 23:59 de Brasília sai da fila (`passou_o_dia`) e
+não é enviado na manhã seguinte. Oferta que chega depois desse horário, já no
+silêncio, continua na fila até o envio voltar.
+
 ## Título enfeitado — 2026-11-24
 
 Com `OPENAI_API_KEY` no worker, o nome já conferido com a página ganha uma frase

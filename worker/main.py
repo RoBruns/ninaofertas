@@ -31,6 +31,15 @@ def _detectar_alertas() -> None:
         logger.exception(f"Job de alertas falhou: {exc}")
 
 
+def _encerrar_fila_do_dia() -> None:
+    """23:59 em Brasília: o que ainda está pendente não sai no dia seguinte."""
+    try:
+        n = mirror.expirar_pendentes()
+        logger.info(f"[espelho] 23:59: {n} oferta(s) pendente(s) não serão enviadas amanhã")
+    except Exception as exc:
+        logger.exception(f"[espelho] limpeza da fila falhou: {exc}")
+
+
 def _limpar_eventos() -> None:
     try:
         removidos = cleanup_events()
@@ -156,6 +165,16 @@ def _registrar_jobs(scheduler: BackgroundScheduler) -> None:
         coalesce=True,
     )
     scheduler.add_job(
+        _encerrar_fila_do_dia,
+        "cron",
+        hour=23,
+        minute=59,
+        id="mirror-fila-do-dia",
+        max_instances=1,
+        coalesce=True,
+        misfire_grace_time=3600,
+    )
+    scheduler.add_job(
         mirror.ciclo,
         "interval",
         seconds=15,
@@ -202,6 +221,7 @@ def main() -> None:
     _registrar_jobs(scheduler)
     logger.info("Recado do Instagram (foto da vó) a cada 4h nos grupos dos bots ativos.")
     logger.info("Espelho WhatsApp: drenando mirror_inbox a cada 15s.")
+    logger.info("Às 23:59 a fila do dia é encerrada; oferta antiga não sai de manhã.")
     scheduler.start()
 
     try:

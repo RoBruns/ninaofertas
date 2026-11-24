@@ -34,7 +34,7 @@ from worker.filters import (
     titulo_bate_com_pagina,
     titulo_mensagem_espelho,
 )
-from worker.mirror import _oferta_template
+from worker.mirror import _oferta_template, corte_fila_do_dia, expirar_pendentes
 
 
 def test_detectar_loja_por_host():
@@ -781,3 +781,104 @@ def test_midia_webhook_e_sendmedia_usam_base64_cru(monkeypatch: pytest.MonkeyPat
         media_path=env,
     )
     assert foto_cdn == "https://down-br.img.susercontent.com/oficial.jpg"
+
+
+def test_corte_da_fila_e_o_ultimo_2359() -> None:
+    from datetime import datetime
+    from zoneinfo import ZoneInfo
+
+    br = ZoneInfo("America/Sao_Paulo")
+    assert corte_fila_do_dia(datetime(2026, 11, 24, 19, 26, tzinfo=br)) == datetime(
+        2026, 11, 23, 23, 59, tzinfo=br
+    )
+    assert corte_fila_do_dia(datetime(2026, 11, 24, 23, 59, tzinfo=br)) == datetime(
+        2026, 11, 24, 23, 59, tzinfo=br
+    )
+    assert corte_fila_do_dia(datetime(2026, 11, 25, 7, 0, tzinfo=br)) == datetime(
+        2026, 11, 24, 23, 59, tzinfo=br
+    )
+
+
+def test_oferta_anterior_ao_2359_sai_da_fila(session_factory, monkeypatch) -> None:
+    from contextlib import contextmanager
+    from datetime import datetime
+    from zoneinfo import ZoneInfo
+
+    br = ZoneInfo("America/Sao_Paulo")
+    admin = add_user(session_factory, email="fila-dia@nina.test", role="admin")
+    with session_factory.begin() as session:
+        phone = Phone(
+            id=uuid4(),
+            owner_id=admin.tenant_id,
+            label="Nina 2 fila",
+            number="5511999000777",
+            evolution_instance="nina2-fila",
+        )
+        session.add(phone)
+        session.flush()
+        bot = Bot(
+            id=uuid4(),
+            owner_id=admin.tenant_id,
+            name="Fila do dia",
+            slug="fila-do-dia",
+            status="active",
+            phone_id=phone.id,
+            settings={},
+        )
+        session.add(bot)
+        session.flush()
+        session.add_all(
+            [
+                MirrorInbox(
+                    owner_id=admin.tenant_id,
+                    bot_id=bot.id,
+                    listen_phone_id=phone.id,
+                    source_whatsapp_id="120363origem@g.us",
+                    message_key="velha",
+                    body_text="ontem",
+                    status="pending",
+                    created_at=datetime(2026, 11, 24, 18, 0, tzinfo=br),
+                ),
+                MirrorInbox(
+                    owner_id=admin.tenant_id,
+                    bot_id=bot.id,
+                    listen_phone_id=phone.id,
+                    source_whatsapp_id="120363origem@g.us",
+                    message_key="noite",
+                    body_text="madrugada",
+                    status="pending",
+                    created_at=datetime(2026, 11, 25, 0, 10, tzinfo=br),
+                ),
+                MirrorInbox(
+                    owner_id=admin.tenant_id,
+                    bot_id=bot.id,
+                    listen_phone_id=phone.id,
+                    source_whatsapp_id="120363origem@g.us",
+                    message_key="enviada",
+                    body_text="ja foi",
+                    status="done",
+                    created_at=datetime(2026, 11, 24, 12, 0, tzinfo=br),
+                ),
+            ]
+        )
+
+    @contextmanager
+    def _sessao_do_teste():
+        session = session_factory()
+        try:
+            yield session
+            session.commit()
+        except Exception:
+            session.rollback()
+            raise
+        finally:
+            session.close()
+
+    monkeypatch.setattr("worker.mirror.db.get_session", _sessao_do_teste)
+    assert expirar_pendentes(datetime(2026, 11, 25, 8, 0, tzinfo=br)) == 1
+    with session_factory() as session:
+        por_chave = {item.message_key: item for item in session.query(MirrorInbox).all()}
+    assert por_chave["velha"].status == "skipped"
+    assert por_chave["velha"].skip_reason == "passou_o_dia"
+    assert por_chave["noite"].status == "pending"
+    assert por_chave["enviada"].status == "done"
