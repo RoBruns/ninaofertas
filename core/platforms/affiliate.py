@@ -35,12 +35,8 @@ _cache_produto_ml: dict[str, str | None] = {}
 
 def reset_aviso_ciclo() -> None:
     """Limpa aviso, bloqueio e cache de links no início de cada ciclo do bot."""
-    global (
-        _aviso_createlink_neste_ciclo,
-        _plataformas_bloqueadas_ciclo,
-        _cache_links_ciclo,
-        _cache_produto_ml,
-    )
+    global _aviso_createlink_neste_ciclo, _plataformas_bloqueadas_ciclo
+    global _cache_links_ciclo, _cache_produto_ml
     _aviso_createlink_neste_ciclo = False
     _plataformas_bloqueadas_ciclo = set()
     _cache_links_ciclo = {}
