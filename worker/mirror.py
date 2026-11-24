@@ -11,7 +11,7 @@ from core import db, relogio, repositories
 from core.config_provider import bots_ativos, load_filtros_runtime, usar_bot_runtime
 from core.credentials import platforms_with_usable_credentials
 from core.link_parser import extrair_links_oferta, loja_para_platform_slug
-from core.link_unfurl import cartao_da_mensagem, loja_com_cartao
+from core.link_unfurl import loja_com_cartao
 from core.mirror_media import ProdutoSomenteVideo, resolver_imagem_espelho
 from core.mirror_webhook import ensure_platform_listen_webhook
 from core.models import MirrorInbox, Phone
@@ -223,10 +223,8 @@ def processar_pendentes() -> int:
                         )
                         # Template do bot — sem citar o grupo de origem.
                         mensagem = formatter.montar_mensagem(oferta)
-                        cartao = cartao_da_mensagem(mensagem, link_nicho.loja, url_afiliado)
-                        if cartao is not None:
-                            mensagem = cartao.mensagem
-                            imagem_envio = cartao.imagem
+                        if usa_cartao:
+                            imagem_envio = None
                             teve_foto = True
                             ok_envio = whatsapp.enviar_mensagem(
                                 mensagem, imagem=None, grupo=jid, previa_do_link=True

@@ -1,4 +1,4 @@
-"""Cartão clicável: a prévia abre o link de afiliado da Shopee."""
+"""Cartão clicável: o link da loja traz a foto."""
 
 from __future__ import annotations
 
@@ -11,16 +11,12 @@ from starlette.requests import Request
 from api.errors import APIError
 from api.ratelimit import limiter
 from api.routers.link_preview import abrir_previa
-from core.link_unfurl import cartao_da_mensagem, eh_robo_previa, emitir_token
+from core.link_unfurl import eh_robo_previa, emitir_token, loja_com_cartao
 from worker import channels, whatsapp
 
 _CHAVE = base64.b64encode(b"k" * 32).decode()
-_LINK = "https://s.shopee.com.br/abc"
-_FOTO = "https://down-br.img.susercontent.com/file/br-11134207-foto"
-_HTML = (
-    '<meta property="og:title" content="Fogão 4 bocas">'
-    f'<meta property="og:image" content="{_FOTO}">'
-)
+_LINK = "https://meli.la/2C3T4JV"
+_FOTO = "https://http2.mlstatic.com/D_NQ_NP_807397-MLA79770084007_102024-F.jpg"
 
 
 def _pedido(user_agent: str) -> Request:
@@ -47,91 +43,11 @@ def _chave_e_base(monkeypatch: pytest.MonkeyPatch) -> None:
     limiter.clear()
 
 
-def _mock_shopee(monkeypatch: pytest.MonkeyPatch, status: int = 200, body: str = _HTML) -> None:
-    def handler(request: httpx.Request) -> httpx.Response:
-        assert request.headers["user-agent"].startswith("WhatsApp/")
-        return httpx.Response(status, text=body)
-
-    original = httpx.Client
-    monkeypatch.setattr(
-        httpx,
-        "Client",
-        lambda **kwargs: original(transport=httpx.MockTransport(handler), **kwargs),
-    )
-
-
-def test_cartao_troca_o_link_da_shopee_pela_previa(monkeypatch: pytest.MonkeyPatch) -> None:
-    _mock_shopee(monkeypatch)
-    cartao = cartao_da_mensagem(f"compre {_LINK}", "Shopee", _LINK)
-    assert cartao is not None
-    assert _LINK not in cartao.mensagem
-    assert cartao.mensagem.startswith("compre https://nina.example/api/p/")
-    assert cartao.imagem == _FOTO
-    assert cartao.destino == _LINK
-
-
-def test_sem_foto_da_shopee_nao_troca_o_link(monkeypatch: pytest.MonkeyPatch) -> None:
-    _mock_shopee(monkeypatch, body="<html>sem meta</html>")
-    assert cartao_da_mensagem(f"compre {_LINK}", "Shopee", _LINK) is None
-
-
-def test_outra_loja_nao_vira_cartao(monkeypatch: pytest.MonkeyPatch) -> None:
-    _mock_shopee(monkeypatch)
-    assert (
-        cartao_da_mensagem(
-            "compre https://www.amazon.com.br/dp/B00TEST",
-            "Amazon",
-            "https://www.amazon.com.br/dp/B00TEST",
-        )
-        is None
-    )
-
-
-def test_cartao_segue_o_meli_la_ate_a_foto(monkeypatch: pytest.MonkeyPatch) -> None:
-    link = "https://meli.la/nina"
-    foto = "https://http2.mlstatic.com/D_NQ_NP_841858-MLA95934002967_102025-OO.png"
-    produto = "https://www.mercadolivre.com.br/iphone/p/MLB1"
-    html = (
-        '<meta property="og:title" content="iPhone 15">'
-        f'<meta property="og:image" content="{foto}">'
-    )
-
-    def handler(request: httpx.Request) -> httpx.Response:
-        assert request.headers["user-agent"].startswith("WhatsApp/")
-        if request.url.host == "meli.la":
-            return httpx.Response(302, headers={"location": produto})
-        assert request.url.host == "www.mercadolivre.com.br"
-        return httpx.Response(200, text=html)
-
-    original = httpx.Client
-    monkeypatch.setattr(
-        httpx,
-        "Client",
-        lambda **kwargs: original(transport=httpx.MockTransport(handler), **kwargs),
-    )
-    cartao = cartao_da_mensagem(f"compre {link}", "Mercado Livre", link)
-    assert cartao is not None
-    assert link not in cartao.mensagem
-    assert cartao.imagem == foto
-    assert cartao.destino == link
-    token = cartao.mensagem.split("/p/", 1)[1]
-    pessoa = abrir_previa(token, _pedido("Mozilla/5.0"))
-    assert pessoa.status_code == 302
-    assert pessoa.headers["location"] == link
-
-
-def test_meli_nao_segue_redirect_fora_da_loja(monkeypatch: pytest.MonkeyPatch) -> None:
-    def handler(_request: httpx.Request) -> httpx.Response:
-        return httpx.Response(302, headers={"location": "https://evil.example/phish"})
-
-    original = httpx.Client
-    monkeypatch.setattr(
-        httpx,
-        "Client",
-        lambda **kwargs: original(transport=httpx.MockTransport(handler), **kwargs),
-    )
-    link = "https://meli.la/nina"
-    assert cartao_da_mensagem(f"compre {link}", "Mercado Livre", link) is None
+def test_shopee_e_mercado_livre_usam_o_link_da_loja() -> None:
+    assert loja_com_cartao("Shopee")
+    assert loja_com_cartao("Mercado Livre")
+    assert not loja_com_cartao("Amazon")
+    assert not loja_com_cartao("Magalu")
 
 
 def test_robo_ve_a_foto_e_pessoa_cai_no_afiliado() -> None:

@@ -1,11 +1,10 @@
-"""Cartão clicável da Shopee e do Mercado Livre.
+"""Prévia nativa da Shopee e do Mercado Livre.
 
-A Evolution 2.3.7 monta a prévia com User-Agent googlebot. O link curto da
-Shopee responde 301 para outro host, o Baileys recusa o redirect e o cartão
-sai sem foto. Com User-Agent de WhatsApp o link devolve og:title e og:image.
-A página pública repete essas tags para o robô e manda a pessoa para o
-link de afiliado. No Mercado Livre o meli.la redireciona até a página do
-produto, e a foto sai de lá.
+O link de afiliado (meli.la ou s.shopee.com.br) já traz a foto. A mensagem
+sai em texto, com a prévia do WhatsApp ligada, e o toque na imagem abre a loja.
+
+`/api/p/{token}` só atende links que já saíram com o endereço da prévia:
+o robô ainda vê a foto e a pessoa cai no afiliado.
 """
 
 from __future__ import annotations
@@ -15,33 +14,10 @@ import hashlib
 import hmac
 import html
 import json
-import re
-from dataclasses import dataclass
-from urllib.parse import urljoin, urlparse
-
-import httpx
+from urllib.parse import urlparse
 
 from core.crypto import _read_key
-from core.mirror_webhook import public_api_base_url
 
-_UA_WHATSAPP = "WhatsApp/2.23.20.0 A"
-_OG_TITLE = re.compile(
-    r'<meta[^>]+property=["\']og:title["\'][^>]+content=["\']([^"\']+)["\']',
-    re.IGNORECASE,
-)
-_OG_TITLE_ALT = re.compile(
-    r'<meta[^>]+content=["\']([^"\']+)["\'][^>]+property=["\']og:title["\']',
-    re.IGNORECASE,
-)
-_OG_IMAGE = re.compile(
-    r'<meta[^>]+property=["\']og:image["\'][^>]+content=["\']([^"\']+)["\']',
-    re.IGNORECASE,
-)
-_OG_IMAGE_ALT = re.compile(
-    r'<meta[^>]+content=["\']([^"\']+)["\'][^>]+property=["\']og:image["\']',
-    re.IGNORECASE,
-)
-_TITLE = re.compile(r"<title>([^<]+)</title>", re.IGNORECASE)
 _ROBOS = (
     "googlebot",
     "facebookexternalhit",
@@ -53,13 +29,6 @@ _ROBOS = (
     "embedly",
     "iframely",
 )
-
-
-@dataclass(frozen=True)
-class CartaoLink:
-    mensagem: str
-    imagem: str
-    destino: str
 
 
 def eh_shopee(loja: str | None) -> bool:
@@ -79,56 +48,6 @@ def eh_robo_previa(user_agent: str | None) -> bool:
     if ua.startswith("whatsapp/"):
         return True
     return any(marca in ua for marca in _ROBOS)
-
-
-def cartao_da_mensagem(mensagem: str, loja: str | None, url_afiliado: str) -> CartaoLink | None:
-    """Troca o link de afiliado pelo cartão, se a loja entregou a foto."""
-    if not loja_com_cartao(loja) or url_afiliado not in (mensagem or ""):
-        return None
-    if not public_api_base_url() or _chave() is None:
-        return None
-    previa = buscar_og(url_afiliado)
-    if previa is None:
-        return None
-    titulo, imagem = previa
-    publica = url_publica(url_afiliado, titulo, imagem)
-    if not publica:
-        return None
-    return CartaoLink(mensagem.replace(url_afiliado, publica), imagem, url_afiliado)
-
-
-def buscar_og(url: str) -> tuple[str, str] | None:
-    """Foto e título. Segue no máximo quatro redirects, só entre lojas permitidas."""
-    if not destino_permitido(url):
-        return None
-    atual = url
-    try:
-        with httpx.Client(timeout=8.0, follow_redirects=False) as client:
-            for _ in range(4):
-                response = client.get(
-                    atual,
-                    headers={"User-Agent": _UA_WHATSAPP, "Accept": "text/html"},
-                )
-                if response.status_code >= 400:
-                    return None
-                if response.is_redirect:
-                    proximo = _proximo_hop(atual, response.headers.get("location"))
-                    if proximo is None:
-                        return None
-                    atual = proximo
-                    continue
-                return _og(response.text[:80_000])
-    except httpx.HTTPError:
-        return None
-    return None
-
-
-def url_publica(destino: str, titulo: str, imagem: str) -> str | None:
-    base = public_api_base_url()
-    token = emitir_token(destino, titulo, imagem)
-    if not base or not token:
-        return None
-    return f"{base}/p/{token}"
 
 
 def emitir_token(destino: str, titulo: str, imagem: str) -> str | None:
@@ -222,45 +141,8 @@ def imagem_permitida(url: str) -> bool:
     )
 
 
-def _og(html_pagina: str) -> tuple[str, str] | None:
-    titulo = _primeiro(_OG_TITLE, html_pagina) or _primeiro(_OG_TITLE_ALT, html_pagina)
-    if not titulo:
-        titulo = _primeiro(_TITLE, html_pagina)
-    imagem = _primeiro(_OG_IMAGE, html_pagina) or _primeiro(_OG_IMAGE_ALT, html_pagina)
-    if not titulo or not imagem:
-        return None
-    imagem = _imagem_absoluta(imagem)
-    if not imagem_permitida(imagem):
-        return None
-    return titulo.strip(), imagem
-
-
-def _primeiro(regex: re.Pattern[str], texto: str) -> str | None:
-    match = regex.search(texto or "")
-    if not match:
-        return None
-    return html.unescape(match.group(1)).strip() or None
-
-
 def _url_https(url: str) -> bool:
     return url.startswith("https://") and not any(ord(char) < 33 for char in url)
-
-
-def _proximo_hop(atual: str, location: str | None) -> str | None:
-    bruto = (location or "").strip()
-    if not bruto:
-        return None
-    proximo = urljoin(atual, bruto).split("#", 1)[0]
-    if not destino_permitido(proximo):
-        return None
-    return proximo
-
-
-def _imagem_absoluta(url: str) -> str:
-    bruto = url.split("#", 1)[0].strip()
-    if bruto.startswith("//"):
-        return f"https:{bruto}"
-    return bruto
 
 
 def _chave() -> bytes | None:
