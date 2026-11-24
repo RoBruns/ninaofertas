@@ -723,3 +723,21 @@ sincronizado pelo rótulo). Todo bot **ativo** entra no fan-out automaticamente
 (sem toggle de espelho); filtro opcional só por `source_group_names` + nicho/
 contas do bot.
 
+---
+
+## ADR-037 — Só espelho: scraper/API de produtos desligado
+**Data:** 2026-11-24 · **Status:** aceita · **Decisor:** dono
+
+A operação deixa de descobrir ofertas por HTML/API (Shopee, ML, Amazon, Magalu,
+fila `produtos_meli`, cupons scrapeados). A **única** fonte de produto é o
+espelho WhatsApp (ADR-036): Nina 1 captura → fan-out → template/afiliado/foto
+no phone do bot.
+
+Decisão: `ENABLE_SCRAPER_DISCOVERY` padrão **off**. `monitor.ciclo` e o job
+`bots-db` / "Rodar agora" viram no-op sem a flag. Código dos scrapers permanece
+no repo para religar com a env se o dono pedir. Recado do Instagram, sync de
+vendas, alertas e heartbeat seguem.
+
+Consequência: em produção não setar `ENABLE_SCRAPER_DISCOVERY` (ou deixar
+ausente). Testes ligam a flag no `conftest`.
+

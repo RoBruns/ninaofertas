@@ -41,6 +41,11 @@ def _limpar_eventos() -> None:
 
 def _ciclos_banco() -> None:
     """Um ciclo por bot: uma varredura alimenta todos os seus grupos."""
+    from core.discovery import scraper_discovery_enabled
+
+    if not scraper_discovery_enabled():
+        # ADR-037: sem scraper — o espelho (mirror.ciclo) é a única fonte.
+        return
     global _avisou_sem_bots
     runtimes = bots_ativos()
     if not runtimes:
@@ -63,6 +68,10 @@ def _ciclos_banco() -> None:
 
 def _comandos_imediatos() -> None:
     commands.drenar_comandos()
+    from core.discovery import scraper_discovery_enabled
+
+    if not scraper_discovery_enabled():
+        return
     bot_ids = commands.consumir_run_now()
     if not bot_ids:
         return
@@ -169,11 +178,21 @@ def _registrar_jobs(scheduler: BackgroundScheduler) -> None:
 def main() -> None:
     db.init_db()
     ativos = canais_ativos()
+    from core.discovery import scraper_discovery_enabled
+
     logger.info("Bot de Ofertas iniciado. Bots, grupos e contas vêm do dashboard.")
     logger.info(f"Horário de Brasília: {relogio.agora_br().strftime('%H:%M')}.")
     if ativos:
         logger.info(f"{len(ativos)} canal(is) ativo(s) (bot x grupo).")
-    logger.info(f"Verificando novas ofertas a cada {settings.check_interval}s.")
+    if scraper_discovery_enabled():
+        logger.info(
+            f"Descoberta por scraper/API ligada. Intervalo: {settings.check_interval}s."
+        )
+    else:
+        logger.info(
+            "Modo só espelho (ADR-037): sem scraper/API de produtos. "
+            "Fontes = grupos que a Nina 1 escuta."
+        )
     from worker import whatsapp
 
     whatsapp.avisar_permissao_grupos()
@@ -181,6 +200,7 @@ def main() -> None:
     scheduler = BackgroundScheduler(timezone=relogio.BR)
     _registrar_jobs(scheduler)
     logger.info("Recado do Instagram (foto da vó) a cada 4h nos grupos dos bots ativos.")
+    logger.info("Espelho WhatsApp: drenando mirror_inbox a cada 15s.")
     scheduler.start()
 
     try:

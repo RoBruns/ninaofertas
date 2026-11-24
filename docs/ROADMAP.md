@@ -1,5 +1,11 @@
 # Roadmap de implementação
 
+## Só espelho (sem scraper) — 2026-11-24
+
+`ENABLE_SCRAPER_DISCOVERY` off por padrão (ADR-037): worker não roda
+`monitor.ciclo` / descoberta Shopee·ML·Amazon·Magalu. Fonte de produto =
+espelho WhatsApp (ADR-036). Scrapers ficam no código para religar via env.
+
 ## Espelhamento WhatsApp (plataforma) — 2026-11-24
 
 Nina 1 (rótulo fixo) é capturadora **da plataforma**; todo bot **ativo** entra

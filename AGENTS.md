@@ -8,9 +8,10 @@ o código vence — e corrija este arquivo.
 
 **Nina Bot**, produto multi-conta de marketing de afiliados. A operação da Nina é
 uma conta interna; cada cliente tem seus próprios usuários e dados operacionais.
-Um worker Python captura ofertas da **Shopee**, do **Mercado Livre**, da
-**Amazon** e da **Magalu** (loja do Magazine Você), filtra por nicho, gera link de afiliado e publica em **grupos de
-WhatsApp** pela evolution-api. Uma **API FastAPI** e um **dashboard React** configuram e
+Um worker Python **espelha** ofertas que a **Nina 1** captura em grupos de
+origem (ADR-036/037; scraper/API de produtos desligado por padrão), filtra por
+nicho, gera link de afiliado e publica em **grupos de WhatsApp** pela
+evolution-api. Uma **API FastAPI** e um **dashboard React** configuram e
 medem a operação: bots, telefones, grupos, contas de afiliado, filtros, ritmo, vendas,
 despesas e alertas.
 
@@ -46,12 +47,10 @@ nina-worker (APScheduler) ──────────────── nina-
       └─► evolution-api (WhatsApp) ─► grupos
 ```
 
-- **Worker** (`python -m worker.main`): a cada `check_interval` (60 s) roda um ciclo **por
-  bot ativo**: busca ofertas nas fontes das plataformas em que o bot tem credencial
-  válida, filtra, deduplica por grupo, passa pelo freio e envia **a mesma oferta a todos
-  os grupos do bot** (ADR-021). Também: drena comandos do dashboard (`commands`:
-  pausar, rodar agora, sincronizar grupos, importar vendas), importa vendas às 06:00,
-  detecta alertas a cada 5 min, recado do Instagram a cada 4 h.
+- **Worker** (`python -m worker.main`): por padrão **só espelho** (ADR-037) — drena
+  `mirror_inbox` a cada 15 s (Nina 1 → nicho/afiliado/freio → envio nos grupos do bot).
+  Scraper/API de produtos só com `ENABLE_SCRAPER_DISCOVERY=1`. Também: comandos do
+  dashboard, importação de vendas às 06:00, alertas a cada 5 min, recado do Instagram.
 - **API** (`python -m api.serve`, socket IPv4+IPv6): auth JWT + refresh em cookie,
   CRUD de bots/contas/telefones/grupos/campanhas/despesas, métricas, alertas, auditoria.
   Migrations Alembic rodam no pré-deploy (`alembic upgrade head`).

@@ -966,6 +966,11 @@ def _executar_ciclo() -> tuple[int, int, bool]:
 
 def ciclo() -> None:
     """Executa o pipeline legado envolvido apenas por operacao best-effort."""
+    from core.discovery import scraper_discovery_enabled
+
+    if not scraper_discovery_enabled():
+        # ADR-037: produto só espelha WhatsApp; scraper/API ficam off.
+        return
     commands.drenar_comandos()
     runtime = bot_atual()
     if runtime is not None and not commands.bot_esta_ativo(runtime.id):
