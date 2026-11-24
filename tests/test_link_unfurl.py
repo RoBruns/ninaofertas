@@ -78,9 +78,60 @@ def test_sem_foto_da_shopee_nao_troca_o_link(monkeypatch: pytest.MonkeyPatch) ->
 def test_outra_loja_nao_vira_cartao(monkeypatch: pytest.MonkeyPatch) -> None:
     _mock_shopee(monkeypatch)
     assert (
-        cartao_da_mensagem("compre https://meli.la/x", "Mercado Livre", "https://meli.la/x")
+        cartao_da_mensagem(
+            "compre https://www.amazon.com.br/dp/B00TEST",
+            "Amazon",
+            "https://www.amazon.com.br/dp/B00TEST",
+        )
         is None
     )
+
+
+def test_cartao_segue_o_meli_la_ate_a_foto(monkeypatch: pytest.MonkeyPatch) -> None:
+    link = "https://meli.la/nina"
+    foto = "https://http2.mlstatic.com/D_NQ_NP_841858-MLA95934002967_102025-OO.png"
+    produto = "https://www.mercadolivre.com.br/iphone/p/MLB1"
+    html = (
+        '<meta property="og:title" content="iPhone 15">'
+        f'<meta property="og:image" content="{foto}">'
+    )
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.headers["user-agent"].startswith("WhatsApp/")
+        if request.url.host == "meli.la":
+            return httpx.Response(302, headers={"location": produto})
+        assert request.url.host == "www.mercadolivre.com.br"
+        return httpx.Response(200, text=html)
+
+    original = httpx.Client
+    monkeypatch.setattr(
+        httpx,
+        "Client",
+        lambda **kwargs: original(transport=httpx.MockTransport(handler), **kwargs),
+    )
+    cartao = cartao_da_mensagem(f"compre {link}", "Mercado Livre", link)
+    assert cartao is not None
+    assert link not in cartao.mensagem
+    assert cartao.imagem == foto
+    assert cartao.destino == link
+    token = cartao.mensagem.split("/p/", 1)[1]
+    pessoa = abrir_previa(token, _pedido("Mozilla/5.0"))
+    assert pessoa.status_code == 302
+    assert pessoa.headers["location"] == link
+
+
+def test_meli_nao_segue_redirect_fora_da_loja(monkeypatch: pytest.MonkeyPatch) -> None:
+    def handler(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(302, headers={"location": "https://evil.example/phish"})
+
+    original = httpx.Client
+    monkeypatch.setattr(
+        httpx,
+        "Client",
+        lambda **kwargs: original(transport=httpx.MockTransport(handler), **kwargs),
+    )
+    link = "https://meli.la/nina"
+    assert cartao_da_mensagem(f"compre {link}", "Mercado Livre", link) is None
 
 
 def test_robo_ve_a_foto_e_pessoa_cai_no_afiliado() -> None:

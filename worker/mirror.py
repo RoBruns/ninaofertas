@@ -11,7 +11,7 @@ from core import db, relogio, repositories
 from core.config_provider import bots_ativos, load_filtros_runtime, usar_bot_runtime
 from core.credentials import platforms_with_usable_credentials
 from core.link_parser import extrair_links_oferta, loja_para_platform_slug
-from core.link_unfurl import cartao_da_mensagem
+from core.link_unfurl import cartao_da_mensagem, loja_com_cartao
 from core.mirror_media import ProdutoSomenteVideo, resolver_imagem_espelho
 from core.mirror_webhook import ensure_platform_listen_webhook
 from core.models import MirrorInbox, Phone
@@ -149,7 +149,7 @@ def processar_pendentes() -> int:
                     logger.info(f"[espelho] adiando {item.id}: {motivo}")
                     continue
 
-                shopee = "shopee" in (link_nicho.loja or "").lower()
+                usa_cartao = loja_com_cartao(link_nicho.loja)
                 listen = session.get(Phone, item.listen_phone_id)
                 imagem: str | None = None
                 foto_resolvida = False
@@ -171,7 +171,7 @@ def processar_pendentes() -> int:
                     except ProdutoSomenteVideo:
                         somente_video = True
 
-                if not shopee:
+                if not usa_cartao:
                     garantir_foto()
                     if somente_video:
                         logger.info(f"[espelho] sem foto estática (só vídeo) {item.id}")

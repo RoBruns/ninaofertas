@@ -447,13 +447,14 @@ GET    /r/{code}   → 302 para a URL afiliada, gravando clicks
 Sem auth (é link público de grupo). Só faz lookup, grava clique e redireciona —
 qualquer trabalho extra vira latência entre o clique e a loja.
 
-## Cartão clicável da Shopee
+## Cartão clicável da Shopee e do Mercado Livre
 
 ```
 GET    /api/p/{token}   → HTML com og:image para o robô da prévia; 302 para o afiliado no clique
 ```
 
-Sem auth. O token é HMAC de `CREDENTIALS_KEY`. 600/min por IP. Não grava clique.
+Sem auth. Vale para Shopee e Mercado Livre. O token é HMAC de `CREDENTIALS_KEY`.
+600/min por IP. Não grava clique.
 
 ## Plataforma — planos, assinaturas e SaaS (S2)
 

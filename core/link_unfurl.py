@@ -1,10 +1,11 @@
-"""Cartão clicável da Shopee.
+"""Cartão clicável da Shopee e do Mercado Livre.
 
-A Evolution 2.3.7 monta a prévia com User-Agent googlebot. O link curto
-responde 301 para outro host, o Baileys recusa o redirect e o cartão sai sem
-foto. Com User-Agent de WhatsApp o mesmo link devolve og:title e og:image.
+A Evolution 2.3.7 monta a prévia com User-Agent googlebot. O link curto da
+Shopee responde 301 para outro host, o Baileys recusa o redirect e o cartão
+sai sem foto. Com User-Agent de WhatsApp o link devolve og:title e og:image.
 A página pública repete essas tags para o robô e manda a pessoa para o
-link de afiliado.
+link de afiliado. No Mercado Livre o meli.la redireciona até a página do
+produto, e a foto sai de lá.
 """
 
 from __future__ import annotations
@@ -16,7 +17,7 @@ import html
 import json
 import re
 from dataclasses import dataclass
-from urllib.parse import urlparse
+from urllib.parse import urljoin, urlparse
 
 import httpx
 
@@ -65,6 +66,14 @@ def eh_shopee(loja: str | None) -> bool:
     return "shopee" in (loja or "").lower()
 
 
+def eh_mercado_livre(loja: str | None) -> bool:
+    return "mercado" in (loja or "").lower()
+
+
+def loja_com_cartao(loja: str | None) -> bool:
+    return eh_shopee(loja) or eh_mercado_livre(loja)
+
+
 def eh_robo_previa(user_agent: str | None) -> bool:
     ua = (user_agent or "").strip().lower()
     if ua.startswith("whatsapp/"):
@@ -73,12 +82,12 @@ def eh_robo_previa(user_agent: str | None) -> bool:
 
 
 def cartao_da_mensagem(mensagem: str, loja: str | None, url_afiliado: str) -> CartaoLink | None:
-    """Troca o link de afiliado pelo cartão, se a Shopee entregou a foto."""
-    if not eh_shopee(loja) or url_afiliado not in (mensagem or ""):
+    """Troca o link de afiliado pelo cartão, se a loja entregou a foto."""
+    if not loja_com_cartao(loja) or url_afiliado not in (mensagem or ""):
         return None
     if not public_api_base_url() or _chave() is None:
         return None
-    previa = buscar_og_shopee(url_afiliado)
+    previa = buscar_og(url_afiliado)
     if previa is None:
         return None
     titulo, imagem = previa
@@ -88,20 +97,30 @@ def cartao_da_mensagem(mensagem: str, loja: str | None, url_afiliado: str) -> Ca
     return CartaoLink(mensagem.replace(url_afiliado, publica), imagem, url_afiliado)
 
 
-def buscar_og_shopee(url: str) -> tuple[str, str] | None:
+def buscar_og(url: str) -> tuple[str, str] | None:
+    """Foto e título. Segue no máximo quatro redirects, só entre lojas permitidas."""
     if not destino_permitido(url):
         return None
+    atual = url
     try:
         with httpx.Client(timeout=8.0, follow_redirects=False) as client:
-            response = client.get(
-                url,
-                headers={"User-Agent": _UA_WHATSAPP, "Accept": "text/html"},
-            )
+            for _ in range(4):
+                response = client.get(
+                    atual,
+                    headers={"User-Agent": _UA_WHATSAPP, "Accept": "text/html"},
+                )
+                if response.status_code >= 400:
+                    return None
+                if response.is_redirect:
+                    proximo = _proximo_hop(atual, response.headers.get("location"))
+                    if proximo is None:
+                        return None
+                    atual = proximo
+                    continue
+                return _og(response.text[:80_000])
     except httpx.HTTPError:
         return None
-    if response.status_code >= 400 or response.is_redirect:
-        return None
-    return _og(response.text[:80_000])
+    return None
 
 
 def url_publica(destino: str, titulo: str, imagem: str) -> str | None:
@@ -172,17 +191,35 @@ def html_cartao(titulo: str, imagem: str, destino: str) -> str:
 
 
 def destino_permitido(url: str) -> bool:
-    if not url.startswith("https://") or _tem_controle(url) or len(url) > 2000:
+    if not _url_https(url) or len(url) > 2000:
         return False
     host = (urlparse(url).hostname or "").lower()
-    return host == "shope.ee" or host == "shopee.com.br" or host.endswith(".shopee.com.br")
+    return (
+        host in {
+            "shope.ee",
+            "meli.la",
+            "shopee.com.br",
+            "mercadolivre.com.br",
+            "mercadolibre.com",
+            "mercadolibre.com.br",
+        }
+        or host.endswith(".shopee.com.br")
+        or host.endswith(".meli.la")
+        or host.endswith(".mercadolivre.com.br")
+        or host.endswith(".mercadolibre.com")
+        or host.endswith(".mercadolibre.com.br")
+    )
 
 
 def imagem_permitida(url: str) -> bool:
-    if not url.startswith("https://") or _tem_controle(url) or len(url) > 500:
+    if not _url_https(url) or len(url) > 1000:
         return False
     host = (urlparse(url).hostname or "").lower()
-    return host.endswith("susercontent.com") or host.endswith("shopee.com.br")
+    return (
+        host.endswith("susercontent.com")
+        or host.endswith("shopee.com.br")
+        or host.endswith("mlstatic.com")
+    )
 
 
 def _og(html_pagina: str) -> tuple[str, str] | None:
@@ -192,7 +229,7 @@ def _og(html_pagina: str) -> tuple[str, str] | None:
     imagem = _primeiro(_OG_IMAGE, html_pagina) or _primeiro(_OG_IMAGE_ALT, html_pagina)
     if not titulo or not imagem:
         return None
-    imagem = imagem.split("#", 1)[0]
+    imagem = _imagem_absoluta(imagem)
     if not imagem_permitida(imagem):
         return None
     return titulo.strip(), imagem
@@ -205,8 +242,25 @@ def _primeiro(regex: re.Pattern[str], texto: str) -> str | None:
     return html.unescape(match.group(1)).strip() or None
 
 
-def _tem_controle(url: str) -> bool:
-    return any(ord(char) < 33 for char in url)
+def _url_https(url: str) -> bool:
+    return url.startswith("https://") and not any(ord(char) < 33 for char in url)
+
+
+def _proximo_hop(atual: str, location: str | None) -> str | None:
+    bruto = (location or "").strip()
+    if not bruto:
+        return None
+    proximo = urljoin(atual, bruto).split("#", 1)[0]
+    if not destino_permitido(proximo):
+        return None
+    return proximo
+
+
+def _imagem_absoluta(url: str) -> str:
+    bruto = url.split("#", 1)[0].strip()
+    if bruto.startswith("//"):
+        return f"https:{bruto}"
+    return bruto
 
 
 def _chave() -> bytes | None:

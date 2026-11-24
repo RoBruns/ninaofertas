@@ -746,20 +746,22 @@ ausente). Testes ligam a flag no `conftest`.
 
 ---
 
-## ADR-038 — Cartão clicável da Shopee, com o link de afiliado no destino
+## ADR-038 — Cartão clicável da Shopee e do Mercado Livre
 **Data:** 2026-11-24 · **Status:** aceita · **Decisor:** dono
 
 A foto anexada abre em tela cheia. O dono pediu a imagem do link: o toque abre
 a loja. A Shopee entrega `og:image` ao User-Agent do WhatsApp e esconde a foto
-do Googlebot, que é o agente com que a Evolution 2.3.7 monta a prévia.
+do Googlebot, que é o agente com que a Evolution 2.3.7 monta a prévia. O
+Mercado Livre entra no mesmo cartão: o `meli.la` é seguido até a página do
+produto, de onde sai a foto do `mlstatic`.
 
 O texto do grupo leva `GET /api/p/{token}` (assinado com `CREDENTIALS_KEY`).
-O robô da prévia recebe o título e a foto da Shopee. A pessoa recebe 302 para
-o short link de afiliado, com o `sub_id` intacto. Sem `PUBLIC_API_BASE_URL`,
-sem a foto da Shopee ou fora da Shopee, o envio continua com a foto anexada.
-Cupom com card impresso não usa esse cartão.
+O robô da prévia recebe o título e a foto. A pessoa recebe 302 para o link de
+afiliado, com o rastreio intacto. Sem `PUBLIC_API_BASE_URL`, sem a foto ou
+fora dessas duas lojas, o envio continua com a foto anexada. Cupom com card
+impresso não usa esse cartão.
 
-Isso abre exceção ao ADR-017 só na Shopee: o link visível deixa de ser
-`s.shopee.com.br` para a prévia existir. O destino do clique não muda.
+Isso abre exceção ao ADR-017 na Shopee e no Mercado Livre: o link visível
+deixa de ser o da loja para a prévia existir. O destino do clique não muda.
 
 
