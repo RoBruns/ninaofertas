@@ -2,15 +2,13 @@
 
 ## Espelhamento WhatsApp (plataforma) — 2026-11-24
 
-Nina 1 (rótulo fixo) é capturadora **da plataforma** (`phones.is_platform_listen`): uma
-instância escuta a allowlist global e serve todos os tenants. Cada bot só
-liga `mirror.enabled` (subset opcional de nomes). Webhook
+Nina 1 (rótulo fixo) é capturadora **da plataforma**; todo bot **ativo** entra
+no fan-out sem toggle (subset opcional `source_group_names`). Webhook
 `POST /api/webhooks/evolution` → `mirror_captures` (neutra) → `mirror_inbox`
-por bot inscrito (migrations `0013`+`0014`). Worker: parse loja → credencial
-do bot → `passa_filtros_espelho` (nicho/bloqueios, sem preço) →
-`garantir_afiliado` da conta → freio → envio no phone do bot. Env:
-`PUBLIC_API_BASE_URL`, `EVOLUTION_WEBHOOK_SECRET`, opcional
-`MIRROR_SOURCE_GROUPS`. Ver ADR-036.
+por bot (migrations `0013`–`0016`). Worker: parse loja → credencial do bot →
+`passa_filtros_espelho` (nicho/bloqueios, sem preço) → `garantir_afiliado` →
+freio → envio no phone do bot. Env: `PUBLIC_API_BASE_URL`,
+`EVOLUTION_WEBHOOK_SECRET`, opcional `MIRROR_SOURCE_GROUPS`. Ver ADR-036.
 
 ## Coletor local ML (Chromium) — 2026-11-23
 

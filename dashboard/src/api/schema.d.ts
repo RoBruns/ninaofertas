@@ -1820,12 +1820,13 @@ export interface components {
         };
         /**
          * Mirror
-         * @description Inscrição no espelho: Nina 1 (plataforma) captura; o phone do bot envia.
+         * @description Espelho: Nina 1 captura; todo bot ativo envia pelo phone dele (sem toggle).
          */
         Mirror: {
             /**
              * Enabled
-             * @default false
+             * @description Sempre true — bot ativo já entra no espelho (campo legado).
+             * @default true
              */
             enabled: boolean;
             /**

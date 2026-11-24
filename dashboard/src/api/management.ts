@@ -34,7 +34,7 @@ export const defaultSettings: BotSettings = {
   content: { recado_instagram: false, aceitar_cupons: true, aceitar_campanhas: false, cupom_venda_indireta: true, max_cupons_por_dia: 2, intervalo_cupom_minutos: 90, cupons_meli: [], produtos_meli: [], baseline_ciclos: 5 },
   schedule: { check_interval: 60, quiet_hours: { start: '00:00', end: '08:00' } },
   mirror: {
-    enabled: false,
+    enabled: true,
     source_group_names: [],
   },
 }

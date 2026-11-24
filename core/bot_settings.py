@@ -215,12 +215,16 @@ class Attribution(BaseModel):
 
 
 class Mirror(BaseModel):
-    """Inscrição no espelho: Nina 1 (plataforma) captura; o phone do bot envia."""
+    """Espelho: Nina 1 captura; todo bot ativo envia pelo phone dele.
+
+    `enabled` fica sempre True (sem toggle). Campo permanece só por compatibilidade
+    com settings antigos — a API/worker tratam bot ativo como inscrito.
+    """
 
     # ignore: settings antigos podiam ter listen_phone_id (por-tenant).
     model_config = ConfigDict(extra="ignore")
 
-    enabled: bool = False
+    enabled: bool = True
     source_group_names: list[str] = Field(
         default_factory=list,
         max_length=40,

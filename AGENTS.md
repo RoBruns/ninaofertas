@@ -199,10 +199,10 @@ nina-worker (APScheduler) ──────────────── nina-
 - ML descoberta automática: HTML e `/highlights` bloqueados (ADR-035); envio via
   `content.produtos_meli` + bookmarklet até haver conta de vendedor ou outra fonte.
 - Espelho WhatsApp (ADR-036): o telefone com rótulo **Nina 1** é a escuta
- chumbada (`is_platform_listen` sincronizado pelo rótulo, sem toggle) →
- `mirror_captures` → `mirror_inbox` por bot → nicho/afiliado/freio do bot →
- envio no phone dele. Em produção: `PUBLIC_API_BASE_URL` +
- `EVOLUTION_WEBHOOK_SECRET` na API e no worker.
+ chumbada; todo bot ativo recebe a fila (sem toggle) → `mirror_captures` →
+ `mirror_inbox` por bot → nicho/afiliado/freio do bot → envio no phone dele.
+ Em produção: `PUBLIC_API_BASE_URL` + `EVOLUTION_WEBHOOK_SECRET` na API e no
+ worker.
 - Amazon: busca pública cai em verificação de robô em datacenter; etiqueta-only.
 - Revisão final de segurança e E2E (fase 14).
 

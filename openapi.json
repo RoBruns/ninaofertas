@@ -16316,7 +16316,8 @@
      "enabled": {
       "type": "boolean",
       "title": "Enabled",
-      "default": false
+      "default": true,
+      "description": "Sempre true — bot ativo já entra no espelho (campo legado)."
      },
      "source_group_names": {
       "items": {
@@ -16332,7 +16333,7 @@
     "additionalProperties": false,
     "type": "object",
     "title": "Mirror",
-    "description": "Inscrição no espelho: Nina 1 (plataforma) captura; o phone do bot envia."
+    "description": "Espelho: Nina 1 captura; todo bot ativo envia pelo phone dele (sem toggle)."
    },
    "AuditLogResponse": {
     "properties": {

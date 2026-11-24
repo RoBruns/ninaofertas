@@ -703,7 +703,7 @@ envio continua sendo o telefone de cada bot (Nina 2 / cliente).
 
 Decisão: allowlist de origem é da plataforma (não cada cliente escolhe Nina 1).
 Webhook Evolution `MESSAGES_UPSERT` → captura neutra `mirror_captures` → fan-out
-para bots com `mirror.enabled` em **qualquer** tenant → `mirror_inbox` por bot.
+para todo bot `active` em **qualquer** tenant → `mirror_inbox` por bot.
 No drain, por bot: classificar loja → exigir conta afiliado daquele bot →
 `passa_filtros_espelho` (nicho/bloqueios; sem preço/desconto) →
 `garantir_afiliado` no runtime do bot → freio → envio. Link nunca é
@@ -712,6 +712,7 @@ ignoradas (anti-eco). Canal Shopee (`@newsletter`) pode ser frágil.
 
 Consequência: `PUBLIC_API_BASE_URL` + `EVOLUTION_WEBHOOK_SECRET` na API e no
 worker. O telefone com rótulo **Nina 1** é a escuta chumbada (`is_platform_listen`
-sincronizado pelo rótulo — sem toggle na API/dashboard). Cliente só liga o
-toggle do espelho no bot e mantém filtros/contas.
+sincronizado pelo rótulo). Todo bot **ativo** entra no fan-out automaticamente
+(sem toggle de espelho); filtro opcional só por `source_group_names` + nicho/
+contas do bot.
 

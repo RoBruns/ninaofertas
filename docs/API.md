@@ -31,8 +31,7 @@ A escuta da plataforma é o telefone com rótulo **Nina 1** (chumbado; a flag
 `is_platform_listen` na resposta é só leitura, sincronizada pelo rótulo). No
 máximo um telefone com a flag. Webhook público
 `POST /api/webhooks/evolution?token=` (segredo `EVOLUTION_WEBHOOK_SECRET`)
-grava `mirror_captures` e enfileira `mirror_inbox` para bots com
-`mirror.enabled`.
+grava `mirror_captures` e enfileira `mirror_inbox` para todo bot ativo.
 
 `PhoneCreate`/`PhoneUpdate` aceitam `evolution_instance` somente de platform
 admin; campo presente, inclusive null, de outro usuário → 403. Instância usada

@@ -86,15 +86,16 @@ def _auth_ok(request: Request, token: str | None) -> bool:
 
 
 def _bots_inscritos(session: Session, listen_phone_id: UUID) -> list[tuple[Bot, BotSettings]]:
-    """Todos os bots ativos com espelho ligado (qualquer tenant), menos o chip de escuta."""
+    """Todo bot ativo (qualquer tenant), menos o chip de escuta Nina 1.
+
+    Sem toggle: a inscrição no espelho é automática (ADR-036).
+    """
     bots = session.scalars(select(Bot).where(Bot.status == "active")).all()
     out: list[tuple[Bot, BotSettings]] = []
     for bot in bots:
         try:
             settings = BotSettings.model_validate(bot.settings or {})
         except Exception:
-            continue
-        if not settings.mirror.enabled:
             continue
         if bot.phone_id and bot.phone_id == listen_phone_id:
             continue
