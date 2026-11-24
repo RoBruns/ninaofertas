@@ -1,5 +1,10 @@
 # Roadmap de implementação
 
+## Foto da Shopee pula o vídeo da galeria — 2026-11-24
+
+O vídeo, quando existe, é o primeiro slide. A foto enviada é a primeira mídia
+seguinte que não seja vídeo. Se o carrossel inteiro for vídeo, a oferta não sai.
+
 ## Prévia do link também vira foto — 2026-11-24
 
 Grupo de origem que manda o link (e o WhatsApp mostra a foto na prévia, sem

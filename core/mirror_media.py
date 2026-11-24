@@ -200,6 +200,63 @@ def _abs_https(base: str, candidate: str) -> str | None:
     return raw.split("#", 1)[0]
 
 
+class ProdutoSomenteVideo(Exception):
+    """A galeria do produto só tem vídeo, ou a única imagem é a capa dele."""
+
+
+def _eh_video_url(url: str) -> bool:
+    baixo = (url or "").lower()
+    return any(marca in baixo for marca in (".mp4", ".m3u8", ".webm", "vod.susercontent"))
+
+
+def _url_arquivo_shopee(token: str) -> str | None:
+    bruto = (token or "").strip()
+    if bruto.startswith("https://"):
+        if not _host_permitido(bruto) or _eh_video_url(bruto):
+            return None
+        return bruto.split("#", 1)[0]
+    if not re.fullmatch(r"[A-Za-z0-9_-]{16,}", bruto):
+        return None
+    return f"https://down-br.img.susercontent.com/file/{bruto}"
+
+
+def _eh_shopee(loja: str | None, url: str) -> bool:
+    nome = (loja or "").lower()
+    host = (urlparse(url).hostname or "").lower()
+    return "shopee" in nome or host.endswith("shopee.com.br") or host.endswith("shopee.com")
+
+
+def escolher_imagem_galeria(imagens: list[str], *, tem_video: bool) -> str | None:
+    """Primeira mídia do carrossel que não é vídeo.
+
+    O vídeo, quando existe, ocupa o primeiro slide — a capa JPEG conta como vídeo.
+    Se o slide seguinte também for vídeo, segue para o próximo. Só vídeo → None.
+    """
+    for indice, url in enumerate(imagens):
+        if _eh_video_url(url) or (tem_video and indice == 0):
+            continue
+        return url
+    return None
+
+
+def _galeria_shopee(html: str) -> tuple[list[str], bool]:
+    tem_video = bool(re.search(r'"video_info_list"\s*:\s*\[\s*\{', html))
+    melhor: list[str] = []
+    for match in re.finditer(r'"images"\s*:\s*\[(.*?)\]', html, re.S):
+        urls: list[str] = []
+        for token in re.findall(r'"([^"]+)"', match.group(1)[:8000]):
+            if _eh_video_url(token):
+                if token not in urls:
+                    urls.append(token)
+                continue
+            url = _url_arquivo_shopee(token)
+            if url and url not in urls:
+                urls.append(url)
+        if len(urls) > len(melhor):
+            melhor = urls
+    return melhor, tem_video
+
+
 def _extrair_og_image(html: str, base_url: str) -> str | None:
     for regex in (_OG_IMAGE_RE, _OG_IMAGE_RE_ALT, _JSON_IMAGE_RE):
         match = regex.search(html or "")
@@ -233,7 +290,15 @@ def imagem_do_link_produto(url: str, loja: str | None = None) -> str | None:
     if response.status_code >= 400:
         logger.info(f"[espelho] sem foto CDN ({loja or '?'}): HTTP {response.status_code}")
         return None
-    foto = _extrair_og_image(response.text[:120_000], final)
+    html = response.text[:250_000]
+    if _eh_shopee(loja, final):
+        imagens, tem_video = _galeria_shopee(html)
+        if imagens or tem_video:
+            foto = escolher_imagem_galeria(imagens, tem_video=tem_video)
+            if foto:
+                return foto
+            raise ProdutoSomenteVideo()
+    foto = _extrair_og_image(html[:120_000], final)
     if foto:
         return foto
     logger.info(f"[espelho] produto sem og:image utilizável ({loja or '?'})")
@@ -295,11 +360,11 @@ def resolver_imagem_espelho(
     loja: str | None,
     media_path: str | None = None,
 ) -> str | None:
-    """Ordem: foto do produto (og:image/CDN) → mídia na fila → getBase64 WhatsApp.
+    """Ordem: foto do produto (galeria Shopee ou og:image) → mídia na fila → getBase64.
 
-    Grupos de origem às vezes mandam só a foto do anúncio (sem bytes úteis) ou
-    uma arte com link desenhado. Com a URL do marketplace na legenda/texto,
-    preferimos a imagem oficial da página do produto.
+    Na Shopee o carrossel é percorrido na ordem: vídeo é pulado até achar uma
+    foto. Se todos os slides forem vídeo, levanta ProdutoSomenteVideo e não
+    cai na prévia do link.
     """
     cdn = imagem_do_link_produto(product_url, loja)
     if cdn:

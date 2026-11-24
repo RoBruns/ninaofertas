@@ -11,7 +11,7 @@ from core import db, relogio, repositories
 from core.config_provider import bots_ativos, load_filtros_runtime, usar_bot_runtime
 from core.credentials import platforms_with_usable_credentials
 from core.link_parser import extrair_links_oferta, loja_para_platform_slug
-from core.mirror_media import resolver_imagem_espelho
+from core.mirror_media import ProdutoSomenteVideo, resolver_imagem_espelho
 from core.mirror_webhook import ensure_platform_listen_webhook
 from core.models import MirrorInbox, Phone
 from core.platforms import affiliate
@@ -150,13 +150,19 @@ def processar_pendentes() -> int:
 
                 # Foto: página do produto; se ela não vier, a prévia do link ou o anexo.
                 listen = session.get(Phone, item.listen_phone_id)
-                imagem = resolver_imagem_espelho(
-                    listen_instance=listen.evolution_instance if listen else None,
-                    message_key=item.message_key,
-                    product_url=link_nicho.url,
-                    loja=link_nicho.loja,
-                    media_path=item.media_path,
-                )
+                try:
+                    imagem = resolver_imagem_espelho(
+                        listen_instance=listen.evolution_instance if listen else None,
+                        message_key=item.message_key,
+                        product_url=link_nicho.url,
+                        loja=link_nicho.loja,
+                        media_path=item.media_path,
+                    )
+                except ProdutoSomenteVideo:
+                    logger.info(f"[espelho] sem foto estática (só vídeo) {item.id}")
+                    _marcar(item, "skipped", "somente_video")
+                    processados += 1
+                    continue
                 if not imagem:
                     logger.warning(
                         f"[espelho] sem foto para {item.id} "

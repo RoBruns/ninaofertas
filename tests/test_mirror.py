@@ -17,7 +17,9 @@ from core.models import Bot, Group, MirrorCapture, MirrorInbox, Phone, Tenant
 from core.platforms.base import OfertaCapturada
 from tests.test_api import add_user, client, session_factory
 from core.mirror_media import (
+    ProdutoSomenteVideo,
     base64_puro,
+    escolher_imagem_galeria,
     imagem_do_link_produto,
     mensagem_tem_imagem,
     midia_do_payload_webhook,
@@ -583,6 +585,93 @@ def test_imagem_do_link_produto_usa_og_image(monkeypatch: pytest.MonkeyPatch) ->
     )
     foto = imagem_do_link_produto("https://shopee.com.br/product/1/2", "shopee")
     assert foto == "https://down-br.img.susercontent.com/foto.jpg"
+
+
+def _html_galeria(imagens: list[str], *, video: bool) -> str:
+    lista = ",".join(f'"{item}"' for item in imagens)
+    extra = '"video_info_list":[{"video_id":"abc"}],' if video else ""
+    return f'<html><script>{{{extra}"images":[{lista}]}}</script></html>'
+
+
+def test_shopee_sem_video_usa_a_primeira_foto(monkeypatch: pytest.MonkeyPatch) -> None:
+    hashes = ["br-11134207-capa-foto-um", "br-11134207-foto-dois", "br-11134207-foto-tres"]
+    html = _html_galeria(hashes, video=False)
+
+    def handler(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, text=html)
+
+    original = httpx.Client
+    monkeypatch.setattr(
+        httpx,
+        "Client",
+        lambda **kwargs: original(transport=httpx.MockTransport(handler), **kwargs),
+    )
+    foto = imagem_do_link_produto("https://s.shopee.com.br/abc", "shopee")
+    assert foto == "https://down-br.img.susercontent.com/file/br-11134207-capa-foto-um"
+
+
+def test_shopee_com_video_usa_a_foto_seguinte(monkeypatch: pytest.MonkeyPatch) -> None:
+    hashes = ["br-11134207-capa-video", "br-11134207-foto-dois", "br-11134207-foto-tres"]
+    html = _html_galeria(hashes, video=True)
+
+    def handler(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, text=html)
+
+    original = httpx.Client
+    monkeypatch.setattr(
+        httpx,
+        "Client",
+        lambda **kwargs: original(transport=httpx.MockTransport(handler), **kwargs),
+    )
+    foto = imagem_do_link_produto("https://s.shopee.com.br/abc", "shopee")
+    assert foto == "https://down-br.img.susercontent.com/file/br-11134207-foto-dois"
+
+
+def test_shopee_so_capa_de_video_nao_envia(monkeypatch: pytest.MonkeyPatch) -> None:
+    html = _html_galeria(["br-11134207-capa-video"], video=True)
+
+    def handler(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, text=html)
+
+    original = httpx.Client
+    monkeypatch.setattr(
+        httpx,
+        "Client",
+        lambda **kwargs: original(transport=httpx.MockTransport(handler), **kwargs),
+    )
+    with pytest.raises(ProdutoSomenteVideo):
+        imagem_do_link_produto("https://s.shopee.com.br/abc", "shopee")
+    with pytest.raises(ProdutoSomenteVideo):
+        resolver_imagem_espelho(
+            listen_instance="nina1",
+            message_key="120@g.us:MSG1",
+            product_url="https://s.shopee.com.br/abc",
+            loja="shopee",
+            media_path="B" * 80,
+        )
+
+
+def test_carrossel_pula_videos_ate_a_primeira_foto() -> None:
+    foto = escolher_imagem_galeria(
+        [
+            "https://down-br.img.susercontent.com/file/br-11134207-capa",
+            "https://down-br.img.susercontent.com/file/segundo.mp4",
+            "https://down-br.img.susercontent.com/file/br-11134207-foto-tres",
+        ],
+        tem_video=True,
+    )
+    assert foto == "https://down-br.img.susercontent.com/file/br-11134207-foto-tres"
+    assert escolher_imagem_galeria(
+        [
+            "https://down-br.img.susercontent.com/file/capa.mp4",
+            "https://down-br.img.susercontent.com/file/br-11134207-foto-dois",
+        ],
+        tem_video=False,
+    ) == "https://down-br.img.susercontent.com/file/br-11134207-foto-dois"
+    assert escolher_imagem_galeria(
+        ["https://down-br.img.susercontent.com/file/so-video.mp4"],
+        tem_video=True,
+    ) is None
 
 
 def test_midia_webhook_e_sendmedia_usam_base64_cru(monkeypatch: pytest.MonkeyPatch) -> None:
