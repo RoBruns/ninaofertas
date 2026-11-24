@@ -1,5 +1,11 @@
 # Roadmap de implementação
 
+## Título enfeitado — 2026-11-24
+
+Com `OPENAI_API_KEY` no worker, o nome já conferido com a página ganha uma frase
+curta e um ou dois emojis. Marca e modelo permanecem. Sem chave ou com linha
+que troca o nome, sai o título limpo.
+
 ## Prévia só com a foto — 2026-11-24
 
 A oferta sai com a foto do produto anexada e o link da loja no texto. O título

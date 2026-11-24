@@ -33,6 +33,7 @@ class Settings:
         default_factory=lambda: os.getenv("EVOLUTION_API_URL", "http://localhost:8080")
     )
     evolution_api_key: str = field(default_factory=lambda: os.getenv("EVOLUTION_API_KEY", ""))
+    openai_api_key: str = field(default_factory=lambda: os.getenv("OPENAI_API_KEY", ""))
 
     reenvio_queda_minima: float = field(
         default_factory=lambda: float(os.getenv("REENVIO_QUEDA_MINIMA", 15))

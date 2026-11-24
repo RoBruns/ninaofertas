@@ -21,6 +21,7 @@ from core.models import MirrorInbox, Phone
 from core.platforms import affiliate
 from core.platforms.base import OfertaCapturada
 from worker import channels, filters, formatter, monitor, telemetry, whatsapp
+from worker.titulo_enfeite import enfeitar_titulo
 from worker.logger import logger
 
 _BATCH = 8
@@ -188,6 +189,7 @@ def processar_pendentes() -> int:
                     _marcar(item, "skipped", motivo)
                     processados += 1
                     continue
+                titulo = enfeitar_titulo(titulo)
 
                 enviou_algum = False
                 falhou_total = True

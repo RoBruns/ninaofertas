@@ -71,6 +71,11 @@ Depois de aplicar a migration 0008, o admin da conta pode usar **Sincronizar
 token** no telefone já existente da Nina; não é necessário recriar a instância
 ou reparear o WhatsApp. Nenhuma variável de token deve ir ao frontend.
 
+`OPENAI_API_KEY` é opcional e pertence somente ao **nina-worker**. Enfeita o título
+já conferido com a página: conserva marca e modelo e acrescenta uma frase curta.
+Sem a chave, ou se a linha não conservar o nome, a oferta sai com o título da
+página. Não colocar na API nem no dashboard.
+
 `TYPESAFE_API_KEY` e `ANTHROPIC_API_KEY` são opcionais e pertencem somente ao
 **nina-worker**: respectivamente Jev (`jev-1.13.0`, chave Bearer da TypeSafe) e
 Claude Haiku (`claude-haiku-5-5`, SDK oficial Anthropic). Não colocar na API, no dashboard ou
