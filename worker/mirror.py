@@ -145,14 +145,21 @@ def processar_pendentes() -> int:
                     logger.info(f"[espelho] adiando {item.id}: {motivo}")
                     continue
 
-                # Foto: mídia original na Nina 1 (só memória) → fallback CDN do produto.
+                # Foto: fila (thumbnail/base64) → getBase64 Nina 1 → CDN.
                 listen = session.get(Phone, item.listen_phone_id)
                 imagem = resolver_imagem_espelho(
                     listen_instance=listen.evolution_instance if listen else None,
                     message_key=item.message_key,
                     product_url=link_nicho.url,
                     loja=link_nicho.loja,
+                    media_path=item.media_path,
                 )
+                if not imagem:
+                    logger.warning(
+                        f"[espelho] sem foto para {item.id} "
+                        f"(has_media={getattr(item, 'has_media', None)} "
+                        f"loja={link_nicho.loja})"
+                    )
 
                 enviou_algum = False
                 falhou_total = True

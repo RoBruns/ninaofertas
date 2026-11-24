@@ -1,4 +1,4 @@
-"""Foto do espelho: mídia da mensagem (em memória) ou URL CDN do produto."""
+"""Foto do espelho: preview/base64 do webhook, getBase64 Evolution, ou CDN."""
 
 from __future__ import annotations
 
@@ -11,7 +11,6 @@ from loguru import logger
 
 from core.evolution import EvolutionClient, EvolutionUnavailable
 
-# Mesma família que worker.whatsapp — só HTTPS de loja/CDN.
 _HOST_OK = (
     "http2.mlstatic.com",
     "http.mlstatic.com",
@@ -73,6 +72,57 @@ def mensagem_tem_imagem(message: dict[str, Any] | None) -> bool:
     return isinstance(msg, dict) and isinstance(msg.get("imageMessage"), dict)
 
 
+def _normalizar_base64(raw: str) -> str | None:
+    texto = (raw or "").strip()
+    match = _DATA_URL_RE.match(texto)
+    if match:
+        texto = match.group(1)
+    # WhatsApp às vezes manda com prefixo "data:..." incompleto ou espaços.
+    if "base64," in texto:
+        texto = texto.split("base64,", 1)[1]
+    texto = "".join(texto.split())
+    if len(texto) < 32:
+        return None
+    return texto
+
+
+def data_url_jpeg(raw: str) -> str | None:
+    b64 = _normalizar_base64(raw)
+    if not b64:
+        return None
+    return f"data:image/jpeg;base64,{b64}"
+
+
+def midia_do_payload_webhook(message: dict[str, Any] | None) -> str | None:
+    """Extrai foto do upsert: base64 completo (webhookBase64) ou jpegThumbnail.
+
+    Devolve data-URL para guardar em `media_path` (texto na fila — sem arquivo).
+    """
+    msg = _unwrap_message(message)
+    if not isinstance(msg, dict):
+        return None
+    image = msg.get("imageMessage")
+    if not isinstance(image, dict):
+        return None
+    # Preferência: mídia completa quando a Evolution manda webhookBase64.
+    for key in ("base64", "media"):
+        raw = image.get(key)
+        if isinstance(raw, str) and len(raw) > 64:
+            url = data_url_jpeg(raw)
+            if url:
+                return url
+    raw_msg = msg.get("base64")
+    if isinstance(raw_msg, str) and len(raw_msg) > 64:
+        url = data_url_jpeg(raw_msg)
+        if url:
+            return url
+    # Sempre presente em imageMessage do Baileys — qualidade menor, mas funciona.
+    thumb = image.get("jpegThumbnail")
+    if isinstance(thumb, str) and len(thumb) > 32:
+        return data_url_jpeg(thumb)
+    return None
+
+
 def _host_permitido(url: str) -> bool:
     host = (urlparse(url).hostname or "").lower()
     if not host:
@@ -105,7 +155,7 @@ def _extrair_og_image(html: str, base_url: str) -> str | None:
 
 
 def imagem_do_link_produto(url: str, loja: str | None = None) -> str | None:
-    """URL pública do anúncio (CDN). Fallback quando a mídia do WhatsApp falha."""
+    """URL pública do anúncio (CDN). Último recurso."""
     alvo = (url or "").strip()
     if not alvo.startswith("https://"):
         return None
@@ -141,19 +191,8 @@ def partir_message_key(message_key: str) -> tuple[str, str] | None:
     return remote, msg_id
 
 
-def _normalizar_base64(raw: str) -> str | None:
-    texto = (raw or "").strip()
-    match = _DATA_URL_RE.match(texto)
-    if match:
-        texto = match.group(1)
-    texto = "".join(texto.split())
-    if len(texto) < 64:
-        return None
-    return texto
-
-
 def midia_whatsapp_em_memoria(instance: str, message_key: str) -> str | None:
-    """Puxa a foto original na Nina 1 e devolve data-URL — sem gravar em disco."""
+    """Puxa a foto original na Nina 1 (getBase64) — sem gravar arquivo."""
     partes = partir_message_key(message_key)
     if not partes or not instance:
         return None
@@ -165,12 +204,12 @@ def midia_whatsapp_em_memoria(instance: str, message_key: str) -> str | None:
             message_id=msg_id,
         )
     except EvolutionUnavailable as exc:
-        logger.info(f"[espelho] mídia WhatsApp indisponível: {exc}")
+        logger.warning(f"[espelho] getBase64 falhou ({instance}): {exc}")
         return None
-    b64 = _normalizar_base64(raw or "")
-    if not b64:
-        return None
-    return f"data:image/jpeg;base64,{b64}"
+    url = data_url_jpeg(raw or "")
+    if not url:
+        logger.warning(f"[espelho] getBase64 sem payload útil ({instance})")
+    return url
 
 
 def resolver_imagem_espelho(
@@ -179,8 +218,13 @@ def resolver_imagem_espelho(
     message_key: str,
     product_url: str,
     loja: str | None,
+    media_path: str | None = None,
 ) -> str | None:
-    """Prioridade: foto da mensagem original (memória) → CDN do produto."""
+    """Ordem: mídia já na fila → getBase64 Nina 1 → CDN do produto."""
+    if isinstance(media_path, str) and media_path.startswith("data:image/"):
+        return media_path
+    if isinstance(media_path, str) and media_path.startswith("https://"):
+        return media_path
     if listen_instance:
         wa = midia_whatsapp_em_memoria(listen_instance, message_key)
         if wa:

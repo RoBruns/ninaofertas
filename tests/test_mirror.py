@@ -15,8 +15,14 @@ from core.mirror_sources import allowlist_para_bot, platform_source_group_names
 from core.models import Bot, Group, MirrorCapture, MirrorInbox, Phone, Tenant
 from core.platforms.base import OfertaCapturada
 from tests.test_api import add_user, client, session_factory
-from core.mirror_media import imagem_do_link_produto, mensagem_tem_imagem, resolver_imagem_espelho
+from core.mirror_media import (
+    imagem_do_link_produto,
+    mensagem_tem_imagem,
+    midia_do_payload_webhook,
+    resolver_imagem_espelho,
+)
 from worker import formatter
+from worker.whatsapp import _media_payload
 from worker.filters import (
     extrair_cupom_mensagem,
     extrair_precos_mensagem,
@@ -514,22 +520,26 @@ def test_imagem_do_link_produto_usa_og_image(monkeypatch: pytest.MonkeyPatch) ->
     assert foto == "https://down-br.img.susercontent.com/foto.jpg"
 
 
-def test_mensagem_tem_imagem_e_resolver_prioriza_whatsapp(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_mensagem_tem_imagem_e_resolver_prioriza_fila(monkeypatch: pytest.MonkeyPatch) -> None:
     assert mensagem_tem_imagem({"imageMessage": {"caption": "oi"}})
     assert not mensagem_tem_imagem({"conversation": "só texto"})
+    thumb = midia_do_payload_webhook(
+        {"imageMessage": {"caption": "oi", "jpegThumbnail": "QQ==" + ("A" * 40)}}
+    )
+    assert thumb and thumb.startswith("data:image/jpeg;base64,")
 
     monkeypatch.setattr(
         "core.mirror_media.midia_whatsapp_em_memoria",
-        lambda instance, key: "data:image/jpeg;base64," + ("A" * 80),
+        lambda instance, key: "data:image/jpeg;base64," + ("B" * 80),
     )
-    monkeypatch.setattr(
-        "core.mirror_media.imagem_do_link_produto",
-        lambda url, loja=None: "https://down-br.img.susercontent.com/nao-deve-usar.jpg",
-    )
+    # Fila ganha de getBase64.
     foto = resolver_imagem_espelho(
         listen_instance="nina1",
         message_key="120@g.us:MSG1",
         product_url="https://s.shopee.com.br/x",
         loja="shopee",
+        media_path=thumb,
     )
-    assert foto is not None and foto.startswith("data:image/jpeg;base64,")
+    assert foto == thumb
+    # sendMedia recebe data-URL intacta.
+    assert _media_payload(thumb) == thumb

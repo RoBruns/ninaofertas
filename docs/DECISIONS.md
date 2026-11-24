@@ -712,10 +712,10 @@ envio. Da origem só entram título, De/Por, cupom (se a linha acompanhar o
 link de compra) e URL de marketplace; convite WhatsApp, PIX e disclaimer
 são descartados. Link nunca é compartilhado entre tenants. Mensagens
 `fromMe` e JIDs dos destinos do bot são ignoradas (anti-eco). Canal Shopee
-(`@newsletter`) pode ser frágil. Foto: na hora do envio, `getBase64FromMediaMessage`
-na Nina 1 → `sendMedia` na Nina 2 **só em memória** (sem gravar disco/banco);
-fallback `og:image`/CDN do produto se a mídia do WhatsApp falhar. `has_media`
-marca a origem; `media_path` fica ocioso.
+(`@newsletter`) pode ser frágil. Foto: no webhook guarda data-URL
+(`jpegThumbnail` ou base64 com `webhookBase64`) em `media_path` (texto na
+fila, sem arquivo); no drain tenta ainda `getBase64FromMediaMessage` e por
+fim CDN do produto. `sendMedia` recebe data-URL.
 
 Consequência: `PUBLIC_API_BASE_URL` + `EVOLUTION_WEBHOOK_SECRET` na API e no
 worker. O telefone com rótulo **Nina 1** é a escuta chumbada (`is_platform_listen`

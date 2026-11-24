@@ -90,13 +90,15 @@ def enviar_mensagem(texto: str, imagem: str | None = None, grupo: str | None = N
         media = _media_payload(imagem)
         if media:
             url = f"{settings.evolution_api_url}/message/sendMedia/{instancia}"
-            payload = {"number": destino, "mediatype": "image", "media": media, "caption": texto}
-            if not str(imagem).startswith("http"):
-                # data-URL / base64 / arquivo local — Evolution recebe o base64 puro.
-                eh_jpeg = (
-                    str(imagem).startswith("data:image/jpeg")
-                    or Path(imagem).suffix.lower() in {".jpg", ".jpeg", ""}
-                )
+            # Evolution aceita URL https ou data-URL / base64 (preferimos data-URL).
+            payload = {
+                "number": destino,
+                "mediatype": "image",
+                "media": media,
+                "caption": texto,
+            }
+            if not str(media).startswith("http"):
+                eh_jpeg = "image/png" not in str(imagem)[:40].lower()
                 payload["mimetype"] = "image/jpeg" if eh_jpeg else "image/png"
                 payload["fileName"] = "foto.jpg" if eh_jpeg else "cupom.png"
         else:
@@ -149,18 +151,20 @@ def _media_payload(imagem: str) -> str | None:
         logger.warning("URL http:// não permitida para mídia; use https ou arquivo local.")
         return None
     if imagem.startswith("data:image/") and ";base64," in imagem:
-        # Espelho: foto da mensagem original só em memória.
-        return imagem.split(";base64,", 1)[1].strip()
+        # Evolution sendMedia prefere data-URL completa (não só o base64 cru).
+        return imagem
     path = Path(imagem)
     if path.is_file():
         if not _path_local_permitido(path):
             logger.warning(f"Arquivo de mídia fora de data/ ou assets/: {imagem}")
             return None
-        return base64.b64encode(path.read_bytes()).decode("ascii")
-    # Base64 cru (sem data-URL) — só se parecer payload, não caminho.
+        raw = base64.b64encode(path.read_bytes()).decode("ascii")
+        mime = "image/jpeg" if path.suffix.lower() in {".jpg", ".jpeg"} else "image/png"
+        return f"data:{mime};base64,{raw}"
+    # Base64 cru → envelopa como data-URL.
     compacto = "".join(imagem.split())
     if len(compacto) > 200 and re.fullmatch(r"[A-Za-z0-9+/]+=*", compacto):
-        return compacto
+        return f"data:image/jpeg;base64,{compacto}"
     return None
 
 

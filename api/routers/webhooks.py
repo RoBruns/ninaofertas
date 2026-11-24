@@ -16,7 +16,7 @@ from api.deps import get_db
 from api.errors import APIError
 from core.bot_settings import BotSettings
 from core.mirror_match import nome_na_allowlist
-from core.mirror_media import mensagem_tem_imagem
+from core.mirror_media import mensagem_tem_imagem, midia_do_payload_webhook
 from core.mirror_sources import allowlist_para_bot
 from core.mirror_webhook import webhook_secret
 from core.models import Bot, BotGroup, Group, MirrorCapture, MirrorInbox, Phone
@@ -176,8 +176,11 @@ async def evolution_messages(
                     nome_grupo = raw.strip()
                     break
 
-        # Captura neutra. has_media marca foto na origem; bytes só na hora do envio.
+        # Captura neutra. Foto: base64/thumbnail do webhook em media_path (texto, sem arquivo).
         has_media = mensagem_tem_imagem(message_obj)
+        media_path = midia_do_payload_webhook(message_obj) if has_media else None
+        if media_path:
+            has_media = True
         cap_stmt = (
             insert(MirrorCapture)
             .values(
@@ -187,6 +190,7 @@ async def evolution_messages(
                 message_key=message_key,
                 body_text=body,
                 has_media=has_media,
+                media_path=media_path,
                 status="routed",
                 created_at=datetime.now(timezone.utc),
             )
@@ -207,6 +211,7 @@ async def evolution_messages(
             capture_id = capture.id if capture else None
             if capture is not None:
                 has_media = bool(capture.has_media) or has_media
+                media_path = capture.media_path or media_path
 
         for bot, settings in candidatos:
             dest_ids = set(
@@ -233,6 +238,7 @@ async def evolution_messages(
                     message_key=message_key,
                     body_text=body,
                     has_media=has_media,
+                    media_path=media_path,
                     status="pending",
                     created_at=datetime.now(timezone.utc),
                 )
