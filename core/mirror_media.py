@@ -43,10 +43,7 @@ _JSON_IMAGE_RE = re.compile(
 _DATA_URL_RE = re.compile(r"^data:image/[^;]+;base64,(.+)$", re.I | re.S)
 
 _HEADERS = {
-    "User-Agent": (
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
-        "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-    ),
+    "User-Agent": "WhatsApp/2.23.20.0 A",
     "Accept-Language": "pt-BR,pt;q=0.9",
 }
 

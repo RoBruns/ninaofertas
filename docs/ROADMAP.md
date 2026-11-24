@@ -2,9 +2,10 @@
 
 ## Prévia só com a foto — 2026-11-24
 
-Shopee e Mercado Livre pedem o cartão só com a imagem do produto, sem o título
-da página. O texto continua com o link da loja. A Evolution 2.3.7 só aceita
-prévia automática (foto e título juntos); se recusar, a oferta sai nessa prévia.
+A oferta sai com a foto do produto anexada e o link da loja no texto. No
+carrossel, a primeira mídia que não é vídeo. Sem foto, a oferta não sai. A
+página do produto é lida com o agente do WhatsApp, porque a Shopee esconde a
+imagem de um navegador comum.
 
 ## Foto da Shopee pula o vídeo da galeria — 2026-11-24
 

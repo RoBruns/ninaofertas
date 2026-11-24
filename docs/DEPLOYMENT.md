@@ -242,20 +242,21 @@ O volume da `evolution-api` (`/evolution/instances`) guarda a sessão do WhatsAp
 aplica cooldown de segurança quando há muitas tentativas seguidas (já aconteceu
 neste projeto, registrado em `STATUS.md`). Não recriar o serviço sem necessidade.
 
-**Imagem fixada por digest** desde 2026-10-14:
+**Imagem em produção** desde 2026-11-24: Evolution 2.3.8 com o cartão de link
+só com a foto (deploy `ad03115e`,
+`sha256:e1faf3caf556cc03da5491ce8a1592b031bcc572d13c50cbc5fe97f3e054af09`).
+`sendText` aceita `linkPreview` booleano ou objeto (`thumbnailUrl` ou
+`thumbnailBase64`, `canonicalUrl` opcional, sem título). O log de início ficou
+`CONNECTED TO WHATSAPP` e a sessão do volume continuou. A imagem anterior, de
+2026-10-14, era
 `evoapicloud/evolution-api@sha256:966625532d9076a2381e973a271307d107e6f070450de3abeeea8bd18be07252`
-(é a `latest` que já rodava, publicada em 2026-05-06; o log de início diz `v2.3.7`,
-mas o digest difere do da tag `v2.3.7`, então é uma recompilação dela). Antes rodava `:latest`, que podia trocar de
-versão num reinício e mudar o formato das respostas que a API e o worker leem. Para
-atualizar: escolha uma versão **igual ou mais nova** (a Evolution migra o próprio banco;
-voltar versão pode quebrar a sessão), teste o contrato de `core/evolution.py` e troque
-com `railway service source connect --image <imagem> --service evolution-api
---environment production`, logo depois de um envio ou no silêncio noturno, porque o
-serviço reinicia. A Railway manda o e-mail "Deployment crashed for evolution-api" sobre
-o deploy **antigo**, que sai com erro ao ser encerrado na troca (aconteceu em
-2026-10-14 com o `5decaca1`); confira o id no link do e-mail e o log do deploy novo
-("CONNECTED TO WHATSAPP") antes de agir. O log de início mostra a versão real
-(`v2.3.7` em 2026-10-14).
+(recompilação da 2.3.7; só aceitava `linkPreview` booleano). Para atualizar:
+versão **igual ou mais nova** (voltar versão pode quebrar a sessão), teste o
+contrato de `core/evolution.py` e troque a imagem do serviço `evolution-api`,
+logo depois de um envio ou no silêncio noturno, porque o serviço reinicia.
+Não recrie o serviço. A Railway manda o e-mail "Deployment crashed for
+evolution-api" sobre o deploy **antigo**; confira o id e o log do deploy novo
+("CONNECTED TO WHATSAPP") antes de agir.
 
 ## Saúde
 

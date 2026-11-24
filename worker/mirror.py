@@ -11,7 +11,6 @@ from core import db, relogio, repositories
 from core.config_provider import bots_ativos, load_filtros_runtime, usar_bot_runtime
 from core.credentials import platforms_with_usable_credentials
 from core.link_parser import extrair_links_oferta, loja_para_platform_slug
-from core.link_unfurl import loja_com_cartao
 from core.mirror_media import ProdutoSomenteVideo, resolver_imagem_espelho
 from core.mirror_webhook import ensure_platform_listen_webhook
 from core.models import MirrorInbox, Phone
@@ -149,7 +148,6 @@ def processar_pendentes() -> int:
                     logger.info(f"[espelho] adiando {item.id}: {motivo}")
                     continue
 
-                usa_cartao = loja_com_cartao(link_nicho.loja)
                 listen = session.get(Phone, item.listen_phone_id)
                 imagem: str | None = None
                 foto_resolvida = False
@@ -171,13 +169,13 @@ def processar_pendentes() -> int:
                     except ProdutoSomenteVideo:
                         somente_video = True
 
-                if not usa_cartao:
-                    garantir_foto()
-                    if somente_video:
-                        logger.info(f"[espelho] sem foto estática (só vídeo) {item.id}")
-                        _marcar(item, "skipped", "somente_video")
-                        processados += 1
-                        continue
+                garantir_foto()
+                if somente_video or not imagem:
+                    motivo = "somente_video" if somente_video else "sem_foto"
+                    logger.info(f"[espelho] sem representação ({motivo}) {item.id}")
+                    _marcar(item, "skipped", motivo)
+                    processados += 1
+                    continue
 
                 enviou_algum = False
                 falhou_total = True
@@ -223,33 +221,11 @@ def processar_pendentes() -> int:
                         )
                         # Template do bot — sem citar o grupo de origem.
                         mensagem = formatter.montar_mensagem(oferta)
-                        if usa_cartao:
-                            garantir_foto()
-                            imagem_envio = imagem
-                            teve_foto = True
-                            ok_envio = whatsapp.enviar_mensagem(
-                                mensagem,
-                                imagem=None,
-                                grupo=jid,
-                                previa_do_link=True,
-                                previa_imagem=imagem if isinstance(imagem, str) else None,
-                            )
-                        else:
-                            garantir_foto()
-                            if somente_video:
-                                logger.info(f"[espelho] sem foto estática (só vídeo) {item.id}")
-                                break
-                            if not imagem:
-                                logger.warning(
-                                    f"[espelho] sem foto para {item.id} "
-                                    f"(has_media={getattr(item, 'has_media', None)} "
-                                    f"loja={link_nicho.loja})"
-                                )
-                            imagem_envio = imagem
-                            teve_foto = teve_foto or bool(imagem)
-                            ok_envio = whatsapp.enviar_mensagem(
-                                mensagem, imagem=imagem, grupo=jid
-                            )
+                        imagem_envio = imagem
+                        teve_foto = True
+                        ok_envio = whatsapp.enviar_mensagem(
+                            mensagem, imagem=imagem, grupo=jid
+                        )
                         oferta_db = monitor._salvar_oferta(  # noqa: SLF001
                             session,
                             OfertaCapturada(

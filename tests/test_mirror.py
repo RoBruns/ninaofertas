@@ -575,6 +575,7 @@ def test_imagem_do_link_produto_usa_og_image(monkeypatch: pytest.MonkeyPatch) ->
 
     def handler(request: httpx.Request) -> httpx.Response:
         assert str(request.url).startswith("https://shopee.com.br/")
+        assert request.headers["user-agent"].startswith("WhatsApp/")
         return httpx.Response(200, text=html)
 
     original = httpx.Client

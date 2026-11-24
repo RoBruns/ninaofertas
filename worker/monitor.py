@@ -20,7 +20,6 @@ from core import db, relevancia, relogio, repositories
 from core.config_provider import bot_runtime_atual
 from core.credentials import platforms_with_usable_credentials
 from core.cupom_cadencia import intervalo_cupom_minutos
-from core.link_unfurl import loja_com_cartao
 from core.models import Oferta
 from core.platforms import affiliate
 from core.platforms.base import OfertaCapturada
@@ -472,20 +471,14 @@ def _enviar_oferta_no_grupo(session, oferta: OfertaCapturada, oferta_db) -> str:
         except Exception as e:
             logger.warning(f"Não deu pra gerar print do cupom: {e}")
 
+    if not oferta.imagem:
+        logger.info(f"[{nome_canal()}] Sem representação; oferta não enviada.")
+        return "sem_foto"
+
     mensagem = formatter.montar_mensagem(oferta)
-    previa = (oferta.categoria or "").lower() != "cupom" and loja_com_cartao(oferta.loja)
 
     logger.info(f"[{nome_canal()}] Enviando para WhatsApp...")
-    if previa:
-        sucesso = whatsapp.enviar_mensagem(
-            mensagem,
-            imagem=None,
-            grupo=grupo,
-            previa_do_link=True,
-            previa_imagem=oferta.imagem,
-        )
-    else:
-        sucesso = whatsapp.enviar_mensagem(mensagem, imagem=oferta.imagem, grupo=grupo)
+    sucesso = whatsapp.enviar_mensagem(mensagem, imagem=oferta.imagem, grupo=grupo)
 
     repositories.registrar_envio(
         session,
@@ -923,6 +916,8 @@ def _executar_ciclo() -> tuple[int, int, bool]:
                         continue
                     if resultado == "enviou":
                         mensagens_enviadas += 1
+                    elif resultado == "sem_foto":
+                        break
                     elif resultado == "afiliado":
                         falhou_afiliado = True
                         sem_afiliado += 1
