@@ -16,6 +16,7 @@ from api.deps import get_db
 from api.errors import APIError
 from core.bot_settings import BotSettings
 from core.mirror_match import nome_na_allowlist
+from core.mirror_media import mensagem_tem_imagem
 from core.mirror_sources import allowlist_para_bot
 from core.mirror_webhook import webhook_secret
 from core.models import Bot, BotGroup, Group, MirrorCapture, MirrorInbox, Phone
@@ -175,7 +176,8 @@ async def evolution_messages(
                     nome_grupo = raw.strip()
                     break
 
-        # Captura neutra (uma por mensagem na Nina 1). Foto vem do link do produto no drain.
+        # Captura neutra. has_media marca foto na origem; bytes só na hora do envio.
+        has_media = mensagem_tem_imagem(message_obj)
         cap_stmt = (
             insert(MirrorCapture)
             .values(
@@ -184,6 +186,7 @@ async def evolution_messages(
                 source_group_name=nome_grupo,
                 message_key=message_key,
                 body_text=body,
+                has_media=has_media,
                 status="routed",
                 created_at=datetime.now(timezone.utc),
             )
@@ -195,12 +198,15 @@ async def evolution_messages(
             capture_id = cap_row[0]
             captures += 1
         else:
-            capture_id = session.scalar(
-                select(MirrorCapture.id).where(
+            capture = session.scalar(
+                select(MirrorCapture).where(
                     MirrorCapture.listen_phone_id == phone.id,
                     MirrorCapture.message_key == message_key,
                 )
             )
+            capture_id = capture.id if capture else None
+            if capture is not None:
+                has_media = bool(capture.has_media) or has_media
 
         for bot, settings in candidatos:
             dest_ids = set(
@@ -226,6 +232,7 @@ async def evolution_messages(
                     source_group_name=nome_grupo,
                     message_key=message_key,
                     body_text=body,
+                    has_media=has_media,
                     status="pending",
                     created_at=datetime.now(timezone.utc),
                 )

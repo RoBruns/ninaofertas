@@ -712,10 +712,10 @@ envio. Da origem só entram título, De/Por, cupom (se a linha acompanhar o
 link de compra) e URL de marketplace; convite WhatsApp, PIX e disclaimer
 são descartados. Link nunca é compartilhado entre tenants. Mensagens
 `fromMe` e JIDs dos destinos do bot são ignoradas (anti-eco). Canal Shopee
-(`@newsletter`) pode ser frágil. Foto: URL pública do anúncio (`og:image` /
-CDN); a Evolution busca na hora do envio — sem baixar/gravar mídia do
-WhatsApp no nosso disco. Colunas `has_media`/`media_path` (0017) ficam
-ociosas.
+(`@newsletter`) pode ser frágil. Foto: na hora do envio, `getBase64FromMediaMessage`
+na Nina 1 → `sendMedia` na Nina 2 **só em memória** (sem gravar disco/banco);
+fallback `og:image`/CDN do produto se a mídia do WhatsApp falhar. `has_media`
+marca a origem; `media_path` fica ocioso.
 
 Consequência: `PUBLIC_API_BASE_URL` + `EVOLUTION_WEBHOOK_SECRET` na API e no
 worker. O telefone com rótulo **Nina 1** é a escuta chumbada (`is_platform_listen`

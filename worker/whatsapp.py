@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import base64
 import json
+import re
 from pathlib import Path
 from urllib.parse import urlparse
 
@@ -91,9 +92,13 @@ def enviar_mensagem(texto: str, imagem: str | None = None, grupo: str | None = N
             url = f"{settings.evolution_api_url}/message/sendMedia/{instancia}"
             payload = {"number": destino, "mediatype": "image", "media": media, "caption": texto}
             if not str(imagem).startswith("http"):
-                jpeg = Path(imagem).suffix.lower() in {".jpg", ".jpeg"}
-                payload["mimetype"] = "image/jpeg" if jpeg else "image/png"
-                payload["fileName"] = "foto.jpg" if jpeg else "cupom.png"
+                # data-URL / base64 / arquivo local — Evolution recebe o base64 puro.
+                eh_jpeg = (
+                    str(imagem).startswith("data:image/jpeg")
+                    or Path(imagem).suffix.lower() in {".jpg", ".jpeg", ""}
+                )
+                payload["mimetype"] = "image/jpeg" if eh_jpeg else "image/png"
+                payload["fileName"] = "foto.jpg" if eh_jpeg else "cupom.png"
         else:
             logger.warning("Imagem rejeitada (URL/path não permitido); enviando só texto.")
     try:
@@ -143,12 +148,19 @@ def _media_payload(imagem: str) -> str | None:
     if imagem.startswith("http://"):
         logger.warning("URL http:// não permitida para mídia; use https ou arquivo local.")
         return None
+    if imagem.startswith("data:image/") and ";base64," in imagem:
+        # Espelho: foto da mensagem original só em memória.
+        return imagem.split(";base64,", 1)[1].strip()
     path = Path(imagem)
     if path.is_file():
         if not _path_local_permitido(path):
             logger.warning(f"Arquivo de mídia fora de data/ ou assets/: {imagem}")
             return None
         return base64.b64encode(path.read_bytes()).decode("ascii")
+    # Base64 cru (sem data-URL) — só se parecer payload, não caminho.
+    compacto = "".join(imagem.split())
+    if len(compacto) > 200 and re.fullmatch(r"[A-Za-z0-9+/]+=*", compacto):
+        return compacto
     return None
 
 
