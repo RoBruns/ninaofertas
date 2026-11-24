@@ -23,7 +23,10 @@ _MEDIA_URL_PREFIXES = (
     "https://http.mlstatic.com/",
     "https://cf.shopee.com.br/",
     "https://down-br.img.susercontent.com/",
+    "https://down-bs.img.susercontent.com/",
     "https://scontent.",
+    "https://m.media-amazon.com/",
+    "https://images-na.ssl-images-amazon.com/",
 )
 
 
@@ -48,7 +51,18 @@ def _url_midia_permitida(url: str) -> bool:
     host = (parsed.hostname or "").lower()
     if any(url.startswith(prefix) for prefix in _MEDIA_URL_PREFIXES):
         return True
-    return host.endswith(("shopee.com.br", "mercadolivre.com.br", "mlstatic.com"))
+    return host.endswith(
+        (
+            "shopee.com.br",
+            "mercadolivre.com.br",
+            "mlstatic.com",
+            "susercontent.com",
+            "media-amazon.com",
+            "ssl-images-amazon.com",
+            "magazinevoce.com.br",
+            "magazineluiza.com.br",
+        )
+    )
 
 
 def enviar_mensagem(texto: str, imagem: str | None = None, grupo: str | None = None) -> bool:

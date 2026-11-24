@@ -10,9 +10,9 @@ from core import db, relogio, repositories
 from core.config_provider import bots_ativos, load_filtros_runtime, usar_bot_runtime
 from core.credentials import platforms_with_usable_credentials
 from core.link_parser import extrair_links_oferta, loja_para_platform_slug
-from core.mirror_media import resolver_caminho_midia
+from core.mirror_media import imagem_do_link_produto
 from core.mirror_webhook import ensure_platform_listen_webhook
-from core.models import MirrorInbox, Phone
+from core.models import MirrorInbox
 from core.platforms import affiliate
 from core.platforms.base import OfertaCapturada
 from worker import channels, filters, formatter, monitor, telemetry, whatsapp
@@ -145,16 +145,8 @@ def processar_pendentes() -> int:
                     logger.info(f"[espelho] adiando {item.id}: {motivo}")
                     continue
 
-                listen = session.get(Phone, item.listen_phone_id)
-                imagem = resolver_caminho_midia(
-                    media_path=item.media_path,
-                    has_media=bool(item.has_media),
-                    message_key=item.message_key,
-                    listen_instance=listen.evolution_instance if listen else None,
-                    stem=item.id,
-                )
-                if imagem and imagem != item.media_path:
-                    item.media_path = imagem
+                # Foto = URL pública do anúncio (CDN). Sem baixar/gravar no nosso disco.
+                imagem = imagem_do_link_produto(link_nicho.url, link_nicho.loja)
 
                 enviou_algum = False
                 falhou_total = True

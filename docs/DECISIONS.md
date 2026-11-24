@@ -708,10 +708,14 @@ No drain, por bot: classificar loja → exigir conta afiliado daquele bot →
 `passa_filtros_espelho` (nicho/bloqueios; sem preço/desconto) →
 `garantir_afiliado` no runtime do bot → freio → mensagem no **template do bot**
 (com foto reenviada quando houver; **sem** prefixo `Espelho · origem`) →
-envio. Link nunca é compartilhado entre tenants. Mensagens `fromMe` e JIDs dos
-destinos do bot são ignoradas (anti-eco). Canal Shopee (`@newsletter`) pode ser
-frágil. Mídia: `webhookBase64` + fallback `getBase64FromMediaMessage`
-(migration `0017`).
+envio. Da origem só entram título, De/Por, cupom (se a linha acompanhar o
+link de compra) e URL de marketplace; convite WhatsApp, PIX e disclaimer
+são descartados. Link nunca é compartilhado entre tenants. Mensagens
+`fromMe` e JIDs dos destinos do bot são ignoradas (anti-eco). Canal Shopee
+(`@newsletter`) pode ser frágil. Foto: URL pública do anúncio (`og:image` /
+CDN); a Evolution busca na hora do envio — sem baixar/gravar mídia do
+WhatsApp no nosso disco. Colunas `has_media`/`media_path` (0017) ficam
+ociosas.
 
 Consequência: `PUBLIC_API_BASE_URL` + `EVOLUTION_WEBHOOK_SECRET` na API e no
 worker. O telefone com rótulo **Nina 1** é a escuta chumbada (`is_platform_listen`

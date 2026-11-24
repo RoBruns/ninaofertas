@@ -31,9 +31,10 @@ A escuta da plataforma é o telefone com rótulo **Nina 1** (chumbado; a flag
 `is_platform_listen` na resposta é só leitura, sincronizada pelo rótulo). No
 máximo um telefone com a flag. Webhook público
 `POST /api/webhooks/evolution?token=` (segredo `EVOLUTION_WEBHOOK_SECRET`)
-grava `mirror_captures` (texto + flag/caminho de mídia) e enfileira
-`mirror_inbox` para todo bot ativo. O worker envia no template do bot, com
-foto quando houver e link afiliado da conta — sem citar o grupo de origem.
+grava `mirror_captures` (só texto) e enfileira `mirror_inbox` para todo bot
+ativo. O worker envia no template do bot, com link afiliado e foto via URL
+pública do produto (CDN) — sem citar o grupo de origem e sem baixar mídia
+do WhatsApp.
 
 `PhoneCreate`/`PhoneUpdate` aceitam `evolution_instance` somente de platform
 admin; campo presente, inclusive null, de outro usuário → 403. Instância usada

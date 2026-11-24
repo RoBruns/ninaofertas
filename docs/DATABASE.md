@@ -184,6 +184,7 @@ mirror_captures (  -- captura neutra na Nina 1; migrations 0014+0017
   id, listen_phone_id, source_whatsapp_id, source_group_name,
   message_key, body_text, has_media, media_path, status, created_at,
   UNIQUE (listen_phone_id, message_key)
+  -- has_media/media_path: legado ocioso; foto vem da URL CDN do produto
 )
 
 mirror_inbox (  -- fila por bot; migrations 0013+0014+0017
@@ -191,6 +192,7 @@ mirror_inbox (  -- fila por bot; migrations 0013+0014+0017
   source_whatsapp_id, source_group_name, message_key, body_text,
   has_media, media_path, status, skip_reason, created_at, processed_at,
   UNIQUE (bot_id, message_key)
+  -- has_media/media_path: legado ocioso
 )
 ```
 Resolve P3: o `"558531791835"` literal em `whatsapp.py` passa a ser esta linha.

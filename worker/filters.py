@@ -546,12 +546,45 @@ def passa_filtros_espelho(oferta: OfertaCapturada, filtros: dict) -> tuple[bool,
     return True, ""
 
 
+# Linhas de origem que não entram no título (convite, aviso, CTA vazio…).
+_LINHA_RUIDO_ESPELHO = re.compile(
+    r"(?i)("
+    r"chat\.whatsapp\.com|wa\.me/|"
+    r"convide\s+uma\s+amiga|participar\s+do\s+grupo|"
+    r"sujeita\s+a\s+altera|"
+    r"pagamentos?\s+no\s+pix|"
+    r"^\s*compre\s+aqui\s*:?\s*$|"
+    r"^\s*link\s*:?\s*$|"
+    r"grupo\s+da\s+gio|"
+    r"ei,?\s*convide"
+    r")"
+)
+_LINHA_SO_PRECO = re.compile(
+    r"(?i)^\s*(?:de|por)\s*:?\s*R\$",
+)
+
+
+def _normalizar_espacos_espelho(texto: str) -> str:
+    # NBSP / fine space do WhatsApp quebram o parse de "R$ 169,90".
+    return (
+        (texto or "")
+        .replace("\u00a0", " ")
+        .replace("\u202f", " ")
+        .replace("\u2007", " ")
+    )
+
+
 def titulo_mensagem_espelho(texto: str) -> str:
-    """Primeira linha útil sem URL, para o nicho ler o título da oferta."""
-    limpo = re.sub(r"https?://\S+", " ", texto or "")
+    """Primeira linha útil sem URL/ruído, para o nicho e o template."""
+    limpo = re.sub(r"https?://\S+", " ", _normalizar_espacos_espelho(texto))
     for linha in limpo.splitlines():
+        if _LINHA_RUIDO_ESPELHO.search(linha) or _LINHA_SO_PRECO.search(linha):
+            continue
         t = " ".join(linha.split()).strip(" -•*|")
         t = re.sub(r"^[\W_]+", "", t)
+        # Só emoji / "❌" / "🔥" sobrando.
+        if len(re.sub(r"\W+", "", t, flags=re.UNICODE)) < 3:
+            continue
         if len(t) >= 3:
             return t[:200]
     t = " ".join(limpo.split()).strip()
@@ -562,14 +595,24 @@ _PRECO_BR_RE = re.compile(
     r"R\$\s*(\d{1,3}(?:\.\d{3})*,\d{2}|\d{1,3}(?:\.\d{3})+|\d+(?:,\d{2})?)",
     re.IGNORECASE,
 )
+_PRECO_DE_RE = re.compile(
+    r"(?i)\bde\s*:?\s*R\$\s*(\d{1,3}(?:\.\d{3})*,\d{2}|\d{1,3}(?:\.\d{3})+|\d+(?:,\d{2})?)",
+)
+_PRECO_POR_RE = re.compile(
+    r"(?i)\bpor\s*:?\s*R\$\s*(\d{1,3}(?:\.\d{3})*,\d{2}|\d{1,3}(?:\.\d{3})+|\d+(?:,\d{2})?)",
+)
 _CUPOM_RE = re.compile(
-    r"(?:cupom|codigo|código)\s*[:\-–]?\s*[*_~`]{0,2}([A-Za-z0-9]{4,16})[*_~`]{0,2}",
-    re.IGNORECASE,
+    r"(?i)(?:"
+    r"(?:use\s+(?:o\s+)?|aplica(?:r)?\s+(?:o\s+)?|com\s+)?"
+    r"cupom|"
+    r"c[oó]digo(?:\s+do\s+cupom)?|"
+    r"cupom\s+de\s+desconto"
+    r")\s*[:\-–]?\s*[*_~`]{0,2}([A-Za-z0-9]{4,16})[*_~`]{0,2}"
 )
 
 
 def _parse_preco_br(raw: str) -> float | None:
-    texto = (raw or "").strip()
+    texto = _normalizar_espacos_espelho(raw).strip()
     if not texto:
         return None
     if "," in texto:
@@ -584,10 +627,20 @@ def _parse_preco_br(raw: str) -> float | None:
 
 
 def extrair_precos_mensagem(texto: str) -> tuple[float | None, float | None]:
-    """Retorna (preço atual, preço anterior) a partir de 'R$ …' no texto."""
+    """Retorna (preço atual, preço anterior) a partir de 'R$ …' / De:/Por:."""
+    texto_n = _normalizar_espacos_espelho(texto)
+    de = _PRECO_DE_RE.search(texto_n)
+    por = _PRECO_POR_RE.search(texto_n)
+    if de and por:
+        anterior = _parse_preco_br(de.group(1))
+        atual = _parse_preco_br(por.group(1))
+        if atual and anterior and anterior - atual >= 0.01:
+            return atual, anterior
+        if atual:
+            return atual, None
     valores = [
         v
-        for m in _PRECO_BR_RE.finditer(texto or "")
+        for m in _PRECO_BR_RE.finditer(texto_n)
         if (v := _parse_preco_br(m.group(1))) is not None
     ]
     if not valores:
@@ -607,18 +660,50 @@ def _cupom_espelho_ok(codigo: str | None) -> str | None:
     code = (codigo or "").strip().upper()
     if re.fullmatch(r"[A-Z0-9]{4,16}", code) is None:
         return None
-    if code in {"HTTP", "HTTPS", "MLB", "JSON", "TYPE", "CUPOM", "OFF"}:
+    if code in {
+        "HTTP",
+        "HTTPS",
+        "MLB",
+        "JSON",
+        "TYPE",
+        "CUPOM",
+        "OFF",
+        "PIX",
+        "LINK",
+        "AQUI",
+        "SHOP",
+        "SHOPEE",
+    }:
         return None
     return code
 
 
 def extrair_cupom_mensagem(texto: str) -> str | None:
-    """Cupom digitável citado no texto de origem (4–16 letras/números)."""
-    match = _CUPOM_RE.search(texto or "")
-    if match:
-        return _cupom_espelho_ok(match.group(1))
-    for bruto in re.findall(r"\*([A-Za-z0-9]{4,16})\*", texto or ""):
-        codigo = _cupom_espelho_ok(bruto)
-        if codigo:
-            return codigo
+    """Cupom digitável na origem — prioriza linha perto do link de compra."""
+    texto_n = _normalizar_espacos_espelho(texto)
+    linhas = texto_n.splitlines()
+    # 1) Linhas vizinhas a URL de marketplace (onde o cupom costuma aparecer).
+    idxs_link = [
+        i
+        for i, linha in enumerate(linhas)
+        if re.search(
+            r"https?://(?:\S+\.)?(?:shopee|meli\.la|mercadolivre|amazon|magalu|magazinevoce)",
+            linha,
+            re.I,
+        )
+    ]
+    vizinhas: list[str] = []
+    for i in idxs_link:
+        for j in range(max(0, i - 2), min(len(linhas), i + 3)):
+            vizinhas.append(linhas[j])
+    for bloco in ("\n".join(vizinhas), texto_n):
+        match = _CUPOM_RE.search(bloco)
+        if match:
+            codigo = _cupom_espelho_ok(match.group(1))
+            if codigo:
+                return codigo
+        for bruto in re.findall(r"\*([A-Za-z0-9]{4,16})\*", bloco):
+            codigo = _cupom_espelho_ok(bruto)
+            if codigo:
+                return codigo
     return None

@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from pathlib import Path
 from uuid import uuid4
 
+import httpx
 import pytest
 from sqlalchemy.orm import Session, sessionmaker
 
@@ -15,7 +15,7 @@ from core.mirror_sources import allowlist_para_bot, platform_source_group_names
 from core.models import Bot, Group, MirrorCapture, MirrorInbox, Phone, Tenant
 from core.platforms.base import OfertaCapturada
 from tests.test_api import add_user, client, session_factory
-from core.mirror_media import mensagem_tem_imagem, salvar_midia_base64
+from core.mirror_media import imagem_do_link_produto
 from worker import formatter
 from worker.filters import (
     extrair_cupom_mensagem,
@@ -413,6 +413,62 @@ def test_extrair_precos_e_cupom_da_mensagem() -> None:
     assert extrair_cupom_mensagem(texto) == "NINA10"
 
 
+def test_parse_mensagem_origem_com_ruido_e_cupom() -> None:
+    """Origem típica: título + De/Por + PIX + compra + convite WhatsApp + aviso."""
+    texto = (
+        "💥 Kit 2 Mesas Laterais Douradas Tripé: elegância instantânea! ✨🏠\n\n"
+        "De: R$\u00a0278,52 ❌\n"
+        "💸 Por: R$\u00a0169,90 🔥\n\n"
+        "⚠️ Pagamentos no pix tem + desconto\n\n"
+        "🛒 Compre aqui: https://s.shopee.com.br/AUvpav5jpq\n\n"
+        "Use o cupom: MESA10\n\n"
+        "❤️Ei, Convide uma amiga para participar do grupo da Gio: "
+        "https://chat.whatsapp.com/HH88hAlfNK86CUxd08GdYn\n\n"
+        "⚠️ Promoção sujeita a alteração a qualquer momento.\n"
+    )
+    assert "Kit 2 Mesas Laterais Douradas" in titulo_mensagem_espelho(texto)
+    preco, anterior = extrair_precos_mensagem(texto)
+    assert preco == 169.9
+    assert anterior == 278.52
+    assert extrair_cupom_mensagem(texto) == "MESA10"
+    links = extrair_links_oferta(texto)
+    assert len(links) == 1
+    assert links[0].loja == "shopee"
+    assert "chat.whatsapp.com" not in links[0].url
+
+
+def test_oferta_espelho_ignora_convite_e_repassa_cupom(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "worker.formatter.load_filtros",
+        lambda: {
+            "mensagem_template": (
+                "◼️ *{nome}*\n\n💰 {de_por}\n🎟️ Use o cupom: *{cupom}*\n\n🛒 {url}"
+            ),
+        },
+    )
+    body = (
+        "Kit 2 Mesas\nDe: R$ 278,52\nPor: R$ 169,90\n"
+        "Cupom: MESA10\nhttps://s.shopee.com.br/AUvpav5jpq\n"
+        "https://chat.whatsapp.com/HH88hAlfNK86CUxd08GdYn"
+    )
+    oferta = _oferta_template(
+        titulo=titulo_mensagem_espelho(body),
+        loja="shopee",
+        url_afiliado="https://s.shopee.com.br/nina-aff",
+        url_origem="https://s.shopee.com.br/AUvpav5jpq",
+        body_text=body,
+        sku="mirror:2",
+        imagem=None,
+    )
+    mensagem = formatter.montar_mensagem(oferta)
+    assert "chat.whatsapp.com" not in mensagem
+    assert "Convide" not in mensagem
+    assert "sujeita a alteração" not in mensagem.lower()
+    assert "MESA10" in mensagem
+    assert "https://s.shopee.com.br/nina-aff" in mensagem
+    assert "169,90" in mensagem or "169.90" in mensagem or "R$ 169" in mensagem
+
+
 def test_oferta_espelho_usa_template_afiliado_sem_origem(monkeypatch) -> None:
     monkeypatch.setattr(
         "worker.formatter.load_filtros",
@@ -437,89 +493,22 @@ def test_oferta_espelho_usa_template_afiliado_sem_origem(monkeypatch) -> None:
     assert "R$ 100" in mensagem
 
 
-def test_mensagem_tem_imagem_e_grava_arquivo(tmp_path, monkeypatch) -> None:
-    monkeypatch.setattr("core.mirror_media._MIRROR_DIR", tmp_path)
-    # JPEG 1x1 mínimo
-    jpeg_b64 = (
-        "/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0a"
-        "HBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/2wBDAQkJCQwLDBgNDRgyIRwhMjIyMjIy"
-        "MjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjL/wAARCAABAAEDASIA"
-        "AhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAn/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFQEB"
-        "AQAAAAAAAAAAAAAAAAAAAAX/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIQAxAAAAGf/9k="
+def test_imagem_do_link_produto_usa_og_image(monkeypatch: pytest.MonkeyPatch) -> None:
+    html = (
+        "<html><head>"
+        '<meta property="og:image" content="https://down-br.img.susercontent.com/foto.jpg">'
+        "</head></html>"
     )
-    assert mensagem_tem_imagem({"imageMessage": {"caption": "oi", "base64": jpeg_b64}})
-    path = salvar_midia_base64(jpeg_b64, "teste-img")
-    assert path is not None
-    assert path.endswith((".jpg", ".jpeg", ".png"))
-    assert (tmp_path / "teste-img.jpg").exists() or Path(path).exists()
 
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert str(request.url).startswith("https://shopee.com.br/")
+        return httpx.Response(200, text=html)
 
-def test_webhook_marca_has_media(
-    client,
-    session_factory: sessionmaker[Session],
-    webhook_secret: str,
-    tmp_path,
-    monkeypatch,
-) -> None:
-    monkeypatch.setattr("core.mirror_media._MIRROR_DIR", tmp_path)
-    admin = add_user(session_factory, email="mirror-media@nina.test", role="admin")
-    send_id = uuid4()
-    with session_factory.begin() as session:
-        listen = _seed_platform_listen(session, instance="nina1-media")
-        session.add(
-            Phone(
-                id=send_id,
-                owner_id=admin.tenant_id,
-                label="Nina 2",
-                number="5511999000044",
-                evolution_instance="send-media",
-            )
-        )
-        session.add(
-            Bot(
-                id=uuid4(),
-                owner_id=admin.tenant_id,
-                name="Bot Media",
-                slug="bot-mirror-media",
-                status="active",
-                phone_id=send_id,
-                settings=BotSettings(mirror=Mirror(enabled=True)).model_dump(mode="json"),
-            )
-        )
-
-    jpeg_b64 = (
-        "/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0a"
-        "HBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/2wBDAQkJCQwLDBgNDRgyIRwhMjIyMjIy"
-        "MjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjL/wAARCAABAAEDASIA"
-        "AhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAn/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFQEB"
-        "AQAAAAAAAAAAAAAAAAAAAAX/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIQAxAAAAGf/9k="
+    original = httpx.Client
+    monkeypatch.setattr(
+        httpx,
+        "Client",
+        lambda **kwargs: original(transport=httpx.MockTransport(handler), **kwargs),
     )
-    response = client.post(
-        f"/api/webhooks/evolution?token={webhook_secret}",
-        json={
-            "event": "messages.upsert",
-            "instance": "nina1-media",
-            "data": {
-                "key": {
-                    "remoteJid": "120363origem@g.us",
-                    "fromMe": False,
-                    "id": "MSG-MEDIA",
-                },
-                "message": {
-                    "imageMessage": {
-                        "caption": "Panela https://shopee.com.br/product/1/2",
-                        "base64": jpeg_b64,
-                    }
-                },
-            },
-        },
-    )
-    assert response.status_code == 200, response.text
-    assert response.json()["accepted"] >= 1
-    with session_factory() as session:
-        cap = session.query(MirrorCapture).one()
-        inbox = session.query(MirrorInbox).one()
-        assert cap.has_media is True
-        assert inbox.has_media is True
-        assert cap.media_path
-        assert Path(cap.media_path).is_file()
+    foto = imagem_do_link_produto("https://shopee.com.br/product/1/2", "shopee")
+    assert foto == "https://down-br.img.susercontent.com/foto.jpg"
