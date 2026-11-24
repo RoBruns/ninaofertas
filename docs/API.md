@@ -57,7 +57,8 @@ auditoria sempre exige o tenant do usuário, inclusive para platform admins.
 
 **Autenticação.** JWT no header `Authorization: Bearer <token>`. Access token
 de 30 min, refresh de 7 dias em cookie `HttpOnly`/`Secure`/`SameSite=Strict`.
-Toda rota exige auth, exceto `/api/auth/login`, `/api/health` e o redirect `/r/{code}`.
+Toda rota exige auth, exceto `/api/auth/login`, `/api/health`, `/api/p/{token}`
+e o redirect `/r/{code}`.
 
 **Erros.** Sempre o mesmo envelope, nunca stacktrace, nunca detalhe de SQL:
 ```json
@@ -75,7 +76,7 @@ onde façam sentido — é o conjunto que o produto pede:
 `campaign_id`, `niche_id`, `phone_id`. Combináveis; `AND` entre si.
 
 **Rate limiting.** `/api/auth/login`: 5/min por IP. Rotas de escrita: 60/min por
-usuário. `/r/{code}`: 600/min por IP.
+usuário. `/api/p/{token}` e `/r/{code}`: 600/min por IP.
 
 **Erros no OpenAPI.** Todas as rotas declaram 401, 403, 404, 409, 422, 429 e 500
 com o schema `ErrorEnvelope`, que é o que a API realmente devolve. O `fields`
@@ -445,6 +446,14 @@ GET    /r/{code}   → 302 para a URL afiliada, gravando clicks
 ```
 Sem auth (é link público de grupo). Só faz lookup, grava clique e redireciona —
 qualquer trabalho extra vira latência entre o clique e a loja.
+
+## Cartão clicável da Shopee
+
+```
+GET    /api/p/{token}   → HTML com og:image para o robô da prévia; 302 para o afiliado no clique
+```
+
+Sem auth. O token é HMAC de `CREDENTIALS_KEY`. 600/min por IP. Não grava clique.
 
 ## Plataforma — planos, assinaturas e SaaS (S2)
 

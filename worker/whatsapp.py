@@ -66,8 +66,18 @@ def _url_midia_permitida(url: str) -> bool:
     )
 
 
-def enviar_mensagem(texto: str, imagem: str | None = None, grupo: str | None = None) -> bool:
-    """Envia texto e, apenas quando permitida, uma imagem para o grupo atual."""
+def enviar_mensagem(
+    texto: str,
+    imagem: str | None = None,
+    grupo: str | None = None,
+    *,
+    previa_do_link: bool = False,
+) -> bool:
+    """Envia texto e, apenas quando permitida, uma imagem para o grupo atual.
+
+    previa_do_link pede o cartão do WhatsApp: a imagem é a prévia e o toque
+    abre o link. Nesse caso a foto não vai como anexo.
+    """
     from worker.channels import grupo_whatsapp, instancia_evolution
 
     destino = grupo or grupo_whatsapp()
@@ -85,7 +95,10 @@ def enviar_mensagem(texto: str, imagem: str | None = None, grupo: str | None = N
     token = runtime.instance_token if runtime else None
     headers = {"apikey": token or settings.evolution_api_key, "Content-Type": "application/json"}
     url = f"{settings.evolution_api_url}/message/sendText/{instancia}"
-    payload = {"number": destino, "text": texto}
+    payload: dict[str, str | bool] = {"number": destino, "text": texto}
+    if previa_do_link:
+        payload["linkPreview"] = True
+        imagem = None
     if imagem:
         media = _media_payload(imagem)
         if media:

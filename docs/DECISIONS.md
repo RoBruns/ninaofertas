@@ -744,3 +744,22 @@ vendas, alertas e heartbeat seguem.
 Consequência: em produção não setar `ENABLE_SCRAPER_DISCOVERY` (ou deixar
 ausente). Testes ligam a flag no `conftest`.
 
+---
+
+## ADR-038 — Cartão clicável da Shopee, com o link de afiliado no destino
+**Data:** 2026-11-24 · **Status:** aceita · **Decisor:** dono
+
+A foto anexada abre em tela cheia. O dono pediu a imagem do link: o toque abre
+a loja. A Shopee entrega `og:image` ao User-Agent do WhatsApp e esconde a foto
+do Googlebot, que é o agente com que a Evolution 2.3.7 monta a prévia.
+
+O texto do grupo leva `GET /api/p/{token}` (assinado com `CREDENTIALS_KEY`).
+O robô da prévia recebe o título e a foto da Shopee. A pessoa recebe 302 para
+o short link de afiliado, com o `sub_id` intacto. Sem `PUBLIC_API_BASE_URL`,
+sem a foto da Shopee ou fora da Shopee, o envio continua com a foto anexada.
+Cupom com card impresso não usa esse cartão.
+
+Isso abre exceção ao ADR-017 só na Shopee: o link visível deixa de ser
+`s.shopee.com.br` para a prévia existir. O destino do clique não muda.
+
+

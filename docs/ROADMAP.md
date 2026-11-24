@@ -1,5 +1,12 @@
 # Roadmap de implementação
 
+## Cartão clicável da Shopee — 2026-11-24
+
+A oferta da Shopee sai como prévia do link: o toque na imagem abre a loja.
+A Evolution pede a prévia como Googlebot e a Shopee esconde a foto; `GET /api/p/{token}`
+entrega as tags que o User-Agent do WhatsApp recebe e redireciona a pessoa
+para o link de afiliado. Sem essa prévia, continua a foto anexada da galeria.
+
 ## Foto da Shopee pula o vídeo da galeria — 2026-11-24
 
 O vídeo, quando existe, é o primeiro slide. A foto enviada é a primeira mídia

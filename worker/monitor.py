@@ -20,6 +20,7 @@ from core import db, relevancia, relogio, repositories
 from core.config_provider import bot_runtime_atual
 from core.credentials import platforms_with_usable_credentials
 from core.cupom_cadencia import intervalo_cupom_minutos
+from core.link_unfurl import cartao_da_mensagem
 from core.models import Oferta
 from core.platforms import affiliate
 from core.platforms.base import OfertaCapturada
@@ -472,9 +473,18 @@ def _enviar_oferta_no_grupo(session, oferta: OfertaCapturada, oferta_db) -> str:
             logger.warning(f"Não deu pra gerar print do cupom: {e}")
 
     mensagem = formatter.montar_mensagem(oferta)
+    cartao = None
+    if (oferta.categoria or "").lower() != "cupom":
+        cartao = cartao_da_mensagem(mensagem, oferta.loja, oferta.url)
 
     logger.info(f"[{nome_canal()}] Enviando para WhatsApp...")
-    sucesso = whatsapp.enviar_mensagem(mensagem, imagem=oferta.imagem, grupo=grupo)
+    if cartao is not None:
+        mensagem = cartao.mensagem
+        sucesso = whatsapp.enviar_mensagem(
+            mensagem, imagem=None, grupo=grupo, previa_do_link=True
+        )
+    else:
+        sucesso = whatsapp.enviar_mensagem(mensagem, imagem=oferta.imagem, grupo=grupo)
 
     repositories.registrar_envio(
         session,

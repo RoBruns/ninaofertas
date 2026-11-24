@@ -11,6 +11,7 @@ from core import db, relogio, repositories
 from core.config_provider import bots_ativos, load_filtros_runtime, usar_bot_runtime
 from core.credentials import platforms_with_usable_credentials
 from core.link_parser import extrair_links_oferta, loja_para_platform_slug
+from core.link_unfurl import cartao_da_mensagem
 from core.mirror_media import ProdutoSomenteVideo, resolver_imagem_espelho
 from core.mirror_webhook import ensure_platform_listen_webhook
 from core.models import MirrorInbox, Phone
@@ -148,30 +149,39 @@ def processar_pendentes() -> int:
                     logger.info(f"[espelho] adiando {item.id}: {motivo}")
                     continue
 
-                # Foto: página do produto; se ela não vier, a prévia do link ou o anexo.
+                shopee = "shopee" in (link_nicho.loja or "").lower()
                 listen = session.get(Phone, item.listen_phone_id)
-                try:
-                    imagem = resolver_imagem_espelho(
-                        listen_instance=listen.evolution_instance if listen else None,
-                        message_key=item.message_key,
-                        product_url=link_nicho.url,
-                        loja=link_nicho.loja,
-                        media_path=item.media_path,
-                    )
-                except ProdutoSomenteVideo:
-                    logger.info(f"[espelho] sem foto estática (só vídeo) {item.id}")
-                    _marcar(item, "skipped", "somente_video")
-                    processados += 1
-                    continue
-                if not imagem:
-                    logger.warning(
-                        f"[espelho] sem foto para {item.id} "
-                        f"(has_media={getattr(item, 'has_media', None)} "
-                        f"loja={link_nicho.loja})"
-                    )
+                imagem: str | None = None
+                foto_resolvida = False
+                somente_video = False
+
+                def garantir_foto() -> None:
+                    nonlocal imagem, foto_resolvida, somente_video
+                    if foto_resolvida:
+                        return
+                    foto_resolvida = True
+                    try:
+                        imagem = resolver_imagem_espelho(
+                            listen_instance=listen.evolution_instance if listen else None,
+                            message_key=item.message_key,
+                            product_url=link_nicho.url,
+                            loja=link_nicho.loja,
+                            media_path=item.media_path,
+                        )
+                    except ProdutoSomenteVideo:
+                        somente_video = True
+
+                if not shopee:
+                    garantir_foto()
+                    if somente_video:
+                        logger.info(f"[espelho] sem foto estática (só vídeo) {item.id}")
+                        _marcar(item, "skipped", "somente_video")
+                        processados += 1
+                        continue
 
                 enviou_algum = False
                 falhou_total = True
+                teve_foto = False
                 for jid in grupos:
                     canal = _token_canal(runtime, jid)
                     with channels.usar_canal(canal):
@@ -213,9 +223,30 @@ def processar_pendentes() -> int:
                         )
                         # Template do bot — sem citar o grupo de origem.
                         mensagem = formatter.montar_mensagem(oferta)
-                        ok_envio = whatsapp.enviar_mensagem(
-                            mensagem, imagem=oferta.imagem, grupo=jid
-                        )
+                        cartao = cartao_da_mensagem(mensagem, link_nicho.loja, url_afiliado)
+                        if cartao is not None:
+                            mensagem = cartao.mensagem
+                            imagem_envio = cartao.imagem
+                            teve_foto = True
+                            ok_envio = whatsapp.enviar_mensagem(
+                                mensagem, imagem=None, grupo=jid, previa_do_link=True
+                            )
+                        else:
+                            garantir_foto()
+                            if somente_video:
+                                logger.info(f"[espelho] sem foto estática (só vídeo) {item.id}")
+                                break
+                            if not imagem:
+                                logger.warning(
+                                    f"[espelho] sem foto para {item.id} "
+                                    f"(has_media={getattr(item, 'has_media', None)} "
+                                    f"loja={link_nicho.loja})"
+                                )
+                            imagem_envio = imagem
+                            teve_foto = teve_foto or bool(imagem)
+                            ok_envio = whatsapp.enviar_mensagem(
+                                mensagem, imagem=imagem, grupo=jid
+                            )
                         oferta_db = monitor._salvar_oferta(  # noqa: SLF001
                             session,
                             OfertaCapturada(
@@ -226,7 +257,7 @@ def processar_pendentes() -> int:
                                 url=url_afiliado,
                                 sku=f"mirror:{item.id}"[:120],
                                 categoria="espelho",
-                                imagem=imagem,
+                                imagem=imagem_envio,
                             ),
                         )
                         repositories.registrar_envio(
@@ -254,9 +285,12 @@ def processar_pendentes() -> int:
                         detail={
                             "inbox_id": str(item.id),
                             "source": item.source_group_name,
-                            "has_media": bool(imagem),
+                            "has_media": teve_foto,
                         },
                     )
+                    processados += 1
+                elif somente_video:
+                    _marcar(item, "skipped", "somente_video")
                     processados += 1
                 elif falhou_total:
                     _marcar(item, "failed", "envio_ou_afiliado")

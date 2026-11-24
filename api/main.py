@@ -24,6 +24,7 @@ from api.routers import (
     events,
     groups,
     health,
+    link_preview,
     metrics,
     niches,
     phones,
@@ -87,6 +88,7 @@ app.add_middleware(
 
 install_error_handlers(app)
 app.include_router(health.router, prefix="/api")
+app.include_router(link_preview.router, prefix="/api")
 app.include_router(auth.router, prefix="/api")
 app.include_router(users.router, prefix="/api")
 app.include_router(audit.router, prefix="/api")
