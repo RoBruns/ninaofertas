@@ -20514,17 +20514,6 @@
        }
       ],
       "title": "Evolution Instance"
-     },
-     "is_platform_listen": {
-      "anyOf": [
-       {
-        "type": "boolean"
-       },
-       {
-        "type": "null"
-       }
-      ],
-      "title": "Is Platform Listen"
      }
     },
     "type": "object",

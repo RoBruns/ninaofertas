@@ -30,7 +30,7 @@ class PhoneUpdate(BaseModel):
     label: str | None = Field(default=None, min_length=1, max_length=200)
     number: str | None = None
     evolution_instance: str | None = Field(default=None, pattern=r"^[A-Za-z0-9._-]{1,64}$")
-    is_platform_listen: bool | None = None
+    # is_platform_listen não é editável: o rótulo "Nina 1" é a escuta (ADR-036).
 
     _normalize_number = field_validator("number")(lambda value: normalize_e164(value) if value else value)
 

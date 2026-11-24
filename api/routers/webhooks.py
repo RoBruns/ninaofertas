@@ -131,6 +131,10 @@ async def evolution_messages(
     phone = session.scalar(select(Phone).where(Phone.evolution_instance == instance))
     if phone is None:
         return {"accepted": 0, "ignored": "phone"}
+    from core.mirror_webhook import sync_platform_listen_flags
+
+    sync_platform_listen_flags(session)
+    session.refresh(phone)
     if not phone.is_platform_listen:
         return {"accepted": 0, "ignored": "not_platform_listen"}
 

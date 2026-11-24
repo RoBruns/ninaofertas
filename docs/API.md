@@ -27,8 +27,9 @@ aceita alteração de tenant ou dessa permissão nas rotas comuns.
 | `POST /api/phones/{phone_id}/instance/token/sync` | Admin da conta | Busca e regrava token da instância; devolve `PhoneResponse`; sem instância → 409 `NO_INSTANCE`; instância/token inexistente → 404; audita só fingerprint |
 | `GET /api/phones/{phone_id}/status` | Usuário da conta | `PhoneResponse` com estado consultado na Evolution; `connecting` significa aguardando leitura do QR; preenche número ausente por `ownerJid` ao conectar; indisponível → 503 |
 
-`PhoneUpdate.is_platform_listen` (só platform admin) marca a Nina 1 como
-escuta global do espelho; no máximo um telefone com a flag. Webhook público
+A escuta da plataforma é o telefone com rótulo **Nina 1** (chumbado; a flag
+`is_platform_listen` na resposta é só leitura, sincronizada pelo rótulo). No
+máximo um telefone com a flag. Webhook público
 `POST /api/webhooks/evolution?token=` (segredo `EVOLUTION_WEBHOOK_SECRET`)
 grava `mirror_captures` e enfileira `mirror_inbox` para bots com
 `mirror.enabled`.

@@ -3133,8 +3133,6 @@ export interface components {
             number?: string | null;
             /** Evolution Instance */
             evolution_instance?: string | null;
-            /** Is Platform Listen */
-            is_platform_listen?: boolean | null;
         };
         /** PlanCreate */
         PlanCreate: {

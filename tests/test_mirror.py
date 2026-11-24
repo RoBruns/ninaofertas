@@ -232,6 +232,114 @@ def test_webhook_ignora_phone_sem_flag_plataforma(
     assert response.json()["ignored"] == "not_platform_listen"
 
 
+def test_sync_chumba_escuta_pelo_rotulo_nina1(session_factory: sessionmaker[Session]) -> None:
+    from core.mirror_webhook import sync_platform_listen_flags
+
+    admin = add_user(session_factory, email="mirror-sync@nina.test", role="admin")
+    nina_id = uuid4()
+    outro_id = uuid4()
+    with session_factory.begin() as session:
+        session.add(
+            Phone(
+                id=outro_id,
+                owner_id=admin.tenant_id,
+                label="Nina 2",
+                number="5511999000088",
+                evolution_instance="nina2-sync",
+                is_platform_listen=True,  # flag errada: sync deve limpar
+            )
+        )
+        session.add(
+            Phone(
+                id=nina_id,
+                owner_id=admin.tenant_id,
+                label="Nina 1",
+                number="5511999000087",
+                evolution_instance="nina1-sync",
+                is_platform_listen=False,  # sync deve ligar pelo rótulo
+            )
+        )
+
+    with session_factory.begin() as session:
+        chosen = sync_platform_listen_flags(session)
+        assert chosen is not None
+        assert chosen.id == nina_id
+        nina = session.get(Phone, nina_id)
+        outro = session.get(Phone, outro_id)
+        assert nina is not None and nina.is_platform_listen is True
+        assert outro is not None and outro.is_platform_listen is False
+
+
+def test_webhook_aceita_nina1_mesmo_sem_flag_previa(
+    client,
+    session_factory: sessionmaker[Session],
+    webhook_secret: str,
+) -> None:
+    """Deploy antigo: Nina 1 sem flag ainda captura após sync pelo rótulo."""
+    admin = add_user(session_factory, email="mirror-label@nina.test", role="admin")
+    send_id = uuid4()
+    with session_factory.begin() as session:
+        listen = Phone(
+            id=uuid4(),
+            owner_id=admin.tenant_id,
+            label="Nina 1",
+            number="5511888000099",
+            evolution_instance="nina1-label-only",
+            is_platform_listen=False,
+        )
+        session.add(listen)
+        session.add(
+            Group(
+                id=uuid4(),
+                owner_id=admin.tenant_id,
+                phone_id=listen.id,
+                name="MELHORES OFERTAS",
+                whatsapp_id="120363label@g.us",
+            )
+        )
+        session.add(
+            Phone(
+                id=send_id,
+                owner_id=admin.tenant_id,
+                label="Nina 2",
+                number="5511999000077",
+                evolution_instance="send-label",
+            )
+        )
+        session.add(
+            Bot(
+                id=uuid4(),
+                owner_id=admin.tenant_id,
+                name="Bot",
+                slug="bot-label-listen",
+                status="active",
+                phone_id=send_id,
+                settings=BotSettings(mirror=Mirror(enabled=True)).model_dump(mode="json"),
+            )
+        )
+
+    response = client.post(
+        f"/api/webhooks/evolution?token={webhook_secret}",
+        json={
+            "event": "messages.upsert",
+            "instance": "nina1-label-only",
+            "data": {
+                "key": {
+                    "remoteJid": "120363label@g.us",
+                    "fromMe": False,
+                    "id": "MSG-LABEL",
+                },
+                "pushName": "x",
+                "message": {"conversation": "https://shopee.com.br/a/b oferta"},
+            },
+        },
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert body.get("ignored") != "not_platform_listen"
+    assert body.get("accepted", 0) >= 1
+
+
 def test_webhook_ignora_grupo_fora_da_allowlist(
     client,
     session_factory: sessionmaker[Session],

@@ -2,7 +2,7 @@
 
 ## Espelhamento WhatsApp (plataforma) — 2026-11-24
 
-Nina 1 é capturadora **da plataforma** (`phones.is_platform_listen`): uma
+Nina 1 (rótulo fixo) é capturadora **da plataforma** (`phones.is_platform_listen`): uma
 instância escuta a allowlist global e serve todos os tenants. Cada bot só
 liga `mirror.enabled` (subset opcional de nomes). Webhook
 `POST /api/webhooks/evolution` → `mirror_captures` (neutra) → `mirror_inbox`

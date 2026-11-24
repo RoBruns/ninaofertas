@@ -11,6 +11,9 @@ from sqlalchemy.orm import Session
 from core.evolution import EvolutionClient, EvolutionUnavailable
 from core.models import Phone
 
+# Rótulo fixo da capturadora da plataforma (ADR-036). Não é configurável na API.
+PLATFORM_LISTEN_LABEL = "Nina 1"
+
 
 def public_api_base_url() -> str:
     return (os.getenv("PUBLIC_API_BASE_URL") or "").rstrip("/")
@@ -28,18 +31,44 @@ def webhook_url() -> str | None:
     return f"{base}/webhooks/evolution?token={secret}"
 
 
+def label_is_platform_listen(label: str | None) -> bool:
+    return (label or "").strip().casefold() == PLATFORM_LISTEN_LABEL.casefold()
+
+
+def sync_platform_listen_flags(session: Session) -> Phone | None:
+    """Garante que só o telefone 'Nina 1' tem is_platform_listen.
+
+    A escuta é chumbada pelo rótulo — não há toggle na API/dashboard.
+    """
+    phones = list(session.scalars(select(Phone).order_by(Phone.created_at)))
+    candidatos = [phone for phone in phones if label_is_platform_listen(phone.label)]
+    if len(candidatos) > 1:
+        logger.warning(
+            f"Há {len(candidatos)} telefones com rótulo '{PLATFORM_LISTEN_LABEL}'; "
+            "usando o mais antigo como escuta da plataforma"
+        )
+    chosen = candidatos[0] if candidatos else None
+    for phone in phones:
+        want = chosen is not None and phone.id == chosen.id
+        if phone.is_platform_listen != want:
+            phone.is_platform_listen = want
+    if chosen is not None:
+        session.flush()
+    return chosen
+
+
 def platform_listen_phone(session: Session) -> Phone | None:
-    return session.scalar(select(Phone).where(Phone.is_platform_listen.is_(True)))
+    return sync_platform_listen_flags(session)
 
 
 def ensure_platform_listen_webhook(session: Session) -> str:
-    """Aplica webhook na Nina 1 (único phone com is_platform_listen)."""
+    """Aplica webhook na Nina 1 (rótulo fixo da plataforma)."""
     url = webhook_url()
     if not url:
         return "faltam PUBLIC_API_BASE_URL ou EVOLUTION_WEBHOOK_SECRET"
     phone = platform_listen_phone(session)
     if phone is None:
-        return "nenhum telefone com is_platform_listen"
+        return f"nenhum telefone com rótulo '{PLATFORM_LISTEN_LABEL}'"
     if not phone.evolution_instance:
         return "telefone de plataforma sem instância Evolution"
     try:

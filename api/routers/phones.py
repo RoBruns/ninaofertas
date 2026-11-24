@@ -109,6 +109,10 @@ def create_phone(
     )
     session.add(phone)
     _flush_phone(session)
+    from core.mirror_webhook import ensure_platform_listen_webhook, sync_platform_listen_flags
+
+    sync_platform_listen_flags(session)
+    ensure_platform_listen_webhook(session)
     response = _response(phone)
     record_audit(session, admin, "phone", str(phone.id), "create", None, response.model_dump(mode="json"), client_ip(request))
     session.commit()
@@ -137,20 +141,14 @@ def update_phone(
         phone.instance_token_ciphertext = None
         phone.instance_token_fingerprint = None
         phone.instance_token_updated_at = None
-    if "is_platform_listen" in changes:
-        if not admin.is_platform_admin:
-            raise APIError(403, "FORBIDDEN", "Só a plataforma marca a escuta Nina 1")
-        if changes["is_platform_listen"]:
-            for other in session.scalars(
-                select(Phone).where(Phone.is_platform_listen.is_(True), Phone.id != phone.id)
-            ):
-                other.is_platform_listen = False
+    changes.pop("is_platform_listen", None)  # escuta é chumbada no rótulo Nina 1
     for field, value in changes.items():
         setattr(phone, field, value)
     _flush_phone(session)
-    if changes.get("is_platform_listen"):
-        from core.mirror_webhook import ensure_platform_listen_webhook
+    from core.mirror_webhook import ensure_platform_listen_webhook, sync_platform_listen_flags
 
+    sync_platform_listen_flags(session)
+    if "label" in changes or "evolution_instance" in changes:
         ensure_platform_listen_webhook(session)
     response = _response(phone)
     record_audit(session, admin, "phone", str(phone.id), "update", before, response.model_dump(mode="json"), client_ip(request))

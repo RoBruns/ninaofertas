@@ -710,7 +710,8 @@ No drain, por bot: classificar loja → exigir conta afiliado daquele bot →
 compartilhado entre tenants. Mensagens `fromMe` e JIDs dos destinos do bot são
 ignoradas (anti-eco). Canal Shopee (`@newsletter`) pode ser frágil.
 
-Consequência: `PUBLIC_API_BASE_URL` + `EVOLUTION_WEBHOOK_SECRET` na API; marcar
-o phone Nina 1 com `is_platform_listen` (só platform admin); cliente só liga o
-toggle do espelho e mantém filtros/contas.
+Consequência: `PUBLIC_API_BASE_URL` + `EVOLUTION_WEBHOOK_SECRET` na API e no
+worker. O telefone com rótulo **Nina 1** é a escuta chumbada (`is_platform_listen`
+sincronizado pelo rótulo — sem toggle na API/dashboard). Cliente só liga o
+toggle do espelho no bot e mantém filtros/contas.
 

@@ -172,7 +172,7 @@ phones (
   instance_token_ciphertext BYTEA,           -- segredo cifrado com CREDENTIALS_KEY
   instance_token_fingerprint TEXT,           -- 16 primeiros bytes do SHA-256 em hex
   instance_token_updated_at TIMESTAMPTZ,
-  is_platform_listen BOOLEAN NOT NULL DEFAULT false,  -- Nina 1 (escuta global do espelho)
+  is_platform_listen BOOLEAN NOT NULL DEFAULT false,  -- chumbado no rótulo "Nina 1" (0015)
   status             TEXT NOT NULL DEFAULT 'unknown',  -- connected | connecting | disconnected | banned | unknown
   last_seen_at       TIMESTAMPTZ,
   created_at         TIMESTAMPTZ NOT NULL DEFAULT now(),
