@@ -4,6 +4,26 @@
  */
 
 export interface paths {
+    "/api/webhooks/evolution": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Evolution Messages
+         * @description Recebe MESSAGES_UPSERT da Evolution e enfileira ofertas da allowlist do espelho.
+         */
+        post: operations["evolution_messages_api_webhooks_evolution_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/health": {
         parameters: {
             query?: never;
@@ -1798,6 +1818,23 @@ export interface components {
              */
             ml_tag?: string | null;
         };
+        /**
+         * Mirror
+         * @description Inscrição no espelho: Nina 1 (plataforma) captura; o phone do bot envia.
+         */
+        Mirror: {
+            /**
+             * Enabled
+             * @default false
+             */
+            enabled: boolean;
+            /**
+             * Source Group Names
+             * @description Subset opcional da allowlist da plataforma. Vazio = todos os grupos que a Nina 1 escuta.
+             * @default []
+             */
+            source_group_names: string[];
+        };
         /** AuditLogResponse */
         AuditLogResponse: {
             /** Id */
@@ -2037,6 +2074,7 @@ export interface components {
             content?: components["schemas"]["Content"];
             schedule?: components["schemas"]["Schedule"];
             attribution?: components["schemas"]["Attribution"];
+            mirror?: components["schemas"]["Mirror"];
         } & {
             [key: string]: unknown;
         };
@@ -3056,6 +3094,11 @@ export interface components {
             /** Evolution Instance */
             evolution_instance: string | null;
             /**
+             * Is Platform Listen
+             * @default false
+             */
+            is_platform_listen: boolean;
+            /**
              * Status
              * @enum {string}
              */
@@ -3090,6 +3133,8 @@ export interface components {
             number?: string | null;
             /** Evolution Instance */
             evolution_instance?: string | null;
+            /** Is Platform Listen */
+            is_platform_listen?: boolean | null;
         };
         /** PlanCreate */
         PlanCreate: {
@@ -4058,6 +4103,52 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    evolution_messages_api_webhooks_evolution_post: {
+        parameters: {
+            query?: {
+                token?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": unknown;
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Não autenticado */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Erro de validação */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
     health_api_health_get: {
         parameters: {
             query?: never;

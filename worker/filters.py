@@ -508,3 +508,50 @@ def passa_nos_filtros(oferta: OfertaCapturada, filtros: dict) -> tuple[bool, str
         return False, "não corresponde a nenhum produto específico monitorado"
 
     return True, ""
+
+
+def passa_filtros_espelho(oferta: OfertaCapturada, filtros: dict) -> tuple[bool, str]:
+    """Gate do espelho: bloqueios, lojas e nicho — sem preço/desconto/vendas.
+
+    Mensagens de WhatsApp raramente trazem preço estruturado; exigir os tetos
+    do scraper descartaria quase tudo. Nicho usa palavras_chave / termos_peca
+    ou o foco casa padrão (mesmo implícito do ciclo normal).
+    """
+    if _fora_do_foco(oferta.nome, filtros):
+        return False, "produto fora do foco do grupo"
+    if filtros.get("nicho") == "auto" and not _bomba_dagua_ok_no_auto(oferta.nome):
+        return False, "bomba d'água fora do automotivo"
+    if _eh_conteudo_infantil(oferta.nome, filtros):
+        return False, "conteúdo infantil bloqueado"
+
+    lojas = filtros.get("lojas")
+    if lojas and oferta.loja and oferta.loja.lower() not in [l.lower() for l in lojas]:
+        return False, f"loja '{oferta.loja}' não está na lista permitida"
+
+    termos_nicho = (
+        filtros.get("palavras_chave")
+        or filtros.get("termos_peca")
+        or list(_FOCO_CASA_PADRAO)
+    )
+    if termos_nicho and not _nome_do_nicho(oferta.nome, termos_nicho):
+        n = oferta.nome.lower().replace("á", "a")
+        bomba_auto = (
+            filtros.get("nicho") == "auto"
+            and "bomba" in n
+            and "agua" in n
+            and _bomba_dagua_ok_no_auto(oferta.nome)
+        )
+        if not bomba_auto:
+            return False, "fora do nicho do grupo"
+    return True, ""
+
+
+def titulo_mensagem_espelho(texto: str) -> str:
+    """Primeira linha útil sem URL, para o nicho ler o título da oferta."""
+    limpo = re.sub(r"https?://\S+", " ", texto or "")
+    for linha in limpo.splitlines():
+        t = " ".join(linha.split()).strip()
+        if len(t) >= 3:
+            return t[:200]
+    t = " ".join(limpo.split()).strip()
+    return (t or "oferta espelhada")[:200]

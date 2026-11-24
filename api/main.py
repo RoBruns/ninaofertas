@@ -33,6 +33,7 @@ from api.routers import (
     system,
     tasks,
     users,
+    webhooks,
 )
 from api.security import validate_security_config
 
@@ -106,3 +107,4 @@ app.include_router(system.router, prefix="/api")
 app.include_router(tasks.router, prefix="/api")
 
 app.include_router(platform.router, prefix="/api")
+app.include_router(webhooks.router, prefix="/api")

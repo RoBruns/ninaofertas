@@ -645,6 +645,12 @@ def update_bot(
         _ensure_can_activate(session, bot)
     bot.updated_at = datetime.now(timezone.utc)
     session.flush()
+    if "settings" in changes:
+        from core.mirror_webhook import ensure_platform_listen_webhook
+        from loguru import logger
+
+        webhook_status = ensure_platform_listen_webhook(session)
+        logger.info(f"Espelho webhook após salvar bot={bot.slug}: {webhook_status}")
     response = bot_response(session, bot)
     record_audit(
         session, admin, "bot", str(bot.id), "update", before, _audit(response), client_ip(request)

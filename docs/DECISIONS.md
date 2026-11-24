@@ -691,3 +691,26 @@ Consequência: o envio de ML depende de colar a fila (1×/dia ou quando esvaziar
 preferindo o bot de teste antes da produção. Se existir conta de vendedor com KYC
 depois, reteste de `/highlights` fica como trabalho separado.
 
+---
+
+## ADR-036 — Espelho WhatsApp (Nina 1 plataforma, validação por bot)
+**Data:** 2026-11-24 · **Status:** aceita · **Decisor:** dono
+
+Descoberta automática do ML segue bloqueada (ADR-035). Nina 1 (Business) é a
+capturadora **única da plataforma** (`is_platform_listen`): escuta a allowlist
+global de grupos/canais e alimenta qualquer conta do dashboard. O chip de
+envio continua sendo o telefone de cada bot (Nina 2 / cliente).
+
+Decisão: allowlist de origem é da plataforma (não cada cliente escolhe Nina 1).
+Webhook Evolution `MESSAGES_UPSERT` → captura neutra `mirror_captures` → fan-out
+para bots com `mirror.enabled` em **qualquer** tenant → `mirror_inbox` por bot.
+No drain, por bot: classificar loja → exigir conta afiliado daquele bot →
+`passa_filtros_espelho` (nicho/bloqueios; sem preço/desconto) →
+`garantir_afiliado` no runtime do bot → freio → envio. Link nunca é
+compartilhado entre tenants. Mensagens `fromMe` e JIDs dos destinos do bot são
+ignoradas (anti-eco). Canal Shopee (`@newsletter`) pode ser frágil.
+
+Consequência: `PUBLIC_API_BASE_URL` + `EVOLUTION_WEBHOOK_SECRET` na API; marcar
+o phone Nina 1 com `is_platform_listen` (só platform admin); cliente só liga o
+toggle do espelho e mantém filtros/contas.
+

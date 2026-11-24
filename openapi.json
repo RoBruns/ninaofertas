@@ -5,6 +5,75 @@
   "version": "0.5.0"
  },
  "paths": {
+  "/api/webhooks/evolution": {
+   "post": {
+    "tags": [
+     "webhooks"
+    ],
+    "summary": "Evolution Messages",
+    "description": "Recebe MESSAGES_UPSERT da Evolution e enfileira ofertas da allowlist do espelho.",
+    "operationId": "evolution_messages_api_webhooks_evolution_post",
+    "parameters": [
+     {
+      "name": "token",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Token"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {}
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": true,
+         "type": "object",
+         "title": "Response Evolution Messages Api Webhooks Evolution Post"
+        }
+       }
+      }
+     },
+     "401": {
+      "description": "Não autenticado",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Erro de validação",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
   "/api/health": {
    "get": {
     "tags": [
@@ -16242,6 +16311,29 @@
     "type": "object",
     "title": "Attribution"
    },
+   "Mirror": {
+    "properties": {
+     "enabled": {
+      "type": "boolean",
+      "title": "Enabled",
+      "default": false
+     },
+     "source_group_names": {
+      "items": {
+       "type": "string"
+      },
+      "type": "array",
+      "maxItems": 40,
+      "title": "Source Group Names",
+      "description": "Subset opcional da allowlist da plataforma. Vazio = todos os grupos que a Nina 1 escuta.",
+      "default": []
+     }
+    },
+    "additionalProperties": false,
+    "type": "object",
+    "title": "Mirror",
+    "description": "Inscrição no espelho: Nina 1 (plataforma) captura; o phone do bot envia."
+   },
    "AuditLogResponse": {
     "properties": {
      "id": {
@@ -17000,6 +17092,9 @@
      },
      "attribution": {
       "$ref": "#/components/schemas/Attribution"
+     },
+     "mirror": {
+      "$ref": "#/components/schemas/Mirror"
      }
     },
     "additionalProperties": true,
@@ -20297,6 +20392,11 @@
       ],
       "title": "Evolution Instance"
      },
+     "is_platform_listen": {
+      "type": "boolean",
+      "title": "Is Platform Listen",
+      "default": false
+     },
      "status": {
       "type": "string",
       "enum": [
@@ -20414,6 +20514,17 @@
        }
       ],
       "title": "Evolution Instance"
+     },
+     "is_platform_listen": {
+      "anyOf": [
+       {
+        "type": "boolean"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Is Platform Listen"
      }
     },
     "type": "object",

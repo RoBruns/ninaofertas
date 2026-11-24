@@ -45,6 +45,7 @@ def _response(phone: Phone, *, query_status: bool = True) -> PhoneResponse:
         has_instance_token=bool(phone.instance_token_ciphertext),
         instance_token_fingerprint=phone.instance_token_fingerprint,
         evolution_instance=phone.evolution_instance,
+        is_platform_listen=bool(getattr(phone, "is_platform_listen", False)),
         status=status,
         last_seen_at=phone.last_seen_at,
         created_at=phone.created_at,
@@ -136,9 +137,21 @@ def update_phone(
         phone.instance_token_ciphertext = None
         phone.instance_token_fingerprint = None
         phone.instance_token_updated_at = None
+    if "is_platform_listen" in changes:
+        if not admin.is_platform_admin:
+            raise APIError(403, "FORBIDDEN", "Só a plataforma marca a escuta Nina 1")
+        if changes["is_platform_listen"]:
+            for other in session.scalars(
+                select(Phone).where(Phone.is_platform_listen.is_(True), Phone.id != phone.id)
+            ):
+                other.is_platform_listen = False
     for field, value in changes.items():
         setattr(phone, field, value)
     _flush_phone(session)
+    if changes.get("is_platform_listen"):
+        from core.mirror_webhook import ensure_platform_listen_webhook
+
+        ensure_platform_listen_webhook(session)
     response = _response(phone)
     record_audit(session, admin, "phone", str(phone.id), "update", before, response.model_dump(mode="json"), client_ip(request))
     session.commit()

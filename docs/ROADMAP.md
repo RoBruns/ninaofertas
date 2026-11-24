@@ -1,5 +1,26 @@
 # Roadmap de implementação
 
+## Espelhamento WhatsApp (plataforma) — 2026-11-24
+
+Nina 1 é capturadora **da plataforma** (`phones.is_platform_listen`): uma
+instância escuta a allowlist global e serve todos os tenants. Cada bot só
+liga `mirror.enabled` (subset opcional de nomes). Webhook
+`POST /api/webhooks/evolution` → `mirror_captures` (neutra) → `mirror_inbox`
+por bot inscrito (migrations `0013`+`0014`). Worker: parse loja → credencial
+do bot → `passa_filtros_espelho` (nicho/bloqueios, sem preço) →
+`garantir_afiliado` da conta → freio → envio no phone do bot. Env:
+`PUBLIC_API_BASE_URL`, `EVOLUTION_WEBHOOK_SECRET`, opcional
+`MIRROR_SOURCE_GROUPS`. Ver ADR-036.
+
+## Coletor local ML (Chromium) — 2026-11-23
+
+Reprobe: httpx ainda cai em `/gz/account-verification` em mais-vendidos/ofertas.
+createLink e a fila `produtos_meli` seguem ok. Script
+`scripts/coletar_meli_mais_vendidos.py` + `requirements-collector.txt`: Playwright
+headed na máquina do dono, PATCH no bot via login admin. Rodar 1×/dia (fila 48 h).
+Endpoint interno dedicado ainda não existe (PATCH reenvia settings completo).
+Dono rejeitou coletor como solução do ML.
+
 ## Fila manual de produtos ML — 2026-11-23
 
 HTML `/mais-vendidos` e `/ofertas` caem em account-verification (mesmo no PC de

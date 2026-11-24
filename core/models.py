@@ -218,6 +218,9 @@ class Phone(Base):
     instance_token_fingerprint: Mapped[str | None] = mapped_column(Text)
     instance_token_updated_at: Mapped[datetime | None] = mapped_column(TIMESTAMPTZ)
     evolution_instance: Mapped[str | None] = mapped_column(Text)
+    is_platform_listen: Mapped[bool] = mapped_column(
+        Boolean, server_default=text("false"), default=False
+    )
     status: Mapped[str] = mapped_column(Text, server_default=text("'unknown'"))
     last_seen_at: Mapped[datetime | None] = mapped_column(TIMESTAMPTZ)
     created_at: Mapped[datetime] = mapped_column(TIMESTAMPTZ, server_default=text("now()"))
@@ -730,3 +733,64 @@ class TaskChecklistItem(Base):
     done: Mapped[bool] = mapped_column(Boolean, server_default=text("false"))
     position: Mapped[int] = mapped_column(Integer, server_default=text("0"))
     checklist: Mapped[TaskChecklist] = relationship(back_populates="items")
+
+
+class MirrorCapture(Base):
+    """Captura neutra na Nina 1 (plataforma), antes do fan-out por bot."""
+
+    __tablename__ = "mirror_captures"
+    __table_args__ = (
+        UniqueConstraint(
+            "listen_phone_id", "message_key", name="uq_mirror_captures_phone_key"
+        ),
+    )
+
+    id: Mapped[PythonUUID] = mapped_column(
+        UUID_TYPE, primary_key=True, server_default=text("gen_random_uuid()")
+    )
+    listen_phone_id: Mapped[PythonUUID] = mapped_column(
+        UUID_TYPE, ForeignKey("phones.id", ondelete="CASCADE")
+    )
+    source_whatsapp_id: Mapped[str] = mapped_column(Text)
+    source_group_name: Mapped[str | None] = mapped_column(Text, nullable=True)
+    message_key: Mapped[str] = mapped_column(Text)
+    body_text: Mapped[str] = mapped_column(Text, server_default=text("''"))
+    status: Mapped[str] = mapped_column(Text, server_default=text("'routed'"))
+    created_at: Mapped[datetime] = mapped_column(TIMESTAMPTZ, server_default=text("now()"))
+
+
+class MirrorInbox(Base):
+    """Fila por bot: captura da plataforma roteada para um bot inscrito."""
+
+    __tablename__ = "mirror_inbox"
+    __table_args__ = (
+        UniqueConstraint("bot_id", "message_key", name="uq_mirror_inbox_bot_key"),
+        Index(
+            "ix_mirror_inbox_pending",
+            "status",
+            "created_at",
+            postgresql_where=text("status = 'pending'"),
+        ),
+    )
+
+    id: Mapped[PythonUUID] = mapped_column(
+        UUID_TYPE, primary_key=True, server_default=text("gen_random_uuid()")
+    )
+    owner_id: Mapped[PythonUUID] = mapped_column(UUID_TYPE, ForeignKey("tenants.id"))
+    bot_id: Mapped[PythonUUID] = mapped_column(
+        UUID_TYPE, ForeignKey("bots.id", ondelete="CASCADE")
+    )
+    capture_id: Mapped[PythonUUID | None] = mapped_column(
+        UUID_TYPE, ForeignKey("mirror_captures.id", ondelete="SET NULL"), nullable=True
+    )
+    listen_phone_id: Mapped[PythonUUID] = mapped_column(
+        UUID_TYPE, ForeignKey("phones.id", ondelete="CASCADE")
+    )
+    source_whatsapp_id: Mapped[str] = mapped_column(Text)
+    source_group_name: Mapped[str | None] = mapped_column(Text, nullable=True)
+    message_key: Mapped[str] = mapped_column(Text)
+    body_text: Mapped[str] = mapped_column(Text, server_default=text("''"))
+    status: Mapped[str] = mapped_column(Text, server_default=text("'pending'"))
+    skip_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(TIMESTAMPTZ, server_default=text("now()"))
+    processed_at: Mapped[datetime | None] = mapped_column(TIMESTAMPTZ, nullable=True)

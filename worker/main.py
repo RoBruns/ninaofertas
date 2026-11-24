@@ -16,7 +16,7 @@ from core.alerts import cleanup_events, detect_alerts
 from core.config_provider import bots_ativos, usar_bot_runtime
 from core.sales_sync import sync_all_active_accounts
 from core.settings import settings
-from worker import commands, monitor, promo_instagram, telemetry
+from worker import commands, mirror, monitor, promo_instagram, telemetry
 from worker.channels import canais_ativos
 from worker.logger import logger
 
@@ -143,6 +143,24 @@ def _registrar_jobs(scheduler: BackgroundScheduler) -> None:
         hours=1,
         next_run_time=agora + timedelta(minutes=2),
         id="instagram",
+        max_instances=1,
+        coalesce=True,
+    )
+    scheduler.add_job(
+        mirror.ciclo,
+        "interval",
+        seconds=15,
+        next_run_time=agora + timedelta(seconds=20),
+        id="mirror-inbox",
+        max_instances=1,
+        coalesce=True,
+    )
+    scheduler.add_job(
+        mirror.garantir_webhooks,
+        "interval",
+        minutes=30,
+        next_run_time=agora + timedelta(minutes=1),
+        id="mirror-webhook",
         max_instances=1,
         coalesce=True,
     )

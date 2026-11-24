@@ -206,3 +206,48 @@ class EvolutionClient:
             raise
         except (httpx.HTTPError, ValueError, TypeError, AttributeError) as exc:
             raise EvolutionUnavailable("evolution-api indisponível") from exc
+
+    def set_webhook(self, instance: str, url: str, *, events: list[str] | None = None) -> None:
+        """Registra webhook de mensagens na instância (Evolution v2)."""
+        if not instance:
+            raise EvolutionUnavailable("Telefone sem instância da evolution-api")
+        event_list = events or ["MESSAGES_UPSERT"]
+        payloads = (
+            {
+                "webhook": {
+                    "enabled": True,
+                    "url": url,
+                    "webhookByEvents": False,
+                    "webhookBase64": False,
+                    "events": event_list,
+                }
+            },
+            {
+                "enabled": True,
+                "url": url,
+                "webhookByEvents": False,
+                "webhookBase64": False,
+                "events": event_list,
+            },
+        )
+        last_error: Exception | None = None
+        try:
+            with httpx.Client(timeout=10.0) as client:
+                for body in payloads:
+                    response = client.post(
+                        f"{self.base_url}/webhook/set/{instance}",
+                        headers=self.headers,
+                        json=body,
+                    )
+                    if response.status_code < 400:
+                        return
+                    last_error = EvolutionUnavailable(
+                        f"evolution-api recusou webhook ({response.status_code})"
+                    )
+            if last_error:
+                raise last_error
+            raise EvolutionUnavailable("evolution-api indisponível")
+        except EvolutionUnavailable:
+            raise
+        except (httpx.HTTPError, ValueError, TypeError, AttributeError) as exc:
+            raise EvolutionUnavailable("evolution-api indisponível") from exc

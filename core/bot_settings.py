@@ -214,6 +214,39 @@ class Attribution(BaseModel):
         return value
 
 
+class Mirror(BaseModel):
+    """Inscrição no espelho: Nina 1 (plataforma) captura; o phone do bot envia."""
+
+    # ignore: settings antigos podiam ter listen_phone_id (por-tenant).
+    model_config = ConfigDict(extra="ignore")
+
+    enabled: bool = False
+    source_group_names: list[str] = Field(
+        default_factory=list,
+        max_length=40,
+        description=(
+            "Subset opcional da allowlist da plataforma. Vazio = todos os grupos "
+            "que a Nina 1 escuta."
+        ),
+    )
+
+    @field_validator("source_group_names")
+    @classmethod
+    def validate_source_names(cls, value: list[str]) -> list[str]:
+        out: list[str] = []
+        seen: set[str] = set()
+        for raw in value or []:
+            name = " ".join(str(raw or "").split()).strip()
+            if not name or len(name) > 120:
+                continue
+            key = name.casefold()
+            if key in seen:
+                continue
+            seen.add(key)
+            out.append(name)
+        return out[:40]
+
+
 class BotSettings(BaseModel):
     """Formato novo aninhado, com leitura e escrita lossless do config legado.
 
@@ -230,6 +263,7 @@ class BotSettings(BaseModel):
     content: Content = Field(default_factory=Content)
     schedule: Schedule = Field(default_factory=Schedule)
     attribution: Attribution = Field(default_factory=Attribution)
+    mirror: Mirror = Field(default_factory=Mirror)
     # Internos do round-trip do config.json legado: fora da saída (exclude) e
     # fora do schema publicado (SkipJsonSchema), senão o contrato os exporia
     # como campos que o cliente precisa enviar.
@@ -248,12 +282,15 @@ class BotSettings(BaseModel):
             isinstance(value, dict)
             and isinstance(value.get("content"), dict)
             and set(value["content"]) <= {"recado_instagram"}
-            and not any(key in value for key in ("filters", "pacing", "schedule", "attribution"))
+            and not any(
+                key in value for key in ("filters", "pacing", "schedule", "attribution", "mirror")
+            )
             and set(value) & LEGACY_KEYS
         ):
             value = {**{key: item for key, item in value.items() if key != "content"}, **value["content"]}
         if not isinstance(value, dict) or any(
-            key in value for key in ("filters", "pacing", "content", "schedule", "attribution")
+            key in value
+            for key in ("filters", "pacing", "content", "schedule", "attribution", "mirror")
         ):
             return value
         if not (set(value) & LEGACY_KEYS):

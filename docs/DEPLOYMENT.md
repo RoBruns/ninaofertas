@@ -91,13 +91,16 @@ WORKER_TOKEN          # autentica /api/internal/*
 CORS_ORIGINS          https://<dashboard>.up.railway.app
 EVOLUTION_API_URL     http://evolution-api.railway.internal:8080
 EVOLUTION_API_KEY     ${{evolution-api.AUTHENTICATION_API_KEY}}
+PUBLIC_API_BASE_URL   https://<dashboard>.up.railway.app/api   # webhook do espelho
+EVOLUTION_WEBHOOK_SECRET  # token na query do webhook Evolution (MESSAGES_UPSERT)
+MIRROR_SOURCE_GROUPS  # opcional: allowlist Nina 1, um nome por linha
 LOG_LEVEL             INFO
 ```
 
 Gerar:
 ```bash
 python -c "import secrets,base64;print(base64.b64encode(secrets.token_bytes(32)).decode())"  # CREDENTIALS_KEY
-python -c "import secrets;print(secrets.token_urlsafe(64))"                                   # JWT_SECRET / WORKER_TOKEN
+python -c "import secrets;print(secrets.token_urlsafe(64))"                                   # JWT_SECRET / WORKER_TOKEN / EVOLUTION_WEBHOOK_SECRET
 ```
 
 **Guarde `CREDENTIALS_KEY` fora da Railway também** (gerenciador de senhas).

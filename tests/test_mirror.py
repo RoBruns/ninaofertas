@@ -1,0 +1,288 @@
+"""Espelho WhatsApp: parser, matching, captura de plataforma e fan-out."""
+
+from __future__ import annotations
+
+from uuid import uuid4
+
+import pytest
+from sqlalchemy.orm import Session, sessionmaker
+
+from core.bot_settings import BotSettings, Mirror
+from core.link_parser import detectar_loja, extrair_links_oferta, loja_para_platform_slug, substituir_urls
+from core.mirror_match import nome_na_allowlist
+from core.mirror_sources import allowlist_para_bot, platform_source_group_names
+from core.models import Bot, Group, MirrorCapture, MirrorInbox, Phone, Tenant
+from core.platforms.base import OfertaCapturada
+from tests.test_api import add_user, client, session_factory
+from worker.filters import passa_filtros_espelho, titulo_mensagem_espelho
+
+
+def test_detectar_loja_por_host():
+    assert detectar_loja("https://shopee.com.br/product/1/2") == "shopee"
+    assert detectar_loja("https://meli.la/xyz") == "mercado livre"
+    assert detectar_loja("https://www.amazon.com.br/dp/B0") == "amazon"
+    assert loja_para_platform_slug("mercado livre") == "mercadolivre"
+    assert loja_para_platform_slug("amazon") == "amazon"
+
+
+def test_extrair_e_substituir_links():
+    texto = "Olha: https://shopee.com.br/a/b e https://meli.la/zz fim."
+    links = extrair_links_oferta(texto)
+    assert [link.loja for link in links] == ["shopee", "mercado livre"]
+    novo = substituir_urls(
+        texto,
+        {
+            "https://shopee.com.br/a/b": "https://s.shopee.com.br/aff",
+            "https://meli.la/zz": "https://meli.la/nina",
+        },
+    )
+    assert "https://s.shopee.com.br/aff" in novo
+
+
+def test_allowlist_plataforma_e_subset():
+    assert "MELHORES OFERTAS" in platform_source_group_names()
+    assert nome_na_allowlist("🔥 Melhores Ofertas", platform_source_group_names())
+    subset = allowlist_para_bot(["MELHORES OFERTAS", "Grupo Inventado"])
+    assert subset == ["MELHORES OFERTAS"]
+    assert allowlist_para_bot([]) == platform_source_group_names()
+
+
+def test_passa_filtros_espelho_nicho_sem_preco():
+    filtros = {"palavras_chave": ["panela", "cozinha"], "preco_minimo": 50}
+    ok, _ = passa_filtros_espelho(
+        OfertaCapturada(nome="Panela antiaderente 24cm", preco=0.0, loja="shopee", url="https://shopee.com.br/a"),
+        filtros,
+    )
+    assert ok
+    bad, motivo = passa_filtros_espelho(
+        OfertaCapturada(nome="Pneu aro 15 esportivo", preco=0.0, loja="shopee", url="https://shopee.com.br/a"),
+        filtros,
+    )
+    assert not bad
+    assert "nicho" in motivo
+
+
+def test_titulo_mensagem_espelho_ignora_url():
+    texto = "https://shopee.com.br/x\nPanela boa demais\n"
+    assert titulo_mensagem_espelho(texto) == "Panela boa demais"
+
+
+@pytest.fixture()
+def webhook_secret(monkeypatch: pytest.MonkeyPatch) -> str:
+    monkeypatch.setenv("EVOLUTION_WEBHOOK_SECRET", "segredo-teste-espelho")
+    return "segredo-teste-espelho"
+
+
+def test_webhook_recusa_sem_token(client, webhook_secret: str) -> None:
+    response = client.post("/api/webhooks/evolution", json={"event": "messages.upsert"})
+    assert response.status_code == 401
+
+
+def _seed_platform_listen(session: Session, *, instance: str = "nina1-listen") -> Phone:
+    tenant = Tenant(id=uuid4(), name="Plataforma Nina", is_internal=True)
+    session.add(tenant)
+    session.flush()
+    phone = Phone(
+        id=uuid4(),
+        owner_id=tenant.id,
+        label="Nina 1",
+        number="5511888000001",
+        evolution_instance=instance,
+        is_platform_listen=True,
+    )
+    session.add(phone)
+    session.flush()
+    session.add(
+        Group(
+            id=uuid4(),
+            owner_id=tenant.id,
+            phone_id=phone.id,
+            name="MELHORES OFERTAS",
+            whatsapp_id="120363origem@g.us",
+        )
+    )
+    return phone
+
+
+def test_webhook_fanout_dois_tenants(
+    client,
+    session_factory: sessionmaker[Session],
+    webhook_secret: str,
+) -> None:
+    admin_a = add_user(session_factory, email="mirror-a@nina.test", role="admin")
+    admin_b = add_user(session_factory, email="mirror-b@nina.test", role="admin")
+    send_a = uuid4()
+    send_b = uuid4()
+    bot_a = uuid4()
+    bot_b = uuid4()
+    with session_factory.begin() as session:
+        listen = _seed_platform_listen(session)
+        listen_id = listen.id
+        session.add_all(
+            [
+                Phone(
+                    id=send_a,
+                    owner_id=admin_a.tenant_id,
+                    label="Nina 2 A",
+                    number="5511999000001",
+                    evolution_instance="nina2-a",
+                ),
+                Phone(
+                    id=send_b,
+                    owner_id=admin_b.tenant_id,
+                    label="Nina 2 B",
+                    number="5511999000002",
+                    evolution_instance="nina2-b",
+                ),
+            ]
+        )
+        session.add(
+            Bot(
+                id=bot_a,
+                owner_id=admin_a.tenant_id,
+                name="Casa A",
+                slug="casa-a-mirror",
+                status="active",
+                phone_id=send_a,
+                settings=BotSettings(mirror=Mirror(enabled=True)).model_dump(mode="json"),
+            )
+        )
+        session.add(
+            Bot(
+                id=bot_b,
+                owner_id=admin_b.tenant_id,
+                name="Casa B",
+                slug="casa-b-mirror",
+                status="active",
+                phone_id=send_b,
+                settings=BotSettings(mirror=Mirror(enabled=True)).model_dump(mode="json"),
+            )
+        )
+
+    response = client.post(
+        f"/api/webhooks/evolution?token={webhook_secret}",
+        json={
+            "event": "messages.upsert",
+            "instance": "nina1-listen",
+            "data": {
+                "key": {
+                    "remoteJid": "120363origem@g.us",
+                    "fromMe": False,
+                    "id": "MSG-MULTI",
+                },
+                "message": {
+                    "conversation": "Panela https://shopee.com.br/product/1/2",
+                },
+            },
+        },
+    )
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["accepted"] == 2
+    assert body["captures"] == 1
+
+    with session_factory() as session:
+        assert session.query(MirrorCapture).count() == 1
+        items = session.query(MirrorInbox).all()
+        assert {str(i.bot_id) for i in items} == {str(bot_a), str(bot_b)}
+        assert all(i.listen_phone_id == listen_id for i in items)
+        assert all(i.status == "pending" for i in items)
+
+
+def test_webhook_ignora_phone_sem_flag_plataforma(
+    client,
+    session_factory: sessionmaker[Session],
+    webhook_secret: str,
+) -> None:
+    admin = add_user(session_factory, email="mirror-nofalg@nina.test", role="admin")
+    with session_factory.begin() as session:
+        session.add(
+            Phone(
+                id=uuid4(),
+                owner_id=admin.tenant_id,
+                label="Comum",
+                number="5511999000099",
+                evolution_instance="phone-comum",
+                is_platform_listen=False,
+            )
+        )
+        session.add(
+            Bot(
+                id=uuid4(),
+                owner_id=admin.tenant_id,
+                name="Bot",
+                slug="bot-no-flag",
+                status="active",
+                settings=BotSettings(mirror=Mirror(enabled=True)).model_dump(mode="json"),
+            )
+        )
+
+    response = client.post(
+        f"/api/webhooks/evolution?token={webhook_secret}",
+        json={
+            "event": "messages.upsert",
+            "instance": "phone-comum",
+            "data": {
+                "key": {"remoteJid": "120363x@g.us", "fromMe": False, "id": "1"},
+                "message": {"conversation": "https://shopee.com.br/a/b"},
+            },
+        },
+    )
+    assert response.status_code == 200
+    assert response.json()["ignored"] == "not_platform_listen"
+
+
+def test_webhook_ignora_grupo_fora_da_allowlist(
+    client,
+    session_factory: sessionmaker[Session],
+    webhook_secret: str,
+) -> None:
+    admin = add_user(session_factory, email="mirror-out@nina.test", role="admin")
+    with session_factory.begin() as session:
+        listen = _seed_platform_listen(session, instance="nina1-out")
+        session.add(
+            Group(
+                id=uuid4(),
+                owner_id=listen.owner_id,
+                phone_id=listen.id,
+                name="Grupo Qualquer",
+                whatsapp_id="120363outro@g.us",
+            )
+        )
+        send = Phone(
+            id=uuid4(),
+            owner_id=admin.tenant_id,
+            label="Send",
+            number="5511999000012",
+            evolution_instance="send-out",
+        )
+        session.add(send)
+        session.add(
+            Bot(
+                id=uuid4(),
+                owner_id=admin.tenant_id,
+                name="Bot",
+                slug="bot-mirror-ignore",
+                status="active",
+                phone_id=send.id,
+                settings=BotSettings(mirror=Mirror(enabled=True)).model_dump(mode="json"),
+            )
+        )
+
+    response = client.post(
+        f"/api/webhooks/evolution?token={webhook_secret}",
+        json={
+            "event": "messages.upsert",
+            "instance": "nina1-out",
+            "data": {
+                "key": {
+                    "remoteJid": "120363outro@g.us",
+                    "fromMe": False,
+                    "id": "MSG002",
+                },
+                "message": {"conversation": "https://shopee.com.br/a/b"},
+            },
+        },
+    )
+    assert response.status_code == 200
+    assert response.json()["accepted"] == 0

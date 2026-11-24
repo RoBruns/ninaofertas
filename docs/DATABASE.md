@@ -172,10 +172,25 @@ phones (
   instance_token_ciphertext BYTEA,           -- segredo cifrado com CREDENTIALS_KEY
   instance_token_fingerprint TEXT,           -- 16 primeiros bytes do SHA-256 em hex
   instance_token_updated_at TIMESTAMPTZ,
+  is_platform_listen BOOLEAN NOT NULL DEFAULT false,  -- Nina 1 (escuta global do espelho)
   status             TEXT NOT NULL DEFAULT 'unknown',  -- connected | connecting | disconnected | banned | unknown
   last_seen_at       TIMESTAMPTZ,
   created_at         TIMESTAMPTZ NOT NULL DEFAULT now(),
   UNIQUE (owner_id, number)
+)
+-- UNIQUE parcial: no máximo um phone com is_platform_listen (migration 0014)
+
+mirror_captures (  -- captura neutra na Nina 1; migration 0014
+  id, listen_phone_id, source_whatsapp_id, source_group_name,
+  message_key, body_text, status, created_at,
+  UNIQUE (listen_phone_id, message_key)
+)
+
+mirror_inbox (  -- fila por bot; migrations 0013+0014
+  id, owner_id, bot_id, capture_id, listen_phone_id,
+  source_whatsapp_id, source_group_name, message_key, body_text,
+  status, skip_reason, created_at, processed_at,
+  UNIQUE (bot_id, message_key)
 )
 ```
 Resolve P3: o `"558531791835"` literal em `whatsapp.py` passa a ser esta linha.
