@@ -6,7 +6,7 @@ from typing import Annotated
 from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Depends, Query, Request
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -35,6 +35,8 @@ from core.models import (
     Bot,
     Envio,
     Group,
+    MirrorCapture,
+    MirrorInbox,
     Phone,
     Plan,
     Subscription,
@@ -358,3 +360,55 @@ def update_tenant(
     )
     session.commit()
     return response
+
+
+@router.post(
+    "/mirror/purge",
+    dependencies=[Depends(limit_authenticated_write)],
+)
+def purge_mirror_queue(
+    request: Request,
+    admin: PlatformAdmin,
+    session: Annotated[Session, Depends(get_db)],
+) -> dict[str, int]:
+    """Zera a fila do espelho (inbox + capturas) para reteste limpo."""
+    inbox_n = session.query(MirrorInbox).delete()
+    capture_n = session.query(MirrorCapture).delete()
+    record_audit(
+        session,
+        admin,
+        "mirror",
+        "queue",
+        "purge",
+        {"inbox": None, "captures": None},
+        {"inbox_deleted": inbox_n, "captures_deleted": capture_n},
+        client_ip(request),
+    )
+    session.commit()
+    return {"inbox_deleted": int(inbox_n or 0), "captures_deleted": int(capture_n or 0)}
+
+
+@router.post(
+    "/mirror/purge",
+    dependencies=[Depends(limit_authenticated_write)],
+)
+def purge_mirror_queue(
+    request: Request,
+    admin: PlatformAdmin,
+    session: Annotated[Session, Depends(get_db)],
+) -> dict[str, int]:
+    """Zera a fila do espelho (inbox + capturas) para reteste limpo."""
+    inbox_n = session.query(MirrorInbox).delete()
+    capture_n = session.query(MirrorCapture).delete()
+    record_audit(
+        session,
+        admin,
+        "mirror",
+        "queue",
+        "purge",
+        {"inbox": None, "captures": None},
+        {"inbox_deleted": inbox_n, "captures_deleted": capture_n},
+        client_ip(request),
+    )
+    session.commit()
+    return {"inbox_deleted": int(inbox_n or 0), "captures_deleted": int(capture_n or 0)}
