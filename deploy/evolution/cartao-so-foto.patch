@@ -173,14 +173,3 @@ index d514c61..4029ca4 100644
      delay: {
        type: 'integer',
        description: 'Enter a value in milliseconds',
-diff --git a/tsconfig.json b/tsconfig.json
-index af81413..279d079 100644
---- a/tsconfig.json
-+++ b/tsconfig.json
-@@ -1,5 +1,6 @@
- {
-   "compilerOptions": {
-+    "ignoreDeprecations": "6.0",
-     "experimentalDecorators": true,
-     "emitDecoratorMetadata": true,
-     "declaration": true,
