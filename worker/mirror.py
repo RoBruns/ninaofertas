@@ -20,7 +20,9 @@ from core.mirror_webhook import ensure_platform_listen_webhook
 from core.models import MirrorInbox, Phone
 from core.platforms import affiliate
 from core.platforms.base import OfertaCapturada
+from core.product_key import chave_produto
 from worker import channels, filters, formatter, monitor, telemetry, whatsapp
+from worker.mirror_dedup import pode_enviar_produto, vencedores_do_lote
 from worker.titulo_enfeite import enfeitar_titulo, titulo_igual
 from worker.logger import logger
 
@@ -89,6 +91,21 @@ def expirar_pendentes(quando: datetime | None = None) -> int:
         return int(resultado.rowcount or 0)
 
 
+def limpar_fila_pendente(*, motivo: str = "fila_limpa") -> int:
+    """Marca todo pending como skipped. Usado no deploy para não drenar cópia velha."""
+    with db.get_session() as session:
+        resultado = session.execute(
+            update(MirrorInbox)
+            .where(MirrorInbox.status == "pending")
+            .values(
+                status="skipped",
+                skip_reason=motivo[:80],
+                processed_at=datetime.now(timezone.utc),
+            )
+        )
+        return int(resultado.rowcount or 0)
+
+
 def processar_pendentes() -> int:
     """Processa até _BATCH itens pending. Retorna quantos saíram de pending."""
     encerradas = expirar_pendentes()
@@ -96,34 +113,36 @@ def processar_pendentes() -> int:
         logger.info(f"[espelho] {encerradas} oferta(s) do dia anterior saíram da fila")
     processados = 0
     with db.get_session() as session:
-        itens = session.scalars(
-            select(MirrorInbox)
-            .where(MirrorInbox.status == "pending")
-            .order_by(MirrorInbox.created_at.asc())
-            .limit(_BATCH)
-        ).all()
+        itens = list(
+            session.scalars(
+                select(MirrorInbox)
+                .where(MirrorInbox.status == "pending")
+                .order_by(MirrorInbox.created_at.asc())
+                .limit(_BATCH)
+            ).all()
+        )
         if not itens:
             return 0
 
         runtimes = {str(r.id): r for r in bots_ativos()}
+        # Primeiro passo: resolve chave/preço e escolhe a cópia mais barata do lote.
+        preparados: dict[object, dict] = {}
+        lote_chaves: list[tuple[object, str, float]] = []
         for item in itens:
             runtime = runtimes.get(str(item.bot_id))
             if runtime is None:
                 _marcar(item, "skipped", "bot_inativo")
                 processados += 1
                 continue
-
             with usar_bot_runtime(runtime):
                 filtros = load_filtros_runtime()
                 if relogio.em_silencio(filtros.get("quiet_hours")):
                     continue
-
                 links = extrair_links_oferta(item.body_text)
                 if not links:
                     _marcar(item, "skipped", "sem_link_marketplace")
                     processados += 1
                     continue
-
                 plataformas = platforms_with_usable_credentials(runtime.account_ids)
                 links_ok = [
                     link
@@ -134,9 +153,7 @@ def processar_pendentes() -> int:
                     _marcar(item, "skipped", "sem_conta_loja")
                     processados += 1
                     continue
-
                 titulo = filters.titulo_mensagem_espelho(item.body_text)
-                titulo_grupo = titulo
                 nome_nicho = " ".join(filters.linhas_uteis_espelho(item.body_text)) or titulo
                 passou_nicho = False
                 motivo_nicho = "fora do nicho do grupo"
@@ -147,7 +164,7 @@ def processar_pendentes() -> int:
                         preco=0.0,
                         loja=link.loja,
                         url=link.url,
-                        sku=f"mirror:{item.id}"[:120],
+                        sku="mirror-probe",
                         categoria="espelho",
                     )
                     ok_nicho, motivo_nicho = filters.passa_filtros_espelho(
@@ -161,19 +178,79 @@ def processar_pendentes() -> int:
                     _marcar(item, "skipped", f"nicho:{motivo_nicho}")
                     processados += 1
                     continue
-
-                grupos = list(runtime.group_ids)
-                if not grupos:
+                if not runtime.group_ids:
                     _marcar(item, "failed", "bot_sem_grupo")
+                    processados += 1
+                    continue
+                preco, _ant = filters.extrair_precos_mensagem(item.body_text)
+                sku = chave_produto(
+                    link_nicho.url, loja=link_nicho.loja, titulo=titulo
+                ) or f"mirror:{item.id}"
+                lote_chaves.append((item.id, f"{item.bot_id}:{sku}", float(preco or 0.0)))
+                preparados[item.id] = {
+                    "runtime": runtime,
+                    "filtros": filtros,
+                    "titulo": titulo,
+                    "link": link_nicho,
+                    "sku": sku[:120],
+                    "preco": float(preco or 0.0),
+                }
+
+        vencedores = vencedores_do_lote(lote_chaves) if lote_chaves else set()
+        for item_id, chave, _preco in lote_chaves:
+            if item_id in vencedores:
+                continue
+            item = next((i for i in itens if i.id == item_id), None)
+            if item is None or item.status != "pending":
+                continue
+            logger.info(f"[espelho] cópia mais cara no lote; pulando {item_id} ({chave})")
+            _marcar(item, "skipped", "duplicado_produto")
+            processados += 1
+            preparados.pop(item_id, None)
+
+        for item in itens:
+            if item.status != "pending":
+                continue
+            prep = preparados.get(item.id)
+            if prep is None:
+                continue
+            runtime = prep["runtime"]
+            filtros = prep["filtros"]
+            titulo = prep["titulo"]
+            titulo_grupo = titulo
+            link_nicho = prep["link"]
+            sku = prep["sku"]
+            preco = prep["preco"]
+            grupos = list(runtime.group_ids)
+            dedup_horas = int(filtros.get("dedup_horas_produto") or 24)
+
+            with usar_bot_runtime(runtime):
+                # Dedup por produto antes do freio — não gasta vaga com cópia.
+                bloqueados = 0
+                for jid in grupos:
+                    ok_prod, motivo_prod = pode_enviar_produto(
+                        session,
+                        sku=sku,
+                        loja=link_nicho.loja,
+                        grupo=jid,
+                        tenant_id=runtime.owner_id,
+                        preco=preco,
+                        dedup_horas=dedup_horas,
+                    )
+                    if not ok_prod:
+                        bloqueados += 1
+                if bloqueados == len(grupos):
+                    logger.info(f"[espelho] produto já enviado ({sku}) {item.id}")
+                    _marcar(item, "skipped", "duplicado_produto")
                     processados += 1
                     continue
 
                 oferta_probe = OfertaCapturada(
                     nome=titulo[:80],
-                    preco=0.0,
+                    preco=preco,
                     loja=link_nicho.loja,
                     url=link_nicho.url,
-                    sku=f"mirror:{item.id}"[:120],
+                    sku=sku,
                     categoria="espelho",
                 )
                 ok, motivo = monitor._freio_anti_ban(  # noqa: SLF001
@@ -230,15 +307,29 @@ def processar_pendentes() -> int:
                     continue
                 titulo = enfeitar_titulo(titulo, titulo_grupo)
                 if titulo_igual(titulo, titulo_grupo):
-                    logger.info(f"[espelho] título igual ao do grupo; oferta não enviada {item.id}")
+                    logger.info(
+                        f"[espelho] título igual ao do grupo; oferta não enviada {item.id}"
+                    )
                     _marcar(item, "skipped", "titulo_igual")
                     processados += 1
                     continue
 
+                cartao = bool(filtros.get("cartao_so_foto"))
                 enviou_algum = False
                 falhou_total = True
                 teve_foto = False
                 for jid in grupos:
+                    ok_prod, _motivo_prod = pode_enviar_produto(
+                        session,
+                        sku=sku,
+                        loja=link_nicho.loja,
+                        grupo=jid,
+                        tenant_id=runtime.owner_id,
+                        preco=preco,
+                        dedup_horas=dedup_horas,
+                    )
+                    if not ok_prod:
+                        continue
                     canal = _token_canal(runtime, jid)
                     with channels.usar_canal(canal):
                         group_id = channels.grupo_db_id()
@@ -251,8 +342,6 @@ def processar_pendentes() -> int:
                         url_afiliado = str(convertido)
                         sub_id = getattr(convertido, "sub_id", None)
                         loja_l = (link_nicho.loja or "").lower()
-                        # ML/Shopee: só envia se a conversão da CONTA do bot gerou sub_id.
-                        # Link de afiliado de terceiro (meli.la alheio) não conta.
                         if (
                             ("mercado" in loja_l or "shopee" in loja_l)
                             and not sub_id
@@ -274,15 +363,17 @@ def processar_pendentes() -> int:
                             url_afiliado=url_afiliado,
                             url_origem=link_nicho.url,
                             body_text=item.body_text,
-                            sku=f"mirror:{item.id}",
+                            sku=sku,
                             imagem=imagem,
                         )
-                        # Template do bot — sem citar o grupo de origem.
                         mensagem = formatter.montar_mensagem(oferta)
                         imagem_envio = imagem
                         teve_foto = True
                         ok_envio = whatsapp.enviar_mensagem(
-                            mensagem, imagem=imagem, grupo=jid
+                            mensagem,
+                            imagem=imagem,
+                            grupo=jid,
+                            previa_imagem=imagem if cartao else None,
                         )
                         oferta_db = monitor._salvar_oferta(  # noqa: SLF001
                             session,
@@ -292,7 +383,7 @@ def processar_pendentes() -> int:
                                 preco_anterior=oferta.preco_anterior,
                                 loja=link_nicho.loja,
                                 url=url_afiliado,
-                                sku=f"mirror:{item.id}"[:120],
+                                sku=sku[:120],
                                 categoria="espelho",
                                 imagem=imagem_envio,
                             ),
@@ -323,6 +414,7 @@ def processar_pendentes() -> int:
                             "inbox_id": str(item.id),
                             "source": item.source_group_name,
                             "has_media": teve_foto,
+                            "sku": sku,
                         },
                     )
                     processados += 1

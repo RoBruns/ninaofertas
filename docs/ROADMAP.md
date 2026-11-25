@@ -1,5 +1,15 @@
 # Roadmap de implementação
 
+## Dedup de produto no espelho + cartão Gio — 2026-11-25
+
+Vários grupos de origem ficam. O mesmo item (MLB / shop.item / ASIN) não sai de
+novo no grupo em 24 h, salvo queda de preço ≥ `REENVIO_QUEDA_MINIMA`. No lote,
+fica a cópia mais barata. SKU da oferta = `product_key`, não `mirror:{id}`.
+
+`content.cartao_so_foto` (default off) manda a prévia só com a foto; se a
+Evolution recusar, anexa a imagem. Patch da Evolution versionado em
+`deploy/evolution/`. Carimbo de marca (estilo Loe) fica para depois.
+
 ## Enfeite usa o modelo que ainda responde — 2026-11-24
 
 `gpt-4.1-nano` foi desligado e a API respondia 404. O enfeite passou para

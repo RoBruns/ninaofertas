@@ -48,6 +48,7 @@ PACING_KEYS = {
     "max_ofertas_por_dia",
     "max_ofertas_globais_por_hora",
     "max_ofertas_globais_por_dia",
+    "dedup_horas_produto",
 }
 CONTENT_KEYS = {
     "recado_instagram",
@@ -59,6 +60,7 @@ CONTENT_KEYS = {
     "cupons_meli",
     "produtos_meli",
     "baseline_ciclos",
+    "cartao_so_foto",
 }
 SCHEDULE_KEYS = {"check_interval", "quiet_hours"}
 LEGACY_KEYS = FILTER_KEYS | PACING_KEYS | CONTENT_KEYS | SCHEDULE_KEYS | {"mensagem_template"}
@@ -108,6 +110,8 @@ class Pacing(BaseModel):
     max_ofertas_por_dia: int = Field(default=80, ge=0)
     max_ofertas_globais_por_hora: int = Field(default=8, ge=1)
     max_ofertas_globais_por_dia: int = Field(default=90, ge=0)
+    # Mesmo produto (MLB / shop.item) não sai de novo dentro desta janela, salvo queda de preço.
+    dedup_horas_produto: int = Field(default=24, ge=1, le=168)
 
     @model_validator(mode="after")
     def safe_limits(self) -> Self:
@@ -129,6 +133,8 @@ class Content(BaseModel):
     # Fila manual de produtos ML (URL + preço). HTML mais-vendidos está bloqueado.
     produtos_meli: list[dict] = Field(default_factory=list, max_length=50)
     baseline_ciclos: int = Field(default=5, ge=0)
+    # Prévia só com a foto (formato Gio). Default off — ligar no bot de teste primeiro.
+    cartao_so_foto: bool = False
 
     @field_validator("produtos_meli")
     @classmethod

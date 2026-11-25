@@ -78,7 +78,7 @@ def enviar_mensagem(
 
     previa_imagem pede o cartão só com a foto: sem título nem descrição da
     página, e o toque abre o link do texto. Se a Evolution recusar esse
-    formato, a mensagem sai com a prévia automática da página.
+    formato, a mensagem cai no sendMedia (foto anexada), nunca só texto.
     """
     from worker.channels import grupo_whatsapp, instancia_evolution
 
@@ -98,6 +98,7 @@ def enviar_mensagem(
     headers = {"apikey": token or settings.evolution_api_key, "Content-Type": "application/json"}
     url = f"{settings.evolution_api_url}/message/sendText/{instancia}"
     payload: dict[str, object] = {"number": destino, "text": texto}
+    imagem_reserva = imagem
     cartao = _cartao_so_foto(texto, previa_imagem) if previa_imagem else None
     if cartao:
         payload["linkPreview"] = cartao
@@ -138,8 +139,22 @@ def enviar_mensagem(
                 headers["apikey"] = settings.evolution_api_key
                 response = client.post(url, json=payload, headers=headers)
             if response.status_code == 400 and isinstance(payload.get("linkPreview"), dict):
-                logger.info("Evolution recusou a prévia só com foto; usando a prévia da página")
-                payload["linkPreview"] = True
+                logger.info(
+                    "Evolution recusou a prévia só com foto; anexando a imagem"
+                )
+                media = _media_payload(imagem_reserva or previa_imagem or "")
+                if not media:
+                    return False
+                url = f"{settings.evolution_api_url}/message/sendMedia/{instancia}"
+                payload = {
+                    "number": destino,
+                    "mediatype": "image",
+                    "media": media,
+                    "caption": texto,
+                }
+                if not str(media).startswith("http"):
+                    payload["mimetype"] = "image/jpeg"
+                    payload["fileName"] = "foto.jpg"
                 response = client.post(url, json=payload, headers=headers)
         if response.status_code >= 400:
             # O corpo explica a falha (número inválido, sessão caída); as chaves saem dele.
@@ -158,11 +173,12 @@ def enviar_mensagem(
 
 
 def _cartao_so_foto(texto: str, imagem: str) -> dict[str, str] | None:
-    """Foto clicável, sem título nem descrição. O link do texto é o destino."""
+    """Foto clicável, sem título nem descrição. Prefere base64; URL é reserva."""
     media = _media_payload(imagem)
     if not media:
         return None
     cartao: dict[str, str] = {}
+    # Base64 evita a Evolution baixar CDN da Shopee (costuma falhar no datacenter).
     if media.startswith("https://"):
         cartao["thumbnailUrl"] = media
     else:

@@ -1,0 +1,186 @@
+﻿diff --git a/.dockerignore b/.dockerignore
+index f8ca5d0..546653b 100644
+--- a/.dockerignore
++++ b/.dockerignore
+@@ -1,5 +1,4 @@
+ .git
+-*Dockerfile*
+ *docker-compose*
+ .env
+ node_modules
+diff --git a/Dockerfile b/Dockerfile
+index 996b3e0..9651c82 100644
+--- a/Dockerfile
++++ b/Dockerfile
+@@ -1,7 +1,7 @@
+ FROM node:24-alpine AS builder
+ 
+ RUN apk update && \
+-    apk add --no-cache git ffmpeg wget curl bash openssl
++    apk add --no-cache git ffmpeg wget curl bash openssl dos2unix
+ 
+ LABEL version="2.3.1" description="Api to control whatsapp features through http requests." 
+ LABEL maintainer="Davidson Gomes" git="https://github.com/DavidsonGomes"
+diff --git a/src/api/dto/sendMessage.dto.ts b/src/api/dto/sendMessage.dto.ts
+index ba9ecf5..a7e7e57 100644
+--- a/src/api/dto/sendMessage.dto.ts
++++ b/src/api/dto/sendMessage.dto.ts
+@@ -5,11 +5,19 @@ export class Quoted {
+   message: proto.IMessage;
+ }
+ 
++export class LinkPreviewCard {
++  title?: string;
++  description?: string;
++  thumbnailUrl?: string;
++  thumbnailBase64?: string;
++  canonicalUrl?: string;
++}
++
+ export class Options {
+   delay?: number;
+   presence?: WAPresence;
+   quoted?: Quoted;
+-  linkPreview?: boolean;
++  linkPreview?: boolean | LinkPreviewCard;
+   encoding?: boolean;
+   mentionsEveryOne?: boolean;
+   mentioned?: string[];
+@@ -40,7 +48,7 @@ export class Metadata {
+   number: string;
+   delay?: number;
+   quoted?: Quoted;
+-  linkPreview?: boolean;
++  linkPreview?: boolean | LinkPreviewCard;
+   mentionsEveryOne?: boolean;
+   mentioned?: string[];
+   encoding?: boolean;
+diff --git a/src/api/integrations/channel/whatsapp/whatsapp.baileys.service.ts b/src/api/integrations/channel/whatsapp/whatsapp.baileys.service.ts
+index 60e857f..99fad29 100644
+--- a/src/api/integrations/channel/whatsapp/whatsapp.baileys.service.ts
++++ b/src/api/integrations/channel/whatsapp/whatsapp.baileys.service.ts
+@@ -35,6 +35,7 @@ import {
+   Button,
+   ContactMessage,
+   KeyType,
++  LinkPreviewCard,
+   MediaMessage,
+   Options,
+   SendAudioDto,
+@@ -2127,6 +2128,61 @@ export class BaileysStartupService extends ChannelStartupService {
+     }
+   }
+ 
++  private async buildCustomLinkPreview(card: LinkPreviewCard, text: string) {
++    const fromCard = (card.canonicalUrl || '').trim();
++    const fromText = text.match(/https?:\/\/[^\s<>]+/)?.[0]?.replace(/[).,]+$/u, '') || '';
++    const url = fromCard || fromText;
++    if (!url) {
++      throw new BadRequestException('linkPreview sem URL canônica');
++    }
++
++    let image: Buffer | undefined;
++    try {
++      if (card.thumbnailBase64) {
++        image = Buffer.from(card.thumbnailBase64.replace(/^data:[^;]+;base64,/, ''), 'base64');
++      } else if (card.thumbnailUrl) {
++        const response = await axios.get(card.thumbnailUrl, {
++          responseType: 'arraybuffer',
++          timeout: 10000,
++          maxContentLength: 5 * 1024 * 1024,
++          maxBodyLength: 5 * 1024 * 1024,
++        });
++        image = Buffer.from(response.data);
++      }
++    } catch (error) {
++      this.logger.error(`Error preparing the link preview picture: ${error}`);
++      throw new BadRequestException('falha ao montar a foto do linkPreview');
++    }
++
++    if (!image?.length) {
++      throw new BadRequestException('linkPreview sem miniatura');
++    }
++
++    const info: any = {
++      'canonical-url': url,
++      'matched-text': url,
++    };
++    if (card.title) info.title = card.title;
++    if (card.description) info.description = card.description;
++
++    try {
++      const { imageMessage } = await prepareWAMessageMedia(
++        { image },
++        { upload: this.client.waUploadToServer, mediaTypeOverride: 'thumbnail-link' } as any,
++      );
++      info.jpegThumbnail = imageMessage?.jpegThumbnail ? Buffer.from(imageMessage.jpegThumbnail) : undefined;
++      info.highQualityThumbnail = imageMessage || undefined;
++    } catch (error) {
++      this.logger.error(`Error uploading the link preview picture: ${error}`);
++      throw new BadRequestException('falha ao subir a foto do linkPreview');
++    }
++
++    if (!info.jpegThumbnail && !info.highQualityThumbnail) {
++      throw new BadRequestException('linkPreview sem miniatura após upload');
++    }
++    return info;
++  }
++
+   private async sendMessage(
+     sender: string,
+     message: any,
+@@ -2338,7 +2394,13 @@ export class BaileysStartupService extends ChannelStartupService {
+         }
+       }
+ 
+-      const linkPreview = options?.linkPreview != false ? undefined : false;
++      const customCard =
++        options?.linkPreview && typeof options.linkPreview === 'object' ? options.linkPreview : undefined;
++      let linkPreview: any = options?.linkPreview === false ? false : undefined;
++      if (customCard && typeof (message as any)?.conversation === 'string') {
++        // Sem fallback para a prévia da página: se a foto falhar, devolve 400.
++        linkPreview = await this.buildCustomLinkPreview(customCard, (message as any).conversation);
++      }
+ 
+       let quoted: WAMessage;
+ 
+diff --git a/src/validate/message.schema.ts b/src/validate/message.schema.ts
+index d514c61..4029ca4 100644
+--- a/src/validate/message.schema.ts
++++ b/src/validate/message.schema.ts
+@@ -71,7 +71,23 @@ export const textMessageSchema: JSONSchema7 = {
+   properties: {
+     number: { ...numberDefinition },
+     text: { type: 'string' },
+-    linkPreview: { type: 'boolean' },
++    linkPreview: {
++      description: 'true ou false para a prévia da página, ou a foto do link sem título',
++      oneOf: [
++        { type: 'boolean' },
++        {
++          type: 'object',
++          additionalProperties: false,
++          properties: {
++            title: { type: 'string' },
++            description: { type: 'string' },
++            thumbnailUrl: { type: 'string' },
++            thumbnailBase64: { type: 'string' },
++            canonicalUrl: { type: 'string' },
++          },
++        },
++      ],
++    },
+     delay: {
+       type: 'integer',
+       description: 'Enter a value in milliseconds',
+diff --git a/tsconfig.json b/tsconfig.json
+index af81413..279d079 100644
+--- a/tsconfig.json
++++ b/tsconfig.json
+@@ -1,5 +1,6 @@
+ {
+   "compilerOptions": {
++    "ignoreDeprecations": "6.0",
+     "experimentalDecorators": true,
+     "emitDecoratorMetadata": true,
+     "declaration": true,

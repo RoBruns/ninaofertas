@@ -746,6 +746,22 @@ ausente). Testes ligam a flag no `conftest`.
 
 ---
 
+## ADR-042 — Dedup por produto no espelho; cartão Gio atrás de flag
+**Data:** 2026-11-25 · **Status:** aceita · **Decisor:** dono
+
+Vários grupos de origem postam o mesmo kit com preços e `meli.la` diferentes.
+O espelho tratava cada mensagem como oferta nova (`mirror:{inbox_id}`).
+
+Decisão: manter a allowlist larga. A identidade é `product_key` (MLB, shop.item
+Shopee, ASIN, Magalu). Em 24 h (`pacing.dedup_horas_produto`), o mesmo SKU no
+mesmo grupo não sai de novo, salvo queda ≥ `REENVIO_QUEDA_MINIMA`. No lote, a
+cópia mais barata vence. Freio anti-ban não muda.
+
+Cartão só com a foto (formato Gio): `content.cartao_so_foto` default false;
+ligar no bot de teste antes da produção. Evolution fail-closed (400 se a
+miniatura falhar); o worker cai no `sendMedia`. Carimbo de marca na miniatura
+(estilo Loe) fica para uma fase seguinte.
+
 ## ADR-041 — Título de vitrine não é nome de produto
 **Data:** 2026-11-24 · **Status:** aceita · **Decisor:** dono
 

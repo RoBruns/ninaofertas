@@ -251,17 +251,24 @@ neste projeto, registrado em `STATUS.md`). Não recriar o serviço sem necessida
 só com a foto (deploy `ad03115e`,
 `sha256:e1faf3caf556cc03da5491ce8a1592b031bcc572d13c50cbc5fe97f3e054af09`).
 `sendText` aceita `linkPreview` booleano ou objeto (`thumbnailUrl` ou
-`thumbnailBase64`, `canonicalUrl` opcional, sem título). O log de início ficou
+`thumbnailBase64`, `canonicalUrl` opcional, sem título). Se a miniatura
+falhar, a API responde 400 (não cai na prévia da página). O patch versionado
+está em `deploy/evolution/` (aplicar na tag `2.3.8`). O log de início ficou
 `CONNECTED TO WHATSAPP` e a sessão do volume continuou. A imagem anterior, de
 2026-10-14, era
 `evoapicloud/evolution-api@sha256:966625532d9076a2381e973a271307d107e6f070450de3abeeea8bd18be07252`
 (recompilação da 2.3.7; só aceitava `linkPreview` booleano). Para atualizar:
-versão **igual ou mais nova** (voltar versão pode quebrar a sessão), teste o
-contrato de `core/evolution.py` e troque a imagem do serviço `evolution-api`,
-logo depois de um envio ou no silêncio noturno, porque o serviço reinicia.
-Não recrie o serviço. A Railway manda o e-mail "Deployment crashed for
-evolution-api" sobre o deploy **antigo**; confira o id e o log do deploy novo
-("CONNECTED TO WHATSAPP") antes de agir.
+versão **igual ou mais nova** (voltar versão pode quebrar a sessão), aplique
+o patch, teste o contrato de `core/evolution.py` e troque a imagem do serviço
+`evolution-api` no silêncio noturno. Não recrie o serviço. A Railway manda o
+e-mail "Deployment crashed for evolution-api" sobre o deploy **antigo**;
+confira o id e o log do deploy novo ("CONNECTED TO WHATSAPP") antes de agir.
+
+Após o deploy do dedup no worker, limpar a fila velha uma vez:
+
+```bash
+railway run -s nina-worker -- python -c "from worker.mirror import limpar_fila_pendente; print(limpar_fila_pendente())"
+```
 
 ## Saúde
 

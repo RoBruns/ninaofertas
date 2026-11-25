@@ -121,7 +121,7 @@ def test_envio_com_previa_nao_anexa_foto(monkeypatch: pytest.MonkeyPatch) -> Non
     assert "mediatype" not in payload
 
 
-def test_previa_recusada_cai_na_previa_da_pagina(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_previa_recusada_anexa_a_foto(monkeypatch: pytest.MonkeyPatch) -> None:
     class _Recusa:
         def __init__(self, **_kwargs: object) -> None:
             pass
@@ -145,9 +145,10 @@ def test_previa_recusada_cai_na_previa_da_pagina(monkeypatch: pytest.MonkeyPatch
     monkeypatch.setattr(channels, "instancia_evolution", lambda: "instancia")
     assert whatsapp.enviar_mensagem(
         f"oferta {_LINK}",
+        imagem=_FOTO,
         grupo="grupo@g.us",
-        previa_do_link=True,
         previa_imagem=_FOTO,
     )
-    assert not isinstance(_Client.calls[0][1]["linkPreview"], bool)
-    assert _Client.calls[1][1]["linkPreview"] is True
+    assert isinstance(_Client.calls[0][1]["linkPreview"], dict)
+    assert _Client.calls[1][0].endswith("/message/sendMedia/instancia")
+    assert _Client.calls[1][1]["mediatype"] == "image"
