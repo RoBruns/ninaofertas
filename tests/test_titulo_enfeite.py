@@ -94,3 +94,32 @@ def test_copia_do_titulo_do_grupo_e_descartada(monkeypatch: pytest.MonkeyPatch) 
     assert titulo_enfeite.enfeitar_titulo(
         "Micro-ondas ME36S Efficient", "Micro-ondas ME36S Efficient"
     ) == "Micro-ondas ME36S Efficient"
+
+
+def test_enfeite_cortado_no_meio_e_descartado(monkeypatch: pytest.MonkeyPatch) -> None:
+    titulo_enfeite._CACHE.clear()
+
+    class _Cortado(_Client):
+        def post(
+            self, url: str, *, headers: dict[str, str], json: dict[str, object]
+        ) -> httpx.Response:
+            return httpx.Response(
+                200,
+                json={
+                    "choices": [
+                        {
+                            "message": {
+                                "content": (
+                                    "Espelho Retangular Grande com LED: "
+                                    "Reflexos incríveis todos os di"
+                                )
+                            }
+                        }
+                    ]
+                },
+            )
+
+    monkeypatch.setattr(settings, "openai_api_key", "sk-teste")
+    monkeypatch.setattr(httpx, "Client", _Cortado)
+    base = "Espelho Retangular Grande com LED"
+    assert titulo_enfeite.enfeitar_titulo(base, base) == base

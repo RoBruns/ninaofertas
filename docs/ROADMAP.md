@@ -1,5 +1,13 @@
 # Roadmap de implementação
 
+## Título do espelho: sem corte e sem troca por outro item — 2026-11-25
+
+O `nome[:120]` cortava o enfeite no meio ("todos os di"). Limite sobe para 200;
+enfeite incompleto (termina em letra) é descartado. Se o caption já nomeia um
+produto e o `og:title` fala de outro (ex.: saco de lixo vs KIT PRINCIPIA), fica
+o caption — a página só substitui anúncio fraco (vitrine/faixa). Cupom da
+origem continua saindo, sem "De x por" ornamental.
+
 ## Dedup de produto no espelho + cartão Gio — 2026-11-25
 
 Vários grupos de origem ficam. O mesmo item (MLB / shop.item / ASIN) não sai de
@@ -40,8 +48,9 @@ título da página — e, se ele for igual ao do grupo, a oferta não sai.
 ## Prévia só com a foto — 2026-11-24
 
 A oferta sai com a foto do produto anexada e o link da loja no texto. O título
-é o nome do item, não a faixa da mensagem ("COZINHA MAIS PRÁTICA"). Se esse
-nome não aparece na página do link, entra o nome da página. No carrossel, a
+é o nome do item, não a faixa da mensagem ("COZINHA MAIS PRÁTICA"). Se o
+anúncio for fraco (vitrine/faixa) e a página nomear o item, entra o nome da
+página; se os dois nomeiam produtos diferentes, fica o caption. No carrossel, a
 primeira mídia que não é vídeo. Sem foto, a oferta não sai. A página do
 produto é lida com o agente do WhatsApp, porque a Shopee esconde a imagem de
 um navegador comum.

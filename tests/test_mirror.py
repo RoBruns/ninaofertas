@@ -30,6 +30,8 @@ from worker.whatsapp import _media_payload
 from worker.filters import (
     extrair_cupom_mensagem,
     extrair_precos_mensagem,
+    mensagem_eh_cupom_espelho,
+    pagina_de_cupom,
     passa_filtros_espelho,
     titulo_bate_com_pagina,
     titulo_confirmado,
@@ -118,6 +120,44 @@ def test_vitrine_da_shopee_nao_substitui_o_nome():
         "https://shopee.com.br/product/1/2\n"
     )
     assert titulo_mensagem_espelho(texto) == "Gocase Tote Mini"
+
+
+def test_titulo_produto_nao_troca_por_outro_da_pagina():
+    """Caption e og:title de itens diferentes: fica o caption (foto costuma bater)."""
+    assert (
+        titulo_confirmado("Saco de lixo 100L com 50 unidades", "KIT PRINCIPIA Vitamina C")
+        == "Saco de lixo 100L com 50 unidades"
+    )
+    # Anúncio fraco (faixa) ainda cede para o nome real da página.
+    assert titulo_confirmado("COZINHA MAIS PRÁTICA", "Panela antiaderente 24cm") == (
+        "Panela antiaderente 24cm"
+    )
+
+
+def test_oferta_espelho_nao_corta_titulo_enfeitado(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "worker.formatter.load_filtros",
+        lambda: {"mensagem_template": "🚨 *{nome}*\n\n✅ {de_por}\n\n🛒 {url}"},
+    )
+    titulo = (
+        "Espelho Retangular Grande com LED para Banheiro Quarto Camarim "
+        "Closet Varios Acabamentos: Reflexos incríveis todos os dias! ✨🪞"
+    )
+    assert len(titulo) > 120
+    oferta = _oferta_template(
+        titulo=titulo,
+        loja="shopee",
+        url_afiliado="https://s.shopee.com.br/nina-aff",
+        url_origem="https://s.shopee.com.br/AAJ0vaUiSy",
+        body_text=f"{titulo}\nPor R$ 344,29\nhttps://s.shopee.com.br/AAJ0vaUiSy",
+        sku="mirror:espelho",
+        imagem=None,
+    )
+    assert oferta.nome == titulo
+    assert "todos os dias" in oferta.nome
+    mensagem = formatter.montar_mensagem(oferta)
+    assert "todos os dias" in mensagem
+    assert not mensagem.rstrip().endswith("todos os di")
 
 
 def test_titulo_mensagem_espelho_ignora_url():
@@ -603,6 +643,63 @@ def test_oferta_espelho_usa_template_afiliado_sem_origem(monkeypatch) -> None:
     assert "https://meli.la/nina-aff" in mensagem
     assert "Jogo de cama" in mensagem
     assert "R$ 100" in mensagem
+
+
+def test_mensagem_eh_cupom_espelho_por_titulo_e_pagina() -> None:
+    assert mensagem_eh_cupom_espelho(
+        "🚨 Cupom de Desconto 2026: economia garantida hoje! 🎟️✨"
+    )
+    assert mensagem_eh_cupom_espelho("Cupons Diários Shopee")
+    assert mensagem_eh_cupom_espelho(
+        "Oferta da semana",
+        pagina="Cupons Diários | Shopee",
+    )
+    assert pagina_de_cupom("Cupons Diários")
+    # Produto real com código de cupom no texto não é cupom-como-oferta.
+    assert not mensagem_eh_cupom_espelho("Kit 2 Mesas Laterais Douradas")
+    assert titulo_confirmado(
+        "Cupom de Desconto 2026",
+        "Cupons Diários | Shopee",
+    ) == "Cupom de Desconto 2026"
+
+
+def test_oferta_espelho_cupom_envia_sem_de_por(monkeypatch) -> None:
+    """Cupom da origem continua saindo; só some o De/Por ornamental."""
+    monkeypatch.setattr(
+        "worker.formatter.load_filtros",
+        lambda: {
+            "mensagem_template": (
+                "🚨 *{nome}*\n\n✅ {de_por}\n\n🛒 {url}\n\n"
+                "Siga a nossa página exclusiva de ofertas no instagram\n"
+                "@ninamegaofertas"
+            ),
+        },
+    )
+    body = (
+        "🚨 Cupom de Desconto 2026: economia garantida hoje! 🎟️✨\n\n"
+        "✅ De R$ 1.403,37 por R$ 1169\n\n"
+        "🛒 https://s.shopee.com.br/4qHUW0iHTO"
+    )
+    titulo = titulo_mensagem_espelho(body)
+    oferta = _oferta_template(
+        titulo=titulo,
+        loja="shopee",
+        url_afiliado="https://s.shopee.com.br/nina-cupom",
+        url_origem="https://s.shopee.com.br/4qHUW0iHTO",
+        body_text=body,
+        sku="mirror:cupom",
+        imagem="https://example.test/cupons.png",
+        pagina="Cupons Diários",
+    )
+    assert oferta.preco == 0.0
+    assert oferta.preco_anterior is None
+    mensagem = formatter.montar_mensagem(oferta)
+    assert "https://s.shopee.com.br/nina-cupom" in mensagem
+    assert "Cupom de Desconto" in mensagem
+    assert "1.403" not in mensagem
+    assert "1169" not in mensagem
+    assert "De " not in mensagem
+    assert "@ninamegaofertas" in mensagem
 
 
 def test_imagem_do_link_produto_usa_og_image(monkeypatch: pytest.MonkeyPatch) -> None:

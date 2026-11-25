@@ -622,6 +622,22 @@ _LOJAS_TITULO = {
     "shopee", "mercado", "livre", "magalu", "magazine", "luiza", "amazon", "meli",
 }
 _VITRINE_RE = re.compile(r"(?i)direto\s+do\s+estoque")
+# Post/landing de cupom (não PDP). Só no começo do título — "use o cupom" em
+# produto real não casa.
+_TITULO_CUPOM_OFERTA_RE = re.compile(
+    r"(?i)^\W*("
+    r"cupom(?:s)?\s+de\s+desconto|"
+    r"cupons?\s+di[aá]rios?|"
+    r"resgate\s+(?:o\s+)?cupom|"
+    r"cupom\s+(?:shopee|meli|mercado(?:\s+livre)?|magalu|amazon)|"
+    r"cupom(?:s)?\b"
+    r")"
+)
+_PAGINA_CUPOM_RE = re.compile(
+    r"(?i)cupons?\s+di[aá]rios?|daily\s+coupons?|voucher\s+offer|"
+    r"cupom\s+de\s+desconto|resgate\s+(?:o\s+)?cupom|coupon\s+center|"
+    r"central\s+de\s+cupons?"
+)
 
 
 def titulo_de_vitrine(titulo: str) -> bool:
@@ -633,6 +649,29 @@ def titulo_de_vitrine(titulo: str) -> bool:
     if _VITRINE_RE.search(limpo) and not (produto - {"direto", "estoque"}):
         return True
     return bool(tokens) and not produto
+
+
+def pagina_de_cupom(titulo: str | None) -> bool:
+    """OG/título de landing de cupom (ex.: 'Cupons Diários'), não de produto."""
+    limpo = limpar_titulo_pagina(titulo or "")
+    return bool(limpo) and bool(_PAGINA_CUPOM_RE.search(limpo))
+
+
+def mensagem_eh_cupom_espelho(
+    titulo: str,
+    *,
+    pagina: str | None = None,
+) -> bool:
+    """True quando a origem é cupom/campanha, não anúncio de um item.
+
+    O espelho ainda envia; só não deve montar 'De x por' com preço ornamental.
+    """
+    if pagina_de_cupom(pagina):
+        return True
+    limpo = limpar_titulo_pagina(titulo or "")
+    if not limpo:
+        return False
+    return bool(_TITULO_CUPOM_OFERTA_RE.search(limpo))
 
 
 def titulo_mensagem_espelho(texto: str) -> str:
@@ -671,17 +710,29 @@ def titulo_bate_com_pagina(titulo: str, pagina: str) -> bool:
 
 
 def titulo_confirmado(titulo: str, pagina: str | None) -> str:
-    """Nome do anúncio, ou o da página quando ela nomeia o item."""
-    if not pagina or titulo_de_vitrine(pagina):
+    """Nome do anúncio; página só entra se o anúncio for fraco e ela nomear o item.
+
+    Dois nomes de produto sem tokens em comum (ex.: 'Saco de lixo' vs 'KIT
+    PRINCIPIA') mantêm o caption — a foto da mensagem costuma bater com ele,
+    e o og:title do short link às vezes aponta outro item.
+    """
+    if not pagina or titulo_de_vitrine(pagina) or pagina_de_cupom(pagina):
         return titulo
     if titulo_bate_com_pagina(titulo, pagina):
+        return titulo
+    anuncio_fraco = (
+        titulo_de_vitrine(titulo)
+        or _linha_slogan(titulo)
+        or not _tokens_produto(titulo)
+    )
+    if not anuncio_fraco:
         return titulo
     return limpar_titulo_pagina(pagina)
 
 
 def limpar_titulo_pagina(titulo: str) -> str:
     partes = re.split(r"\s+[|\-–]\s+", (titulo or "").strip())
-    return (partes[0] or titulo).strip()[:120]
+    return (partes[0] or titulo).strip()[:200]
 
 
 _PRECO_BR_RE = re.compile(

@@ -87,13 +87,19 @@ def _pedir(titulo: str, titulo_grupo: str) -> str | None:
             for parte in texto
         )
     linha = str(texto or "").strip().splitlines()[0].strip().strip('"').strip()
-    return linha[:160] or None
+    # Não corta no meio: linha longa demais é recusada e fica o nome limpo.
+    if not linha or len(linha) > 200:
+        return None
+    return linha
 
 
 def _linha_serve(titulo: str, linha: str | None, titulo_grupo: str) -> bool:
     if not linha or "\n" in linha or titulo_igual(linha, titulo_grupo):
         return False
     if not re.search(r":\s*\S", linha):
+        return False
+    # Frase incompleta típica de max_tokens / corte ("todos os di").
+    if re.search(r"[A-Za-zÀ-ÿ]$", linha):
         return False
     nossos = {p for p in _tokens_titulo(titulo) if len(p) >= 4}
     if not nossos:

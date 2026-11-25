@@ -29,6 +29,8 @@ from worker.logger import logger
 _BATCH = 8
 _ultimo_webhook_ts = 0.0
 _WEBHOOK_TTL_S = 120.0
+# Enfeite pode chegar a ~160; 120 cortava no meio da frase ("todos os di").
+_NOME_MAX = 200
 
 
 def _marcar(item: MirrorInbox, status: str, reason: str | None = None) -> None:
@@ -50,10 +52,14 @@ def _oferta_template(
     body_text: str,
     sku: str,
     imagem: str | None,
+    pagina: str | None = None,
 ) -> OfertaCapturada:
     preco, preco_anterior = filters.extrair_precos_mensagem(body_text)
+    # Cupom da origem: ainda envia, mas sem 'De x por' (preço não é de produto).
+    if filters.mensagem_eh_cupom_espelho(titulo, pagina=pagina):
+        preco, preco_anterior = 0.0, None
     return OfertaCapturada(
-        nome=titulo[:120],
+        nome=titulo[:_NOME_MAX],
         preco=float(preco or 0.0),
         preco_anterior=preco_anterior,
         loja=loja,
@@ -287,6 +293,10 @@ def processar_pendentes() -> int:
                     logger.info(
                         "[espelho] título da página é da vitrine; mantendo o nome do anúncio"
                     )
+                elif pagina and filters.pagina_de_cupom(pagina):
+                    logger.info(
+                        "[espelho] página é landing de cupom; mantendo o nome do anúncio"
+                    )
                 confirmado = filters.titulo_confirmado(titulo, pagina)
                 if confirmado != titulo:
                     logger.info(
@@ -369,6 +379,7 @@ def processar_pendentes() -> int:
                             body_text=item.body_text,
                             sku=sku,
                             imagem=imagem,
+                            pagina=pagina,
                         )
                         mensagem = formatter.montar_mensagem(oferta)
                         imagem_envio = imagem
@@ -382,7 +393,7 @@ def processar_pendentes() -> int:
                         oferta_db = monitor._salvar_oferta(  # noqa: SLF001
                             session,
                             OfertaCapturada(
-                                nome=titulo[:120],
+                                nome=titulo[:_NOME_MAX],
                                 preco=float(oferta.preco or 0.0),
                                 preco_anterior=oferta.preco_anterior,
                                 loja=link_nicho.loja,
