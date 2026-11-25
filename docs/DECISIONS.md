@@ -746,6 +746,18 @@ ausente). Testes ligam a flag no `conftest`.
 
 ---
 
+## ADR-041 — Título de vitrine não é nome de produto
+**Data:** 2026-11-24 · **Status:** aceita · **Decisor:** dono
+
+O `og:title` do link curto da Shopee vinha como "Direto do estoque da Shopee |
+Shopee 2026". O espelho tratava isso como o nome da página e trocava o item
+do anúncio por essa frase.
+
+Decisão: título que só nomeia a loja ou essa vitrine não entra na oferta. O
+nome do anúncio permanece. Se a página tiver o nome do item e o anúncio só
+tiver a vitrine, usa-se o nome da página. Se os dois forem vitrine, a oferta
+não sai.
+
 ## ADR-040 — A fila do espelho não atravessa a noite
 **Data:** 2026-11-24 · **Status:** aceita · **Decisor:** dono
 

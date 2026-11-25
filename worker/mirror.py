@@ -206,12 +206,22 @@ def processar_pendentes() -> int:
 
                 garantir_foto()
                 pagina = titulo_pagina_visto(link_nicho.url)
-                if pagina and not filters.titulo_bate_com_pagina(titulo, pagina):
+                if pagina and filters.titulo_de_vitrine(pagina):
+                    logger.info(
+                        "[espelho] título da página é da vitrine; mantendo o nome do anúncio"
+                    )
+                confirmado = filters.titulo_confirmado(titulo, pagina)
+                if confirmado != titulo:
                     logger.info(
                         f"[espelho] título não bate com o link; usando o nome da página "
                         f"({titulo[:40]!r})"
                     )
-                    titulo = filters.limpar_titulo_pagina(pagina)
+                    titulo = confirmado
+                if filters.titulo_de_vitrine(titulo):
+                    logger.info(f"[espelho] título sem nome de produto {item.id}")
+                    _marcar(item, "skipped", "titulo_vitrine")
+                    processados += 1
+                    continue
                 if somente_video or not imagem:
                     motivo = "somente_video" if somente_video else "sem_foto"
                     logger.info(f"[espelho] sem representação ({motivo}) {item.id}")

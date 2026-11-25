@@ -1,5 +1,11 @@
 # Roadmap de implementação
 
+## Título da vitrine da Shopee não entra — 2026-11-24
+
+`Direto do estoque da Shopee | Shopee 2026` é o título genérico do link curto.
+Ele não substitui o nome do item e não sai no grupo. Se a mensagem só tiver
+essa frase, a oferta não é enviada.
+
 ## Fila do dia encerra às 23:59 — 2026-11-24
 
 O que ainda está pendente às 23:59 de Brasília sai da fila (`passou_o_dia`) e

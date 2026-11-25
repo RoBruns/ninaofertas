@@ -32,6 +32,8 @@ from worker.filters import (
     extrair_precos_mensagem,
     passa_filtros_espelho,
     titulo_bate_com_pagina,
+    titulo_confirmado,
+    titulo_de_vitrine,
     titulo_mensagem_espelho,
 )
 from worker.mirror import _oferta_template, corte_fila_do_dia, expirar_pendentes
@@ -99,6 +101,23 @@ def test_titulo_ignora_faixa_e_usa_o_nome_do_item():
         "Micro-ondas Electrolux Efficient 34L",
         "Micro-ondas Electrolux Efficient 34L | Mercado Livre",
     )
+
+
+def test_vitrine_da_shopee_nao_substitui_o_nome():
+    pagina = "Direto do estoque da Shopee | Shopee 2026"
+    assert titulo_de_vitrine(pagina)
+    assert not titulo_de_vitrine("Gocase Tote Mini")
+    assert titulo_confirmado("Gocase Tote Mini", pagina) == "Gocase Tote Mini"
+    assert titulo_confirmado(
+        "Direto do estoque da Shopee",
+        "Gocase Tote Mini | Shopee",
+    ) == "Gocase Tote Mini"
+    texto = (
+        "Direto do estoque da Shopee\n"
+        "Gocase Tote Mini\n"
+        "https://shopee.com.br/product/1/2\n"
+    )
+    assert titulo_mensagem_espelho(texto) == "Gocase Tote Mini"
 
 
 def test_titulo_mensagem_espelho_ignora_url():

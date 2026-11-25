@@ -618,11 +618,28 @@ def linhas_uteis_espelho(texto: str) -> list[str]:
     return saida
 
 
+_LOJAS_TITULO = {
+    "shopee", "mercado", "livre", "magalu", "magazine", "luiza", "amazon", "meli",
+}
+_VITRINE_RE = re.compile(r"(?i)direto\s+do\s+estoque")
+
+
+def titulo_de_vitrine(titulo: str) -> bool:
+    """Título da loja, não do item. Ex.: 'Direto do estoque da Shopee'."""
+    limpo = limpar_titulo_pagina(titulo)
+    nucleo = re.sub(r"\b20\d{2}\b", " ", limpo)
+    tokens = _tokens_titulo(nucleo)
+    produto = tokens - _LOJAS_TITULO - {"brasil", "oficial", "ofertas"}
+    if _VITRINE_RE.search(limpo) and not (produto - {"direto", "estoque"}):
+        return True
+    return bool(tokens) and not produto
+
+
 def titulo_mensagem_espelho(texto: str) -> str:
-    """Nome do item. Faixa em caixa alta ('COZINHA MAIS PRÁTICA') não serve."""
+    """Nome do item. Faixa e título de vitrine não servem."""
     linhas = linhas_uteis_espelho(texto)
     for linha in linhas:
-        if not _linha_slogan(linha):
+        if not _linha_slogan(linha) and not titulo_de_vitrine(linha):
             return linha
     if linhas:
         return linhas[0]
@@ -640,13 +657,26 @@ def _tokens_titulo(texto: str) -> set[str]:
     }
 
 
+def _tokens_produto(texto: str) -> set[str]:
+    return _tokens_titulo(texto) - _LOJAS_TITULO
+
+
 def titulo_bate_com_pagina(titulo: str, pagina: str) -> bool:
     """True se o título e o nome da página falam do mesmo item."""
-    nosso = _tokens_titulo(titulo)
-    deles = _tokens_titulo(pagina)
+    nosso = _tokens_produto(titulo)
+    deles = _tokens_produto(pagina)
     if not nosso or not deles:
         return True
     return bool(nosso & deles)
+
+
+def titulo_confirmado(titulo: str, pagina: str | None) -> str:
+    """Nome do anúncio, ou o da página quando ela nomeia o item."""
+    if not pagina or titulo_de_vitrine(pagina):
+        return titulo
+    if titulo_bate_com_pagina(titulo, pagina):
+        return titulo
+    return limpar_titulo_pagina(pagina)
 
 
 def limpar_titulo_pagina(titulo: str) -> str:
