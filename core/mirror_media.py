@@ -308,6 +308,9 @@ def imagem_do_link_produto(url: str, loja: str | None = None) -> str | None:
     final = str(response.url)
     content_type = (response.headers.get("content-type") or "").lower()
     if content_type.startswith("image/") and _host_permitido(final):
+        if "gif" in content_type and "mlstatic.com" in final:
+            logger.info("[espelho] foto do ML inexistente (GIF de aviso)")
+            return None
         return final
     if response.status_code >= 400:
         logger.info(f"[espelho] sem foto CDN ({loja or '?'}): HTTP {response.status_code}")

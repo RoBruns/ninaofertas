@@ -762,6 +762,12 @@ ligar no bot de teste antes da produção. Evolution fail-closed (400 se a
 miniatura falhar); o worker cai no `sendMedia`. Carimbo de marca na miniatura
 (estilo Loe) fica para uma fase seguinte.
 
+Validado no grupo de teste em 2026-11-25. Sem título o WhatsApp descarta a
+prévia; a Evolution põe U+200B como título e sobra só a foto e o domínio. A
+miniatura é gerada pela Evolution com sharp (o Baileys deixava em branco). O
+worker manda sempre JPEG em base64 e descarta o GIF de "imagem não encontrada"
+que a CDN do ML devolve com status 200. Erro 400 ou 500 no cartão anexa a foto.
+
 ## ADR-041 — Título de vitrine não é nome de produto
 **Data:** 2026-11-24 · **Status:** aceita · **Decisor:** dono
 

@@ -17,6 +17,13 @@ from worker import channels, whatsapp
 _CHAVE = base64.b64encode(b"k" * 32).decode()
 _LINK = "https://meli.la/2C3T4JV"
 _FOTO = "https://http2.mlstatic.com/D_NQ_NP_807397-MLA79770084007_102024-F.jpg"
+_JPEG_B64 = base64.b64encode(b"\xff\xd8\xff" + b"\x00" * 64).decode()
+
+
+def _stub_jpeg(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Cartão baixa a CDN e reencoda; nos testes devolvemos JPEG fixo."""
+    monkeypatch.setattr(whatsapp, "_baixar_bytes_midia", lambda _url: b"raw-img")
+    monkeypatch.setattr(whatsapp, "_jpeg_base64", lambda _raw: _JPEG_B64)
 
 
 def _pedido(user_agent: str) -> Request:
@@ -100,6 +107,7 @@ class _Client:
 def test_envio_com_previa_nao_anexa_foto(monkeypatch: pytest.MonkeyPatch) -> None:
     _Client.calls = []
     monkeypatch.setattr(httpx, "Client", _Client)
+    _stub_jpeg(monkeypatch)
     monkeypatch.setattr(channels, "grupo_whatsapp", lambda: "grupo@g.us")
     monkeypatch.setattr(channels, "instancia_evolution", lambda: "instancia")
     assert whatsapp.enviar_mensagem(
@@ -113,7 +121,8 @@ def test_envio_com_previa_nao_anexa_foto(monkeypatch: pytest.MonkeyPatch) -> Non
     assert url.endswith("/message/sendText/instancia")
     cartao = payload["linkPreview"]
     assert isinstance(cartao, dict)
-    assert cartao["thumbnailUrl"] == _FOTO
+    assert "thumbnailUrl" not in cartao
+    assert cartao["thumbnailBase64"] == _JPEG_B64
     assert cartao["canonicalUrl"] == _LINK
     assert "title" not in cartao
     assert "description" not in cartao
@@ -121,7 +130,10 @@ def test_envio_com_previa_nao_anexa_foto(monkeypatch: pytest.MonkeyPatch) -> Non
     assert "mediatype" not in payload
 
 
-def test_previa_recusada_anexa_a_foto(monkeypatch: pytest.MonkeyPatch) -> None:
+@pytest.mark.parametrize("status_recusa", [400, 500])
+def test_previa_recusada_anexa_a_foto(
+    monkeypatch: pytest.MonkeyPatch, status_recusa: int
+) -> None:
     class _Recusa:
         def __init__(self, **_kwargs: object) -> None:
             pass
@@ -136,11 +148,12 @@ def test_previa_recusada_anexa_a_foto(monkeypatch: pytest.MonkeyPatch) -> None:
             self, url: str, *, json: dict[str, object], headers: dict[str, str]
         ) -> httpx.Response:
             _Client.calls.append((url, json))
-            status = 400 if len(_Client.calls) == 1 else 200
-            return httpx.Response(status, text="linkPreview")
+            status = status_recusa if len(_Client.calls) == 1 else 200
+            return httpx.Response(status, text="VipsJpeg")
 
     _Client.calls = []
     monkeypatch.setattr(httpx, "Client", _Recusa)
+    _stub_jpeg(monkeypatch)
     monkeypatch.setattr(channels, "grupo_whatsapp", lambda: "grupo@g.us")
     monkeypatch.setattr(channels, "instancia_evolution", lambda: "instancia")
     assert whatsapp.enviar_mensagem(
@@ -152,3 +165,25 @@ def test_previa_recusada_anexa_a_foto(monkeypatch: pytest.MonkeyPatch) -> None:
     assert isinstance(_Client.calls[0][1]["linkPreview"], dict)
     assert _Client.calls[1][0].endswith("/message/sendMedia/instancia")
     assert _Client.calls[1][1]["mediatype"] == "image"
+    assert _Client.calls[1][1]["media"] == _JPEG_B64
+
+
+def test_gif_de_aviso_do_ml_nao_vira_foto() -> None:
+    assert whatsapp._placeholder_mercado_livre(_FOTO, "image/gif")
+    assert not whatsapp._placeholder_mercado_livre(_FOTO, "image/jpeg")
+    assert not whatsapp._placeholder_mercado_livre(
+        "https://down-br.img.susercontent.com/file/x", "image/gif"
+    )
+
+
+def test_cdn_gif_vira_jpeg_no_cartao(monkeypatch: pytest.MonkeyPatch) -> None:
+    from io import BytesIO
+
+    from PIL import Image
+
+    buf = BytesIO()
+    Image.new("RGB", (2, 2), color=(20, 120, 200)).save(buf, format="GIF")
+    monkeypatch.setattr(whatsapp, "_baixar_bytes_midia", lambda _url: buf.getvalue())
+    cartao = whatsapp._cartao_so_foto(f"oferta {_LINK}", _FOTO)
+    assert cartao is not None
+    assert base64.b64decode(cartao["thumbnailBase64"])[:3] == b"\xff\xd8\xff"

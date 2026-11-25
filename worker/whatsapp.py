@@ -5,11 +5,14 @@ from __future__ import annotations
 import base64
 import json
 import re
+from io import BytesIO
 from pathlib import Path
 from urllib.parse import urlparse
 
 import httpx
+from PIL import Image, UnidentifiedImageError
 
+from core.http_headers import BROWSER_USER_AGENT
 from core.log_safe import safe_log_text
 from core.settings import BASE_DIR, settings
 from worker.logger import logger
@@ -138,11 +141,18 @@ def enviar_mensagem(
                 logger.warning("Token da instância rejeitado; envio tentado com chave geral")
                 headers["apikey"] = settings.evolution_api_key
                 response = client.post(url, json=payload, headers=headers)
-            if response.status_code == 400 and isinstance(payload.get("linkPreview"), dict):
+            # 400 = fail-closed da Evolution; 500 = VipsJpeg em GIF/WebP da CDN.
+            if (
+                response.status_code >= 400
+                and isinstance(payload.get("linkPreview"), dict)
+            ):
                 logger.info(
                     "Evolution recusou a prévia só com foto; anexando a imagem"
                 )
-                media = _media_payload(imagem_reserva or previa_imagem or "")
+                media = _media_payload(
+                    imagem_reserva or previa_imagem or "",
+                    forcar_jpeg_base64=True,
+                )
                 if not media:
                     return False
                 url = f"{settings.evolution_api_url}/message/sendMedia/{instancia}"
@@ -173,16 +183,15 @@ def enviar_mensagem(
 
 
 def _cartao_so_foto(texto: str, imagem: str) -> dict[str, str] | None:
-    """Foto clicável, sem título nem descrição. Prefere base64; URL é reserva."""
-    media = _media_payload(imagem)
-    if not media:
+    """Foto clicável, sem título nem descrição.
+
+    Sempre JPEG em base64: a CDN do ML às vezes devolve GIF e a Evolution
+    quebra com VipsJpeg ao montar a miniatura do link.
+    """
+    media = _media_payload(imagem, forcar_jpeg_base64=True)
+    if not media or media.startswith("https://"):
         return None
-    cartao: dict[str, str] = {}
-    # Base64 evita a Evolution baixar CDN da Shopee (costuma falhar no datacenter).
-    if media.startswith("https://"):
-        cartao["thumbnailUrl"] = media
-    else:
-        cartao["thumbnailBase64"] = media
+    cartao: dict[str, str] = {"thumbnailBase64": media}
     achado = re.search(r"https://[^\s<>]+", texto or "")
     if achado:
         cartao["canonicalUrl"] = achado.group(0).rstrip(").,]")
@@ -198,11 +207,63 @@ def _sem_chaves(texto: object, *chaves: str | None) -> str:
     return safe_log_text(saida, 300)
 
 
-def _media_payload(imagem: str) -> str | None:
+def _jpeg_base64(raw: bytes) -> str | None:
+    """Converte qualquer formato que o Pillow abra em JPEG base64."""
+    try:
+        with Image.open(BytesIO(raw)) as img:
+            if img.mode in ("RGBA", "LA", "P"):
+                rgb = img.convert("RGB")
+            elif img.mode != "RGB":
+                rgb = img.convert("RGB")
+            else:
+                rgb = img
+            saida = BytesIO()
+            rgb.save(saida, format="JPEG", quality=85, optimize=True)
+    except (OSError, UnidentifiedImageError, ValueError) as exc:
+        logger.warning(f"não deu para virar JPEG a miniatura: {exc}")
+        return None
+    return base64.b64encode(saida.getvalue()).decode("ascii")
+
+
+def _baixar_bytes_midia(url: str) -> bytes | None:
+    try:
+        with httpx.Client(timeout=20.0, follow_redirects=True) as client:
+            response = client.get(
+                url,
+                headers={
+                    "User-Agent": BROWSER_USER_AGENT,
+                    "Accept": "image/avif,image/webp,image/apng,image/*,*/*;q=0.8",
+                },
+            )
+        if response.status_code >= 400 or not response.content:
+            logger.warning(
+                f"download da miniatura falhou HTTP {response.status_code} "
+                f"({url[:80]})"
+            )
+            return None
+        if _placeholder_mercado_livre(url, response.headers.get("content-type")):
+            logger.warning(f"foto do ML inexistente (GIF de aviso): {url[:80]}")
+            return None
+        return response.content
+    except httpx.HTTPError as exc:
+        logger.warning(f"download da miniatura falhou: {exc}")
+        return None
+
+
+def _placeholder_mercado_livre(url: str, content_type: str | None) -> bool:
+    """A CDN do ML responde 200 com um GIF de "imagem não encontrada"."""
+    host = (urlparse(url).hostname or "").lower()
+    return host.endswith("mlstatic.com") and "gif" in (content_type or "").lower()
+
+
+def _media_payload(imagem: str, *, forcar_jpeg_base64: bool = False) -> str | None:
     if imagem.startswith("https://"):
         if not _url_midia_permitida(imagem):
             logger.warning(f"URL de mídia fora da allowlist: {imagem[:120]}")
             return None
+        if forcar_jpeg_base64:
+            bruto = _baixar_bytes_midia(imagem)
+            return _jpeg_base64(bruto) if bruto else None
         return imagem
     if imagem.startswith("http://"):
         logger.warning("URL http:// não permitida para mídia; use https ou arquivo local.")
@@ -211,15 +272,34 @@ def _media_payload(imagem: str) -> str | None:
 
     # data-URL ou base64 cru → sempre base64 puro (sendMedia / Buffer.from).
     if imagem.startswith("data:image/") or "base64," in imagem[:80]:
-        return base64_puro(imagem)
+        cru = base64_puro(imagem)
+        if not cru:
+            return None
+        if forcar_jpeg_base64:
+            try:
+                return _jpeg_base64(base64.b64decode(cru, validate=False))
+            except (ValueError, TypeError):
+                return None
+        return cru
     path = Path(imagem)
     # Evita tratar base64 longo como "caminho" inexistente.
     if len(imagem) < 512 and path.is_file():
         if not _path_local_permitido(path):
             logger.warning(f"Arquivo de mídia fora de data/ ou assets/: {imagem}")
             return None
-        return base64.b64encode(path.read_bytes()).decode("ascii")
-    return base64_puro(imagem)
+        bruto = path.read_bytes()
+        if forcar_jpeg_base64:
+            return _jpeg_base64(bruto)
+        return base64.b64encode(bruto).decode("ascii")
+    cru = base64_puro(imagem)
+    if not cru:
+        return None
+    if forcar_jpeg_base64:
+        try:
+            return _jpeg_base64(base64.b64decode(cru, validate=False))
+        except (ValueError, TypeError):
+            return None
+    return cru
 
 
 def _participante_do_numero(part: dict, numero: str) -> bool:

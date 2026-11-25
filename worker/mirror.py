@@ -319,7 +319,7 @@ def processar_pendentes() -> int:
                 falhou_total = True
                 teve_foto = False
                 for jid in grupos:
-                    ok_prod, _motivo_prod = pode_enviar_produto(
+                    ok_prod, motivo_prod = pode_enviar_produto(
                         session,
                         sku=sku,
                         loja=link_nicho.loja,
@@ -329,6 +329,10 @@ def processar_pendentes() -> int:
                         dedup_horas=dedup_horas,
                     )
                     if not ok_prod:
+                        logger.info(
+                            f"[espelho] produto já enviado no grupo "
+                            f"({motivo_prod}) {item.id}"
+                        )
                         continue
                     canal = _token_canal(runtime, jid)
                     with channels.usar_canal(canal):

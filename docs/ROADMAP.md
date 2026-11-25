@@ -9,6 +9,9 @@ fica a cópia mais barata. SKU da oferta = `product_key`, não `mirror:{id}`.
 `content.cartao_so_foto` (default off) manda a prévia só com a foto; se a
 Evolution recusar, anexa a imagem. Patch da Evolution versionado em
 `deploy/evolution/`. Carimbo de marca (estilo Loe) fica para depois.
+Cartão conferido no grupo de teste (título invisível + miniatura via sharp na
+Evolution; JPEG base64 do worker; GIF de aviso do ML descartado). Ligado só no
+Nina teste.
 
 ## Enfeite usa o modelo que ainda responde — 2026-11-24
 

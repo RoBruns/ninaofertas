@@ -1,5 +1,6 @@
 .env
 venv/
+.venv-test/
 venv.linux.bak/
 __pycache__/
 *.pyc

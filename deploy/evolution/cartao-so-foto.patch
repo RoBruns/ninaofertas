@@ -1,4 +1,4 @@
-﻿diff --git a/.dockerignore b/.dockerignore
+diff --git a/.dockerignore b/.dockerignore
 index f8ca5d0..546653b 100644
 --- a/.dockerignore
 +++ b/.dockerignore
@@ -56,7 +56,7 @@ index ba9ecf5..a7e7e57 100644
    mentioned?: string[];
    encoding?: boolean;
 diff --git a/src/api/integrations/channel/whatsapp/whatsapp.baileys.service.ts b/src/api/integrations/channel/whatsapp/whatsapp.baileys.service.ts
-index 60e857f..99fad29 100644
+index 60e857f..23a9306 100644
 --- a/src/api/integrations/channel/whatsapp/whatsapp.baileys.service.ts
 +++ b/src/api/integrations/channel/whatsapp/whatsapp.baileys.service.ts
 @@ -35,6 +35,7 @@ import {
@@ -67,7 +67,7 @@ index 60e857f..99fad29 100644
    MediaMessage,
    Options,
    SendAudioDto,
-@@ -2127,6 +2128,61 @@ export class BaileysStartupService extends ChannelStartupService {
+@@ -2127,6 +2128,82 @@ export class BaileysStartupService extends ChannelStartupService {
      }
    }
  
@@ -101,26 +101,47 @@ index 60e857f..99fad29 100644
 +      throw new BadRequestException('linkPreview sem miniatura');
 +    }
 +
++    // Sem título o WhatsApp descarta a prévia; U+200B deixa só a foto e o domínio.
 +    const info: any = {
 +      'canonical-url': url,
 +      'matched-text': url,
++      title: card.title || '\u200B',
 +    };
-+    if (card.title) info.title = card.title;
 +    if (card.description) info.description = card.description;
++
++    // O Baileys às vezes não gera a miniatura (fica em branco no celular): geramos aqui.
++    let foto: Buffer;
++    let miniatura: Buffer;
++    let largura: number | undefined;
++    let altura: number | undefined;
++    try {
++      foto = await sharp(image, { animated: false }).rotate().flatten({ background: '#ffffff' }).jpeg({ quality: 85 }).toBuffer();
++      const meta = await sharp(foto).metadata();
++      largura = meta.width;
++      altura = meta.height;
++      miniatura = await sharp(foto).resize({ width: 192 }).jpeg({ quality: 60 }).toBuffer();
++    } catch (error) {
++      this.logger.error(`Error converting the link preview picture: ${error}`);
++      throw new BadRequestException('falha ao converter a foto do linkPreview');
++    }
 +
 +    try {
 +      const { imageMessage } = await prepareWAMessageMedia(
-+        { image },
++        { image: foto, jpegThumbnail: miniatura, width: largura, height: altura } as any,
 +        { upload: this.client.waUploadToServer, mediaTypeOverride: 'thumbnail-link' } as any,
 +      );
-+      info.jpegThumbnail = imageMessage?.jpegThumbnail ? Buffer.from(imageMessage.jpegThumbnail) : undefined;
++      info.jpegThumbnail = miniatura;
++      if (imageMessage) {
++        imageMessage.width = imageMessage.width || largura;
++        imageMessage.height = imageMessage.height || altura;
++      }
 +      info.highQualityThumbnail = imageMessage || undefined;
 +    } catch (error) {
 +      this.logger.error(`Error uploading the link preview picture: ${error}`);
 +      throw new BadRequestException('falha ao subir a foto do linkPreview');
 +    }
 +
-+    if (!info.jpegThumbnail && !info.highQualityThumbnail) {
++    if (!info.jpegThumbnail || !info.highQualityThumbnail) {
 +      throw new BadRequestException('linkPreview sem miniatura após upload');
 +    }
 +    return info;
@@ -129,7 +150,7 @@ index 60e857f..99fad29 100644
    private async sendMessage(
      sender: string,
      message: any,
-@@ -2338,7 +2394,13 @@ export class BaileysStartupService extends ChannelStartupService {
+@@ -2338,7 +2415,13 @@ export class BaileysStartupService extends ChannelStartupService {
          }
        }
  
