@@ -197,6 +197,14 @@ def _registrar_jobs(scheduler: BackgroundScheduler) -> None:
 
 def main() -> None:
     db.init_db()
+    import os
+
+    if os.getenv("MIRROR_LIMPAR_FILA") == "1":
+        try:
+            n = mirror.limpar_fila_pendente()
+            logger.info(f"[espelho] MIRROR_LIMPAR_FILA=1: {n} pending marcado(s)")
+        except Exception as exc:
+            logger.exception(f"[espelho] limpeza da fila na subida falhou: {exc}")
     ativos = canais_ativos()
     from core.discovery import scraper_discovery_enabled
 
