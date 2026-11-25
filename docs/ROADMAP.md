@@ -1,5 +1,10 @@
 # Roadmap de implementação
 
+## Enfeite usa o modelo que ainda responde — 2026-11-24
+
+`gpt-4.1-nano` foi desligado e a API respondia 404. O enfeite passou para
+`gpt-5.6-luna`, sem etapa de raciocínio, no mesmo limite curto de texto.
+
 ## Título da vitrine da Shopee não entra — 2026-11-24
 
 `Direto do estoque da Shopee | Shopee 2026` é o título genérico do link curto.

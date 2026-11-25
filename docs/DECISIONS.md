@@ -777,7 +777,8 @@ para um job perdido não publicar oferta velha.
 
 O título da oferta é o nome do item na página. Com `OPENAI_API_KEY` só no
 worker, esse nome ganha dois pontos, uma frase curta e um ou dois emojis. A
-chamada manda apenas o título, no modelo `gpt-4.1-nano`. A linha só entra se
+chamada manda apenas o título, no modelo `gpt-5.6-luna` (o `gpt-4.1-nano`
+foi desligado e a API respondia 404). A linha só entra se
 conservar marca e modelo e se for diferente do título do grupo de origem. Sem
 chave, em falha ou em linha que troca o nome, a oferta sai com o título da
 página. Se esse título for igual ao do grupo, a oferta não sai. A API e o

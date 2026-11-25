@@ -11,7 +11,7 @@ from core.settings import settings
 from worker.filters import _tokens_titulo
 from worker.logger import logger
 
-_MODELO = "gpt-4.1-nano"
+_MODELO = "gpt-5.6-luna"
 _URL = "https://api.openai.com/v1/chat/completions"
 _CACHE: OrderedDict[str, str] = OrderedDict()
 _CACHE_MAX = 300
@@ -57,8 +57,8 @@ def _pedir(titulo: str, titulo_grupo: str) -> str | None:
                 headers={"Authorization": f"Bearer {settings.openai_api_key}"},
                 json={
                     "model": _MODELO,
-                    "temperature": 0.4,
-                    "max_tokens": 80,
+                    "reasoning_effort": "none",
+                    "max_completion_tokens": 80,
                     "messages": [
                         {"role": "system", "content": _PEDIDO},
                         {
@@ -81,6 +81,11 @@ def _pedir(titulo: str, titulo_grupo: str) -> str | None:
         texto = response.json()["choices"][0]["message"]["content"]
     except (KeyError, IndexError, TypeError, ValueError):
         return None
+    if isinstance(texto, list):
+        texto = "".join(
+            str(parte.get("text") or "") if isinstance(parte, dict) else str(parte)
+            for parte in texto
+        )
     linha = str(texto or "").strip().splitlines()[0].strip().strip('"').strip()
     return linha[:160] or None
 
