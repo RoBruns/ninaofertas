@@ -558,11 +558,22 @@ _LINHA_RUIDO_ESPELHO = re.compile(
     r"grupo\s+da\s+gio|"
     r"ei,?\s*convide|"
     r"pegar\s+promo|"
-    r"siga\s+a\s+nossa\s+p[aá]gina"
+    r"siga\s+a\s+nossa\s+p[aá]gina|"
+    r"^\W*(?:use\s+(?:o\s+)?)?cupom\s*:"
     r")"
 )
 _LINHA_SO_PRECO = re.compile(
-    r"(?i)^\s*(?:de|por)\s*:?\s*R\$",
+    r"(?i)^\s*(?:de|por)\s*:?\s*(?:R\$\s*)?\d",
+)
+# "R$1.000 DE DESCONTO" / "50% OFF" — chamada, não nome do produto.
+_LINHA_BANNER_DESCONTO = re.compile(
+    r"(?i)("
+    r"R\$\s*[\d.,]+\s*(?:de\s+)?desconto|"
+    r"desconto\s+de\s+R\$\s*[\d.,]+|"
+    r"R\$\s*[\d.,]+\s*off|"
+    r"[\d.,]+\s*%\s*off|"
+    r"^\W*r\$\s*[\d.,]+\s*$"
+    r")"
 )
 
 
@@ -603,11 +614,20 @@ def _linha_e_preco(linha: str) -> bool:
     return len(re.sub(r"\W+", "", sem, flags=re.UNICODE)) < 3
 
 
+def _linha_banner_desconto(linha: str) -> bool:
+    """Faixa de desconto ('R$1.000 DE DESCONTO'), não o nome do item."""
+    return bool(_LINHA_BANNER_DESCONTO.search(linha or ""))
+
+
 def linhas_uteis_espelho(texto: str) -> list[str]:
     limpo = re.sub(r"https?://\S+", " ", _normalizar_espacos_espelho(texto))
     saida: list[str] = []
     for linha in limpo.splitlines():
-        if _LINHA_RUIDO_ESPELHO.search(linha) or _linha_e_preco(linha):
+        if (
+            _LINHA_RUIDO_ESPELHO.search(linha)
+            or _linha_e_preco(linha)
+            or _linha_banner_desconto(linha)
+        ):
             continue
         t = " ".join(linha.split()).strip(" -•*|")
         t = re.sub(r"^[\W_]+", "", t)
@@ -735,15 +755,17 @@ def limpar_titulo_pagina(titulo: str) -> str:
     return (partes[0] or titulo).strip()[:200]
 
 
+_NUM_PRECO = r"(\d{1,3}(?:\.\d{3})*,\d{2}|\d{1,3}(?:\.\d{3})+|\d+(?:,\d{2})?)"
 _PRECO_BR_RE = re.compile(
-    r"R\$\s*(\d{1,3}(?:\.\d{3})*,\d{2}|\d{1,3}(?:\.\d{3})+|\d+(?:,\d{2})?)",
+    rf"R\$\s*{_NUM_PRECO}",
     re.IGNORECASE,
 )
+# "De: 2.309 | Por: R$1.017" — R$ opcional, mas exige ":" ou "R$" (não "de 10 peças").
 _PRECO_DE_RE = re.compile(
-    r"(?i)\bde\s*:?\s*R\$\s*(\d{1,3}(?:\.\d{3})*,\d{2}|\d{1,3}(?:\.\d{3})+|\d+(?:,\d{2})?)",
+    rf"(?i)\bde\s*(?:R\$\s*|:\s*(?:R\$\s*)?){_NUM_PRECO}",
 )
 _PRECO_POR_RE = re.compile(
-    r"(?i)\bpor\s*:?\s*R\$\s*(\d{1,3}(?:\.\d{3})*,\d{2}|\d{1,3}(?:\.\d{3})+|\d+(?:,\d{2})?)",
+    rf"(?i)\bpor\s*(?:R\$\s*|:\s*(?:R\$\s*)?){_NUM_PRECO}",
 )
 _CUPOM_RE = re.compile(
     r"(?i)(?:"
@@ -770,9 +792,19 @@ def _parse_preco_br(raw: str) -> float | None:
     return valor if valor > 0 else None
 
 
+def _texto_sem_banner_desconto(texto: str) -> str:
+    """Tira faixas 'R$1.000 DE DESCONTO' pra não virar preço do produto."""
+    linhas = []
+    for linha in (texto or "").splitlines():
+        if _linha_banner_desconto(linha):
+            continue
+        linhas.append(linha)
+    return "\n".join(linhas)
+
+
 def extrair_precos_mensagem(texto: str) -> tuple[float | None, float | None]:
     """Retorna (preço atual, preço anterior) a partir de 'R$ …' / De:/Por:."""
-    texto_n = _normalizar_espacos_espelho(texto)
+    texto_n = _texto_sem_banner_desconto(_normalizar_espacos_espelho(texto))
     de = _PRECO_DE_RE.search(texto_n)
     por = _PRECO_POR_RE.search(texto_n)
     if de and por:

@@ -570,6 +570,23 @@ def test_extrair_precos_e_cupom_da_mensagem() -> None:
     assert extrair_cupom_mensagem(texto) == "NINA10"
 
 
+def test_espelho_ignora_banner_desconto_e_le_de_sem_rs() -> None:
+    """'R$1.000 DE DESCONTO' não é título nem preço; 'De: 2.309 | Por: R$1.017' vale."""
+    texto = (
+        "R$1.000 DE DESCONTO 🚨🏃‍♀️\n\n"
+        "Fogão 4 Bocas Dako Magíster Style com Mesa de Vidro Preto/Espelhado\n\n"
+        "De: 2.309 | Por: R$1.017 💵\n"
+        "🎟️ Use o cupom: TECHVIP\n\n"
+        "Pegar promoção ➡️ https://meli.la/1wrrkWG\n"
+    )
+    assert "Fogão 4 Bocas Dako" in titulo_mensagem_espelho(texto)
+    assert "DESCONTO" not in titulo_mensagem_espelho(texto).upper()
+    preco, anterior = extrair_precos_mensagem(texto)
+    assert preco == 1017.0
+    assert anterior == 2309.0
+    assert extrair_cupom_mensagem(texto) == "TECHVIP"
+
+
 def test_parse_mensagem_origem_com_ruido_e_cupom() -> None:
     """Origem típica: título + De/Por + PIX + compra + convite WhatsApp + aviso."""
     texto = (
