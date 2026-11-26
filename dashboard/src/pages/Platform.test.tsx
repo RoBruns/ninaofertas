@@ -62,6 +62,49 @@ it('só suspende depois de confirmar na UI e permite reativar', async () => {
   expect(writes).toEqual([{ status: 'suspended' }, { status: 'active' }])
 })
 
+it('na aba Espelho salva até 3 grupos de origem', async () => {
+  const puts: unknown[] = []
+  vi.stubGlobal('fetch', vi.fn(async (request: Request) => {
+    const path = new URL(request.url).pathname
+    if (path.endsWith('/metrics')) return json(metrics)
+    if (path.endsWith('/plans')) return json([plan])
+    if (path.endsWith('/mirror/source-groups') && request.method === 'GET') {
+      return json({
+        selected: ['MELHORES OFERTAS'],
+        candidates: ['MELHORES OFERTAS', 'Ofertas da Gio #147', 'PROMO CASINHA #6', 'Economizei 430'],
+        max_selected: 3,
+        source: 'database',
+        pending_skipped: 0,
+      })
+    }
+    if (path.endsWith('/mirror/source-groups') && request.method === 'PUT') {
+      const body = await request.json()
+      puts.push(body)
+      return json({
+        selected: (body as { names: string[] }).names,
+        candidates: ['MELHORES OFERTAS', 'Ofertas da Gio #147', 'PROMO CASINHA #6', 'Economizei 430'],
+        max_selected: 3,
+        source: 'database',
+        pending_skipped: 2,
+      })
+    }
+    return json([tenant])
+  }))
+  renderPage(<Platform />, true)
+  const user = userEvent.setup()
+  await user.click(await screen.findByRole('tab', { name: 'Espelho' }))
+  expect(await screen.findByText('Grupos de origem (escuta)')).toBeInTheDocument()
+  await user.click(screen.getByLabelText('Ofertas da Gio #147'))
+  await user.click(screen.getByLabelText('PROMO CASINHA #6'))
+  expect(screen.getByLabelText('Economizei 430')).toBeDisabled()
+  await user.click(screen.getByRole('button', { name: 'Salvar origens' }))
+  await waitFor(() => expect(puts).toHaveLength(1))
+  expect(puts[0]).toEqual({
+    names: ['MELHORES OFERTAS', 'Ofertas da Gio #147', 'PROMO CASINHA #6'],
+    reset_to_default: false,
+  })
+})
+
 it('renderiza os seis indicadores, churn nulo e uso; interna não tem ação de assinatura', async () => {
   vi.stubGlobal('fetch', vi.fn(async (request: Request) => {
     const path = new URL(request.url).pathname

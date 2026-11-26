@@ -471,6 +471,9 @@ auditadas; assinaturas nunca mudam permissões, acesso ou envio nesta fase.
 | PATCH | `/tenants/{tenant_id}/subscription` | Campos opcionais `plan_code`, `status`, `price`, `interval`, `current_period_end` (datetime com fuso ou null), `cancel_reason`, `note`; retorna assinatura |
 | GET | `/tenants/{tenant_id}/subscription/events` | Eventos do mais recente ao mais antigo (instante, id); MRR anterior/posterior, status anterior/posterior, tipo, autor e nota |
 | GET | `/metrics?months=12` | `months` (1–120): série mensal; `summary`: MRR, pagantes, novos, churn e ARPA do mês atual |
+| GET | `/mirror/source-groups` | Allowlist da Nina 1: `selected`, `candidates`, `max_selected` (3), `source` (`database`/`env`/`default`) |
+| PUT | `/mirror/source-groups` | `{names: string[]}` (1–3) ou `{reset_to_default: true}`; pending fora da lista → `skipped`; audita |
+| POST | `/mirror/purge` | Zera `mirror_inbox` + `mirror_captures` (reteste); retorna contagens |
 
 Limites aceitam somente `max_bots`, `max_phones`, `max_groups` inteiros >= 0.
 `limits` substitui o objeto inteiro; omitir chave libera esse limite. Nulos e

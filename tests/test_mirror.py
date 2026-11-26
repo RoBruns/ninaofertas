@@ -12,7 +12,13 @@ from sqlalchemy.orm import Session, sessionmaker
 from core.bot_settings import BotSettings, Mirror
 from core.link_parser import detectar_loja, extrair_links_oferta, loja_para_platform_slug, substituir_urls
 from core.mirror_match import nome_na_allowlist
-from core.mirror_sources import allowlist_para_bot, platform_source_group_names
+from core.mirror_sources import (
+    allowlist_para_bot,
+    invalidate_platform_source_cache,
+    platform_source_group_names,
+    pular_pending_fora_da_allowlist,
+    salvar_platform_source_group_names,
+)
 from core.models import Bot, Group, MirrorCapture, MirrorInbox, Phone, Tenant
 from core.platforms.base import OfertaCapturada
 from tests.test_api import add_user
@@ -39,6 +45,7 @@ from worker.filters import (
     titulo_mensagem_espelho,
 )
 from worker.mirror import (
+    _item_com_cupom,
     _lote_pendentes,
     _oferta_template,
     corte_fila_do_dia,
@@ -69,11 +76,69 @@ def test_extrair_e_substituir_links():
 
 
 def test_allowlist_plataforma_e_subset():
+    invalidate_platform_source_cache()
     assert "MELHORES OFERTAS" in platform_source_group_names()
     assert nome_na_allowlist("🔥 Melhores Ofertas", platform_source_group_names())
     subset = allowlist_para_bot(["MELHORES OFERTAS", "Grupo Inventado"])
     assert subset == ["MELHORES OFERTAS"]
     assert allowlist_para_bot([]) == platform_source_group_names()
+
+
+def test_salvar_allowlist_plataforma_e_pula_pending(session_factory) -> None:
+    invalidate_platform_source_cache()
+    admin = add_user(session_factory, email="mirror-src@nina.test", role="admin")
+    with session_factory.begin() as session:
+        phone = Phone(
+            id=uuid4(),
+            owner_id=admin.tenant_id,
+            label="Nina 1",
+            number="5511999000666",
+            evolution_instance="nina-1-src",
+            is_platform_listen=True,
+        )
+        session.add(phone)
+        session.flush()
+        bot = Bot(
+            id=uuid4(),
+            owner_id=admin.tenant_id,
+            name="Bot src",
+            slug="bot-src-allow",
+            status="active",
+            phone_id=phone.id,
+            settings={},
+        )
+        session.add(bot)
+        session.flush()
+        session.add(
+            MirrorInbox(
+                owner_id=admin.tenant_id,
+                bot_id=bot.id,
+                listen_phone_id=phone.id,
+                source_whatsapp_id="g-a@g.us",
+                source_group_name="MELHORES OFERTAS",
+                message_key="keep",
+                body_text="ok",
+                status="pending",
+            )
+        )
+        session.add(
+            MirrorInbox(
+                owner_id=admin.tenant_id,
+                bot_id=bot.id,
+                listen_phone_id=phone.id,
+                source_whatsapp_id="g-b@g.us",
+                source_group_name="Achadinhos & Ofertas",
+                message_key="drop",
+                body_text="fora",
+                status="pending",
+            )
+        )
+        chosen = salvar_platform_source_group_names(session, ["MELHORES OFERTAS", "Ofertas da Gio #147"])
+        assert chosen == ["MELHORES OFERTAS", "Ofertas da Gio #147"]
+        skipped = pular_pending_fora_da_allowlist(session, chosen)
+        assert skipped == 1
+        assert platform_source_group_names(session) == chosen
+    invalidate_platform_source_cache()
 
 
 def test_passa_filtros_espelho_nicho_sem_preco():
@@ -1020,6 +1085,68 @@ def test_oferta_anterior_ao_2359_sai_da_fila(session_factory, monkeypatch) -> No
     assert por_chave["velha"].skip_reason == "passou_o_dia"
     assert por_chave["noite"].status == "pending"
     assert por_chave["enviada"].status == "done"
+
+
+def test_lote_pendentes_prioriza_cupom_mesmo_mais_novo(session_factory) -> None:
+    """Cupom digitável fura a fila FIFO — esgota se ficar parado."""
+    from datetime import datetime, timezone
+
+    admin = add_user(session_factory, email="lote-cupom@nina.test", role="admin")
+    with session_factory.begin() as session:
+        phone = Phone(
+            id=uuid4(),
+            owner_id=admin.tenant_id,
+            label="Nina cupom fila",
+            number="5511999000777",
+            evolution_instance="nina-cupom-fila",
+        )
+        session.add(phone)
+        session.flush()
+        bot = Bot(
+            id=uuid4(),
+            owner_id=admin.tenant_id,
+            name="Bot cupom",
+            slug="bot-cupom-fila",
+            status="active",
+            phone_id=phone.id,
+            settings={},
+        )
+        session.add(bot)
+        session.flush()
+        agora = datetime(2026, 11, 26, 12, 0, tzinfo=timezone.utc)
+        session.add(
+            MirrorInbox(
+                owner_id=admin.tenant_id,
+                bot_id=bot.id,
+                listen_phone_id=phone.id,
+                source_whatsapp_id="120363origem@g.us",
+                message_key="sem-cupom",
+                body_text="Panela\nDe R$ 200 por R$ 100\nhttps://meli.la/a",
+                status="pending",
+                created_at=agora,
+            )
+        )
+        session.add(
+            MirrorInbox(
+                owner_id=admin.tenant_id,
+                bot_id=bot.id,
+                listen_phone_id=phone.id,
+                source_whatsapp_id="120363origem@g.us",
+                message_key="com-cupom",
+                body_text=(
+                    "Conjunto de Panelas\nPor R$ 121\n"
+                    "Use o cupom: SUPEROFERTA\nhttps://meli.la/b"
+                ),
+                status="pending",
+                created_at=agora.replace(hour=18),
+            )
+        )
+        assert _item_com_cupom(
+            MirrorInbox(body_text="Use o cupom: SUPEROFERTA\nhttps://x")
+        )
+        lote = _lote_pendentes(session)
+        assert lote, "lote vazio"
+        assert lote[0].message_key == "com-cupom"
 
 
 def test_lote_pendentes_nao_deixa_um_bot_engolir_a_fila(session_factory) -> None:

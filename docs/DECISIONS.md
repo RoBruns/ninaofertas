@@ -728,6 +728,24 @@ contas do bot.
 
 ---
 
+## ADR-043 — Allowlist de origem do espelho no dashboard (máx. 3)
+**Data:** 2026-11-26 · **Status:** aceita · **Decisor:** dono
+
+Muitos grupos de origem inchavam a fila (oferta de 11h30 saindo às 18h47) e
+cupom esgotava. A allowlist da plataforma passa a ser editável em
+Plataforma → Espelho, teto de **3** nomes ativos, persistida em
+`platform_settings`. Precedência: banco → `MIRROR_SOURCE_GROUPS` → padrão
+em código. Ao salvar, pending cuja origem saiu da lista é `skipped`.
+
+**Alternativas:** só subset por bot (`source_group_names`) — não reduz a
+captura global nem a fila das outras contas; editar só env na Railway —
+sem picker e sem limpar pending.
+
+**Consequência:** sync dos grupos da Nina 1 continua necessário para nomes
+baterem; catálogo do picker = padrão + grupos ativos do telefone de escuta.
+
+---
+
 ## ADR-037 — Só espelho: scraper/API de produtos desligado
 **Data:** 2026-11-24 · **Status:** aceita · **Decisor:** dono
 

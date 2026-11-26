@@ -5,75 +5,6 @@
   "version": "0.5.0"
  },
  "paths": {
-  "/api/webhooks/evolution": {
-   "post": {
-    "tags": [
-     "webhooks"
-    ],
-    "summary": "Evolution Messages",
-    "description": "Recebe MESSAGES_UPSERT da Evolution e enfileira ofertas da allowlist do espelho.",
-    "operationId": "evolution_messages_api_webhooks_evolution_post",
-    "parameters": [
-     {
-      "name": "token",
-      "in": "query",
-      "required": false,
-      "schema": {
-       "anyOf": [
-        {
-         "type": "string"
-        },
-        {
-         "type": "null"
-        }
-       ],
-       "title": "Token"
-      }
-     }
-    ],
-    "requestBody": {
-     "content": {
-      "application/json": {
-       "schema": {}
-      }
-     }
-    },
-    "responses": {
-     "200": {
-      "description": "Successful Response",
-      "content": {
-       "application/json": {
-        "schema": {
-         "additionalProperties": true,
-         "type": "object",
-         "title": "Response Evolution Messages Api Webhooks Evolution Post"
-        }
-       }
-      }
-     },
-     "401": {
-      "description": "Não autenticado",
-      "content": {
-       "application/json": {
-        "schema": {
-         "$ref": "#/components/schemas/ErrorEnvelope"
-        }
-       }
-      }
-     },
-     "422": {
-      "description": "Erro de validação",
-      "content": {
-       "application/json": {
-        "schema": {
-         "$ref": "#/components/schemas/ErrorEnvelope"
-        }
-       }
-      }
-     }
-    }
-   }
-  },
   "/api/health": {
    "get": {
     "tags": [
@@ -203,6 +134,106 @@
     "responses": {
      "204": {
       "description": "Successful Response"
+     },
+     "401": {
+      "description": "Não autenticado",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "403": {
+      "description": "Sem permissão",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "404": {
+      "description": "Não encontrado",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "409": {
+      "description": "Conflito (ex.: entidade em uso)",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Dados inválidos",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "429": {
+      "description": "Limite de requisições",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "500": {
+      "description": "Erro interno",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/p/{token}": {
+   "get": {
+    "tags": [
+     "link-preview"
+    ],
+    "summary": "Abrir Previa",
+    "operationId": "abrir_previa_api_p__token__get",
+    "parameters": [
+     {
+      "name": "token",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Token"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
      },
      "401": {
       "description": "Não autenticado",
@@ -15889,6 +15920,420 @@
      }
     }
    }
+  },
+  "/api/platform/mirror/source-groups": {
+   "get": {
+    "tags": [
+     "platform"
+    ],
+    "summary": "Get Mirror Source Groups",
+    "description": "Allowlist que a Nina 1 usa no fan-out + catálogo para o picker.",
+    "operationId": "get_mirror_source_groups_api_platform_mirror_source_groups_get",
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/MirrorSourceGroupsResponse"
+        }
+       }
+      }
+     },
+     "401": {
+      "description": "Não autenticado",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "403": {
+      "description": "Sem permissão",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "404": {
+      "description": "Não encontrado",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "409": {
+      "description": "Conflito (ex.: entidade em uso)",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Dados inválidos",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "429": {
+      "description": "Limite de requisições",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "500": {
+      "description": "Erro interno",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     }
+    },
+    "security": [
+     {
+      "HTTPBearer": []
+     }
+    ]
+   },
+   "put": {
+    "tags": [
+     "platform"
+    ],
+    "summary": "Put Mirror Source Groups",
+    "description": "Define até 3 grupos de origem; pending dos demais sai da fila.",
+    "operationId": "put_mirror_source_groups_api_platform_mirror_source_groups_put",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/MirrorSourceGroupsUpdate"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/MirrorSourceGroupsResponse"
+        }
+       }
+      }
+     },
+     "401": {
+      "description": "Não autenticado",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "403": {
+      "description": "Sem permissão",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "404": {
+      "description": "Não encontrado",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "409": {
+      "description": "Conflito (ex.: entidade em uso)",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Dados inválidos",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "429": {
+      "description": "Limite de requisições",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "500": {
+      "description": "Erro interno",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     }
+    },
+    "security": [
+     {
+      "HTTPBearer": []
+     }
+    ]
+   }
+  },
+  "/api/platform/mirror/purge": {
+   "post": {
+    "tags": [
+     "platform"
+    ],
+    "summary": "Purge Mirror Queue",
+    "description": "Zera a fila do espelho (inbox + capturas) para reteste limpo.",
+    "operationId": "purge_mirror_queue_api_platform_mirror_purge_post",
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": {
+          "type": "integer"
+         },
+         "type": "object",
+         "title": "Response Purge Mirror Queue Api Platform Mirror Purge Post"
+        }
+       }
+      }
+     },
+     "401": {
+      "description": "Não autenticado",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "403": {
+      "description": "Sem permissão",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "404": {
+      "description": "Não encontrado",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "409": {
+      "description": "Conflito (ex.: entidade em uso)",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Dados inválidos",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "429": {
+      "description": "Limite de requisições",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "500": {
+      "description": "Erro interno",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     }
+    },
+    "security": [
+     {
+      "HTTPBearer": []
+     }
+    ]
+   }
+  },
+  "/api/webhooks/evolution": {
+   "post": {
+    "tags": [
+     "webhooks"
+    ],
+    "summary": "Evolution Messages",
+    "operationId": "evolution_messages_api_webhooks_evolution_post",
+    "parameters": [
+     {
+      "name": "token",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Token"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "object",
+         "additionalProperties": true,
+         "title": "Response Evolution Messages Api Webhooks Evolution Post"
+        }
+       }
+      }
+     },
+     "401": {
+      "description": "Não autenticado",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "403": {
+      "description": "Sem permissão",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "404": {
+      "description": "Não encontrado",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "409": {
+      "description": "Conflito (ex.: entidade em uso)",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Dados inválidos",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "429": {
+      "description": "Limite de requisições",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     },
+     "500": {
+      "description": "Erro interno",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+       }
+      }
+     }
+    }
+   }
   }
  },
  "components": {
@@ -16310,30 +16755,6 @@
     "additionalProperties": false,
     "type": "object",
     "title": "Attribution"
-   },
-   "Mirror": {
-    "properties": {
-     "enabled": {
-      "type": "boolean",
-      "title": "Enabled",
-      "default": true,
-      "description": "Sempre true — bot ativo já entra no espelho (campo legado)."
-     },
-     "source_group_names": {
-      "items": {
-       "type": "string"
-      },
-      "type": "array",
-      "maxItems": 40,
-      "title": "Source Group Names",
-      "description": "Subset opcional da allowlist da plataforma. Vazio = todos os grupos que a Nina 1 escuta.",
-      "default": []
-     }
-    },
-    "additionalProperties": false,
-    "type": "object",
-    "title": "Mirror",
-    "description": "Espelho: Nina 1 captura; todo bot ativo envia pelo phone dele (sem toggle)."
    },
    "AuditLogResponse": {
     "properties": {
@@ -17740,7 +18161,7 @@
      },
      "aceitar_cupons": {
       "type": "boolean",
-      "title": "Enviar Cupons",
+      "title": "Aceitar Cupons",
       "default": true
      },
      "aceitar_campanhas": {
@@ -17787,6 +18208,11 @@
       "minimum": 0.0,
       "title": "Baseline Ciclos",
       "default": 5
+     },
+     "cartao_so_foto": {
+      "type": "boolean",
+      "title": "Cartao So Foto",
+      "default": false
      }
     },
     "additionalProperties": true,
@@ -19542,6 +19968,86 @@
     ],
     "title": "MetricPeriod"
    },
+   "Mirror": {
+    "properties": {
+     "enabled": {
+      "type": "boolean",
+      "title": "Enabled",
+      "default": true
+     },
+     "source_group_names": {
+      "items": {
+       "type": "string"
+      },
+      "type": "array",
+      "maxItems": 40,
+      "title": "Source Group Names",
+      "description": "Subset opcional da allowlist da plataforma. Vazio = todos os grupos que a Nina 1 escuta."
+     }
+    },
+    "type": "object",
+    "title": "Mirror",
+    "description": "Espelho: Nina 1 captura; todo bot ativo envia pelo phone dele.\n\n`enabled` fica sempre True (sem toggle). Campo permanece só por compatibilidade\ncom settings antigos — a API/worker tratam bot ativo como inscrito."
+   },
+   "MirrorSourceGroupsResponse": {
+    "properties": {
+     "selected": {
+      "items": {
+       "type": "string"
+      },
+      "type": "array",
+      "title": "Selected"
+     },
+     "candidates": {
+      "items": {
+       "type": "string"
+      },
+      "type": "array",
+      "title": "Candidates"
+     },
+     "max_selected": {
+      "type": "integer",
+      "title": "Max Selected",
+      "default": 3
+     },
+     "source": {
+      "type": "string",
+      "title": "Source"
+     },
+     "pending_skipped": {
+      "type": "integer",
+      "title": "Pending Skipped",
+      "default": 0
+     }
+    },
+    "type": "object",
+    "required": [
+     "selected",
+     "candidates",
+     "source"
+    ],
+    "title": "MirrorSourceGroupsResponse",
+    "description": "Allowlist ativa da Nina 1 + catálogo para o picker do dashboard."
+   },
+   "MirrorSourceGroupsUpdate": {
+    "properties": {
+     "names": {
+      "items": {
+       "type": "string"
+      },
+      "type": "array",
+      "maxItems": 3,
+      "title": "Names"
+     },
+     "reset_to_default": {
+      "type": "boolean",
+      "title": "Reset To Default",
+      "default": false
+     }
+    },
+    "type": "object",
+    "title": "MirrorSourceGroupsUpdate"
+   },
    "MoneyKPI": {
     "properties": {
      "value": {
@@ -19898,6 +20404,13 @@
       "minimum": 0.0,
       "title": "Max Ofertas Globais Por Dia",
       "default": 90
+     },
+     "dedup_horas_produto": {
+      "type": "integer",
+      "maximum": 168.0,
+      "minimum": 1.0,
+      "title": "Dedup Horas Produto",
+      "default": 24
      }
     },
     "additionalProperties": false,

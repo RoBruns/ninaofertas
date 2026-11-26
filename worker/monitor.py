@@ -361,12 +361,20 @@ def _freio_anti_ban(
     }
     limite = "no bot de teste" if teste else "na conta"
     eh_cupom = bool(oferta and (oferta.categoria or "").lower() == "cupom")
-    # Produto não compete com cupom no intervalo/rajada.
+    # Produto com cupom digitável na origem (espelho): fura intervalo/rajada —
+    # cupom esgota; tetos hora/dia anti-ban continuam.
+    from worker.filters import _cupom_espelho_ok
+
+    tem_cupom_origem = bool(
+        oferta
+        and not eh_cupom
+        and _cupom_espelho_ok(getattr(oferta, "codigo_cupom", None))
+    )
     decorridos_conta = repositories.minutos_desde_ultimo_envio(
         session, excluir_cupons=True, **escopo
     )
 
-    if not eh_cupom:
+    if not eh_cupom and not tem_cupom_origem:
         intervalo_min = filtros.get("intervalo_minutos_entre_ofertas")
         if (
             intervalo_min

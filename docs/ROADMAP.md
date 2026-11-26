@@ -1,5 +1,18 @@
 # Roadmap de implementação
 
+## Espelho: allowlist de origem no dashboard — 2026-11-26
+
+Aba Plataforma → Espelho: escolher até 3 grupos que a Nina 1 espelha
+(`GET/PUT /api/platform/mirror/source-groups`). Salvar grava no banco
+(`platform_settings`) e tira da fila o pending dos grupos removidos. Sem
+override, continua env `MIRROR_SOURCE_GROUPS` ou o padrão do código (ADR-043).
+
+## Espelho: oferta com cupom sai na frente — 2026-11-26
+
+Pending com cupom digitável (ex.: SUPEROFERTA) entra primeiro no lote e fura
+intervalo/rajada de produto no freio — cupom esgota se ficar parado. Tetos
+hora/dia anti-ban seguem. Sem cupom, o lote justo por bot continua.
+
 ## Fila do espelho justa por bot — 2026-11-26
 
 O dreno pegava os 8 `pending` mais antigos no mundo. O freio do Achadinhos

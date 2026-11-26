@@ -440,6 +440,55 @@ def test_legacy_sends_and_coupon_group_protection(session_factory):
         assert _freio_anti_ban(session, {}, "outro", offer)[0]
 
 
+def test_freio_produto_com_cupom_origem_fura_intervalo(session_factory):
+    """Espelho com cupom digitável não espera o intervalo de produto."""
+    from core.platforms.base import OfertaCapturada
+
+    prod, _ = _active_bot(session_factory)
+    with session_factory.begin() as session:
+        Oferta.__table__.create(session.connection(), checkfirst=True)
+        Envio.__table__.create(session.connection(), checkfirst=True)
+        oferta = Oferta(nome="Anterior", preco=10, url=str(uuid4()))
+        session.add(oferta)
+        session.flush()
+        session.add(
+            Envio(
+                oferta_id=oferta.id,
+                bot_id=prod.id,
+                grupo="grupo",
+                status="sucesso",
+                enviado_em=relogio.agora_banco(),
+            )
+        )
+    runtime = config_provider.BotRuntime(
+        owner_id=prod.owner_id,
+        id=prod.id,
+        slug="prod",
+        nome="Produção",
+        niche_slug=None,
+        phone_number=None,
+        evolution_instance=None,
+        group_ids=(),
+        settings=BotSettings(),
+        account_ids=(),
+    )
+    pacing = {"intervalo_minutos_entre_ofertas": 5}
+    sem = OfertaCapturada(
+        nome="Sem cupom", preco=100, url="https://meli.la/a", loja="Mercado Livre", categoria="espelho"
+    )
+    com = OfertaCapturada(
+        nome="Com cupom",
+        preco=121,
+        url="https://meli.la/b",
+        loja="Mercado Livre",
+        categoria="espelho",
+        codigo_cupom="SUPEROFERTA",
+    )
+    with session_factory() as session, config_provider.usar_bot_runtime(runtime):
+        assert not _freio_anti_ban(session, pacing, "outro", sem)[0]
+        assert _freio_anti_ban(session, pacing, "outro", com)[0]
+
+
 def test_test_baseline_even_in_production_groups(monkeypatch, session_factory):
     from tests.test_multigrupo import _preparar, _oferta
     from worker import monitor

@@ -29,9 +29,9 @@ export const defaultSettings: BotSettings = {
     max_ofertas_por_rajada: 3, janela_rajada_minutos: 15,
     pausa_entre_rajadas_minutos: 35, max_ofertas_por_hora: 6,
     max_ofertas_por_dia: 80, max_ofertas_globais_por_hora: 8,
-    max_ofertas_globais_por_dia: 90,
+    max_ofertas_globais_por_dia: 90, dedup_horas_produto: 24,
   },
-  content: { recado_instagram: false, aceitar_cupons: true, aceitar_campanhas: false, cupom_venda_indireta: true, max_cupons_por_dia: 2, intervalo_cupom_minutos: 90, cupons_meli: [], produtos_meli: [], baseline_ciclos: 5 },
+  content: { recado_instagram: false, aceitar_cupons: true, aceitar_campanhas: false, cupom_venda_indireta: true, max_cupons_por_dia: 2, intervalo_cupom_minutos: 90, cupons_meli: [], produtos_meli: [], baseline_ciclos: 5, cartao_so_foto: false },
   schedule: { check_interval: 60, quiet_hours: { start: '00:00', end: '08:00' } },
   mirror: {
     enabled: true,

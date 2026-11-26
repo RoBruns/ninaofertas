@@ -98,7 +98,7 @@ EVOLUTION_API_URL     http://evolution-api.railway.internal:8080
 EVOLUTION_API_KEY     ${{evolution-api.AUTHENTICATION_API_KEY}}
 PUBLIC_API_BASE_URL   https://<dashboard>.up.railway.app/api   # webhook do espelho
 EVOLUTION_WEBHOOK_SECRET  # token na query do webhook Evolution (MESSAGES_UPSERT)
-MIRROR_SOURCE_GROUPS  # opcional: allowlist Nina 1, um nome por linha
+MIRROR_SOURCE_GROUPS  # opcional: allowlist Nina 1 (um nome/linha); dashboard (banco) tem prioridade, máx. 3
 ENABLE_SCRAPER_DISCOVERY  # ausente/off = só espelho (ADR-037); 1 religa scraper
 LOG_LEVEL             INFO
 ```

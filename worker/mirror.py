@@ -112,34 +112,57 @@ def limpar_fila_pendente(*, motivo: str = "fila_limpa") -> int:
         return int(resultado.rowcount or 0)
 
 
-def _lote_pendentes(session) -> list[MirrorInbox]:
-    """Até _BATCH pending, sem um bot engolir a fila dos outros.
+def _item_com_cupom(item: MirrorInbox) -> bool:
+    return bool(filters.extrair_cupom_mensagem(item.body_text or ""))
 
-    1) o mais antigo de cada bot; 2) completa com os mais antigos restantes.
-    Se o freio do Achadinhos segura 600 pending, a Neide ainda entra no lote.
+
+def _escolher_lote(candidatos: list[MirrorInbox], limite: int) -> list[MirrorInbox]:
+    """Um por bot (ordem dos candidatos), depois completa até o limite."""
+    if limite <= 0 or not candidatos:
+        return []
+    lote: list[MirrorInbox] = []
+    vistos: set = set()
+    for item in candidatos:
+        if item.bot_id in vistos:
+            continue
+        lote.append(item)
+        vistos.add(item.bot_id)
+        if len(lote) >= limite:
+            return lote
+    ids = {item.id for item in lote}
+    for item in candidatos:
+        if item.id in ids:
+            continue
+        lote.append(item)
+        if len(lote) >= limite:
+            break
+    return lote
+
+
+def _lote_pendentes(session) -> list[MirrorInbox]:
+    """Até _BATCH pending: cupom digitável na frente; depois justo por bot.
+
+    Oferta com cupom esgota — precisa sair cedo. Sem cupom, um por bot para o
+    freio de um não engolir a fila dos outros.
     """
-    por_bot = list(
+    janela = list(
         session.scalars(
             select(MirrorInbox)
             .where(MirrorInbox.status == "pending")
-            .distinct(MirrorInbox.bot_id)
-            .order_by(MirrorInbox.bot_id, MirrorInbox.created_at.asc())
-            .limit(_BATCH)
+            .order_by(MirrorInbox.created_at.asc())
+            .limit(max(_BATCH * 20, 80))
         ).all()
     )
-    if len(por_bot) >= _BATCH:
-        return por_bot
-    ids = [item.id for item in por_bot]
-    falta = _BATCH - len(por_bot)
-    extras_q = select(MirrorInbox).where(MirrorInbox.status == "pending")
-    if ids:
-        extras_q = extras_q.where(MirrorInbox.id.notin_(ids))
-    extras = list(
-        session.scalars(
-            extras_q.order_by(MirrorInbox.created_at.asc()).limit(falta)
-        ).all()
-    )
-    return por_bot + extras
+    if not janela:
+        return []
+    com_cupom = [item for item in janela if _item_com_cupom(item)]
+    sem_cupom = [item for item in janela if not _item_com_cupom(item)]
+    lote = _escolher_lote(com_cupom, _BATCH)
+    if len(lote) < _BATCH:
+        ids = {item.id for item in lote}
+        resto = [item for item in sem_cupom if item.id not in ids]
+        lote.extend(_escolher_lote(resto, _BATCH - len(lote)))
+    return lote
 
 
 def processar_pendentes() -> int:
@@ -281,6 +304,7 @@ def processar_pendentes() -> int:
                     url=link_nicho.url,
                     sku=sku,
                     categoria="espelho",
+                    codigo_cupom=filters.extrair_cupom_mensagem(item.body_text),
                 )
                 ok, motivo = monitor._freio_anti_ban(  # noqa: SLF001
                     session, filtros, grupos[0], oferta_probe

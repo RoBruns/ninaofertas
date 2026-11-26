@@ -735,6 +735,20 @@ class TaskChecklistItem(Base):
     checklist: Mapped[TaskChecklist] = relationship(back_populates="items")
 
 
+class PlatformSetting(Base):
+    """Chave/valor JSON da plataforma (ex.: allowlist do espelho)."""
+
+    __tablename__ = "platform_settings"
+
+    key: Mapped[str] = mapped_column(Text, primary_key=True)
+    value: Mapped[dict[str, Any] | list[Any]] = mapped_column(
+        JSON_TYPE, server_default=text("'{}'::jsonb")
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        TIMESTAMPTZ, server_default=text("now()")
+    )
+
+
 class MirrorCapture(Base):
     """Captura neutra na Nina 1 (plataforma), antes do fan-out por bot."""
 

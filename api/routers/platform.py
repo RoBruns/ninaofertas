@@ -26,10 +26,20 @@ from api.schemas.billing import (
     SubscriptionResponse,
     SubscriptionUpdate,
 )
+from api.schemas.mirror_platform import MirrorSourceGroupsResponse, MirrorSourceGroupsUpdate
 from api.security import hash_password
 from core import relogio
 from core.billing import metricas_mensais, resumo_mes_atual
 from core.billing_store import BillingError, change_subscription, metric_inputs, subscription_mrr
+from core.mirror_sources import (
+    MAX_PLATFORM_SOURCE_GROUPS,
+    catalogo_candidatos,
+    limpar_platform_source_override,
+    origem_efetiva,
+    platform_source_group_names,
+    pular_pending_fora_da_allowlist,
+    salvar_platform_source_group_names,
+)
 from core.repositories import escopo_envios_conta
 from core.models import (
     Bot,
@@ -360,6 +370,80 @@ def update_tenant(
     )
     session.commit()
     return response
+
+
+@router.get("/mirror/source-groups", response_model=MirrorSourceGroupsResponse)
+def get_mirror_source_groups(
+    admin: PlatformAdmin,
+    session: Annotated[Session, Depends(get_db)],
+) -> MirrorSourceGroupsResponse:
+    """Allowlist que a Nina 1 usa no fan-out + catálogo para o picker."""
+    del admin  # auth only
+    selected = platform_source_group_names(session)
+    candidates = catalogo_candidatos(session)
+    # Garante que o selecionado aparece no picker mesmo se sumiu do sync.
+    for name in selected:
+        if name not in candidates:
+            candidates.append(name)
+    return MirrorSourceGroupsResponse(
+        selected=selected,
+        candidates=candidates,
+        max_selected=MAX_PLATFORM_SOURCE_GROUPS,
+        source=origem_efetiva(session),
+    )
+
+
+@router.put(
+    "/mirror/source-groups",
+    response_model=MirrorSourceGroupsResponse,
+    dependencies=[Depends(limit_authenticated_write)],
+)
+def put_mirror_source_groups(
+    payload: MirrorSourceGroupsUpdate,
+    request: Request,
+    admin: PlatformAdmin,
+    session: Annotated[Session, Depends(get_db)],
+) -> MirrorSourceGroupsResponse:
+    """Define até 3 grupos de origem; pending dos demais sai da fila."""
+    before = platform_source_group_names(session)
+    skipped = 0
+    if payload.reset_to_default:
+        limpar_platform_source_override(session)
+        after = platform_source_group_names(session)
+    else:
+        if not payload.names:
+            raise APIError(
+                422,
+                "VALIDATION_ERROR",
+                f"Escolha de 1 a {MAX_PLATFORM_SOURCE_GROUPS} grupos, ou reset_to_default",
+            )
+        try:
+            after = salvar_platform_source_group_names(session, payload.names)
+        except ValueError as exc:
+            raise APIError(422, "VALIDATION_ERROR", str(exc)) from exc
+        skipped = pular_pending_fora_da_allowlist(session, after)
+    record_audit(
+        session,
+        admin,
+        "mirror",
+        "source_groups",
+        "update",
+        {"names": before},
+        {"names": after, "pending_skipped": skipped, "reset": payload.reset_to_default},
+        client_ip(request),
+    )
+    session.commit()
+    candidates = catalogo_candidatos(session)
+    for name in after:
+        if name not in candidates:
+            candidates.append(name)
+    return MirrorSourceGroupsResponse(
+        selected=after,
+        candidates=candidates,
+        max_selected=MAX_PLATFORM_SOURCE_GROUPS,
+        source=origem_efetiva(session),
+        pending_skipped=skipped,
+    )
 
 
 @router.post(
