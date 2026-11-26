@@ -15,7 +15,7 @@ from core.mirror_match import nome_na_allowlist
 from core.mirror_sources import allowlist_para_bot, platform_source_group_names
 from core.models import Bot, Group, MirrorCapture, MirrorInbox, Phone, Tenant
 from core.platforms.base import OfertaCapturada
-from tests.test_api import add_user, client, session_factory
+from tests.test_api import add_user
 from core.mirror_media import (
     ProdutoSomenteVideo,
     base64_puro,
@@ -38,7 +38,12 @@ from worker.filters import (
     titulo_de_vitrine,
     titulo_mensagem_espelho,
 )
-from worker.mirror import _oferta_template, corte_fila_do_dia, expirar_pendentes
+from worker.mirror import (
+    _lote_pendentes,
+    _oferta_template,
+    corte_fila_do_dia,
+    expirar_pendentes,
+)
 
 
 def test_detectar_loja_por_host():
@@ -998,3 +1003,71 @@ def test_oferta_anterior_ao_2359_sai_da_fila(session_factory, monkeypatch) -> No
     assert por_chave["velha"].skip_reason == "passou_o_dia"
     assert por_chave["noite"].status == "pending"
     assert por_chave["enviada"].status == "done"
+
+
+def test_lote_pendentes_nao_deixa_um_bot_engolir_a_fila(session_factory) -> None:
+    """Pending antigo de um bot não impede o mais antigo do outro entrar no lote."""
+    from datetime import datetime, timezone
+
+    admin = add_user(session_factory, email="lote-fair@nina.test", role="admin")
+    with session_factory.begin() as session:
+        phone = Phone(
+            id=uuid4(),
+            owner_id=admin.tenant_id,
+            label="Nina lote",
+            number="5511999000888",
+            evolution_instance="nina-lote",
+        )
+        session.add(phone)
+        session.flush()
+        bot_a = Bot(
+            id=uuid4(),
+            owner_id=admin.tenant_id,
+            name="Bot A",
+            slug="bot-a-lote",
+            status="active",
+            phone_id=phone.id,
+            settings={},
+        )
+        bot_b = Bot(
+            id=uuid4(),
+            owner_id=admin.tenant_id,
+            name="Bot B",
+            slug="bot-b-lote",
+            status="active",
+            phone_id=phone.id,
+            settings={},
+        )
+        session.add_all([bot_a, bot_b])
+        session.flush()
+        agora = datetime(2026, 11, 26, 12, 0, tzinfo=timezone.utc)
+        for i in range(10):
+            session.add(
+                MirrorInbox(
+                    owner_id=admin.tenant_id,
+                    bot_id=bot_a.id,
+                    listen_phone_id=phone.id,
+                    source_whatsapp_id="120363origem@g.us",
+                    message_key=f"a-{i}",
+                    body_text="oferta a",
+                    status="pending",
+                    created_at=agora.replace(minute=i),
+                )
+            )
+        session.add(
+            MirrorInbox(
+                owner_id=admin.tenant_id,
+                bot_id=bot_b.id,
+                listen_phone_id=phone.id,
+                source_whatsapp_id="120363origem@g.us",
+                message_key="b-0",
+                body_text="oferta b",
+                status="pending",
+                created_at=agora.replace(hour=18),
+            )
+        )
+        lote = _lote_pendentes(session)
+        bots = {item.bot_id for item in lote}
+        assert bot_a.id in bots
+        assert bot_b.id in bots
+        assert any(item.message_key == "b-0" for item in lote)

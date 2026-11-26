@@ -1,5 +1,12 @@
 # Roadmap de implementação
 
+## Fila do espelho justa por bot — 2026-11-26
+
+O dreno pegava os 8 `pending` mais antigos no mundo. O freio do Achadinhos
+segurava centenas na frente e a Tia Neide (outra conta) nunca entrava no lote
+— 135 pending, 0 envios. Agora o lote pega o mais antigo de cada bot e só
+depois completa com o resto.
+
 ## Título do espelho: sem corte e sem troca por outro item — 2026-11-25
 
 O `nome[:120]` cortava o enfeite no meio ("todos os di"). Limite sobe para 200;

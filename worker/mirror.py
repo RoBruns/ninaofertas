@@ -112,6 +112,36 @@ def limpar_fila_pendente(*, motivo: str = "fila_limpa") -> int:
         return int(resultado.rowcount or 0)
 
 
+def _lote_pendentes(session) -> list[MirrorInbox]:
+    """Até _BATCH pending, sem um bot engolir a fila dos outros.
+
+    1) o mais antigo de cada bot; 2) completa com os mais antigos restantes.
+    Se o freio do Achadinhos segura 600 pending, a Neide ainda entra no lote.
+    """
+    por_bot = list(
+        session.scalars(
+            select(MirrorInbox)
+            .where(MirrorInbox.status == "pending")
+            .distinct(MirrorInbox.bot_id)
+            .order_by(MirrorInbox.bot_id, MirrorInbox.created_at.asc())
+            .limit(_BATCH)
+        ).all()
+    )
+    if len(por_bot) >= _BATCH:
+        return por_bot
+    ids = [item.id for item in por_bot]
+    falta = _BATCH - len(por_bot)
+    extras_q = select(MirrorInbox).where(MirrorInbox.status == "pending")
+    if ids:
+        extras_q = extras_q.where(MirrorInbox.id.notin_(ids))
+    extras = list(
+        session.scalars(
+            extras_q.order_by(MirrorInbox.created_at.asc()).limit(falta)
+        ).all()
+    )
+    return por_bot + extras
+
+
 def processar_pendentes() -> int:
     """Processa até _BATCH itens pending. Retorna quantos saíram de pending."""
     encerradas = expirar_pendentes()
@@ -119,14 +149,7 @@ def processar_pendentes() -> int:
         logger.info(f"[espelho] {encerradas} oferta(s) do dia anterior saíram da fila")
     processados = 0
     with db.get_session() as session:
-        itens = list(
-            session.scalars(
-                select(MirrorInbox)
-                .where(MirrorInbox.status == "pending")
-                .order_by(MirrorInbox.created_at.asc())
-                .limit(_BATCH)
-            ).all()
-        )
+        itens = _lote_pendentes(session)
         if not itens:
             return 0
 
