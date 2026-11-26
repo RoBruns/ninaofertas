@@ -38,7 +38,9 @@ fallback CDN do produto) — sem citar o grupo de origem.
 
 `PhoneCreate`/`PhoneUpdate` aceitam `evolution_instance` somente de platform
 admin; campo presente, inclusive null, de outro usuário → 403. Instância usada
-por outro telefone → 409. Remover telefone não remove instância na Evolution.
+por outro telefone → 409. Remover telefone apaga os grupos dele (e vínculos
+`bot_groups`); ainda bloqueia se algum bot usa o telefone como envio (`phone_id`).
+Remover telefone não remove instância na Evolution.
 Nome informado por platform admin aceita apenas `^[A-Za-z0-9._-]{1,64}$`.
 Trocar a instância remove o token anterior. Número é opcional (null) até conectar.
 `PhoneResponse` inclui apenas `has_instance_token` e `instance_token_fingerprint`,

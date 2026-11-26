@@ -20,7 +20,7 @@ from core.evolution import (
 )
 from core.crypto import encrypt, fingerprint
 from core.config_provider import invalidar_cache
-from core.models import Bot, BotGroup, Command, Group, Phone, User
+from core.models import Bot, Command, Group, Phone, User
 
 router = APIRouter(prefix="/phones", tags=["phones"])
 AdminUser = Annotated[User, Depends(require_role("admin"))]
@@ -169,18 +169,13 @@ def delete_phone(
             select(Bot).where(Bot.owner_id == admin.tenant_id, Bot.phone_id == phone.id).order_by(Bot.name)
         )
     )
-    linked_group_bots = list(
-        session.scalars(
-            select(Bot).join(BotGroup, BotGroup.bot_id == Bot.id).join(Group, Group.id == BotGroup.group_id)
-            .where(Group.phone_id == phone.id).order_by(Bot.name)
-        )
-    )
-    by_id = {bot.id: bot for bot in bots + linked_group_bots}
-    if by_id:
-        names = ", ".join(bot.name for bot in by_id.values())
+    if bots:
+        names = ", ".join(bot.name for bot in bots)
         raise APIError(409, "CONFLICT", f"Telefone em uso pelos bots: {names}", {"bots": names})
-    if session.scalar(select(Group.id).where(Group.phone_id == phone.id).limit(1)) is not None:
-        raise APIError(409, "CONFLICT", "Telefone possui grupos cadastrados")
+    # Grupos do telefone saem junto (bot_groups em cascata). Não bloqueia a exclusão.
+    for group in session.scalars(select(Group).where(Group.phone_id == phone.id)):
+        session.delete(group)
+    session.flush()
     before = _response(phone, query_status=False).model_dump(mode="json")
     session.delete(phone)
     record_audit(session, admin, "phone", str(phone.id), "delete", before, None, client_ip(request))

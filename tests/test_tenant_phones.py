@@ -10,7 +10,7 @@ from sqlalchemy import select
 
 from api.security import create_access_token
 from core.evolution import EvolutionClient
-from core.models import Phone
+from core.models import Bot, BotGroup, Group, Phone
 from tests.test_api import add_user, auth_header, client, session_factory
 
 
@@ -124,6 +124,68 @@ def test_conectar_cria_v2_persiste_reusa_qr_e_trata_falha(
     assert all(call.method != "DELETE" for call in calls)
     with session_factory() as session:
         assert session.scalar(select(Phone.id).where(Phone.id == UUID(str(phone_id)))) is None
+
+
+def test_delete_phone_apaga_grupos_junto(client, session_factory, monkeypatch):
+    """Grupos do telefone não bloqueiam a exclusão — saem em cascata."""
+    monkeypatch.setattr(EvolutionClient, "connection_status", lambda *args: "unknown")
+    user = add_user(
+        session_factory, email="del-grupos@teste.com", role="admin", is_platform_admin=False
+    )
+    phone_id = uuid4()
+    group_id = uuid4()
+    other_bot_id = uuid4()
+    with session_factory.begin() as session:
+        session.add(
+            Phone(
+                id=phone_id,
+                owner_id=user.tenant_id,
+                label="Descartavel",
+                number="551100000099",
+            )
+        )
+        session.flush()
+        # Bot de envio em OUTRO telefone, só vinculado ao grupo deste.
+        other_phone = Phone(
+            id=uuid4(),
+            owner_id=user.tenant_id,
+            label="Envio",
+            number="551100000098",
+        )
+        session.add(other_phone)
+        session.flush()
+        session.add(
+            Group(
+                id=group_id,
+                owner_id=user.tenant_id,
+                phone_id=phone_id,
+                whatsapp_id="120363grupo@g.us",
+                name="Grupo velho",
+                status="active",
+            )
+        )
+        session.add(
+            Bot(
+                id=other_bot_id,
+                owner_id=user.tenant_id,
+                name="Bot envio",
+                slug="bot-envio-del",
+                status="paused",
+                phone_id=other_phone.id,
+                settings={},
+            )
+        )
+        session.flush()
+        session.add(BotGroup(bot_id=other_bot_id, group_id=group_id))
+
+    assert client.delete(f"/api/phones/{phone_id}", headers=headers(user)).status_code == 204
+    with session_factory() as session:
+        assert session.get(Phone, phone_id) is None
+        assert session.get(Group, group_id) is None
+        assert session.scalar(
+            select(BotGroup).where(BotGroup.bot_id == other_bot_id)
+        ) is None
+        assert session.get(Bot, other_bot_id) is not None
 
 
 def test_criacao_sem_qr_preserva_instancia_para_tentar_novamente(
