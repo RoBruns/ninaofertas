@@ -29,6 +29,11 @@ _PEDIDO = (
 
 def enfeitar_titulo(titulo: str, titulo_grupo: str) -> str:
     """Enfeite diferente do título do grupo. Sem chave, devolve o título da página."""
+    if titulo_igual(titulo, titulo_grupo):
+        # A frase de efeito é do grupo de origem; enfeita e devolve só o nome.
+        nome = (titulo or "").split(":", 1)[0].strip()
+        if len(nome) >= 8:
+            titulo = nome
     base = " ".join((titulo or "").split())
     if len(base) < 8 or not settings.openai_api_key:
         return titulo

@@ -129,6 +129,52 @@ def test_titulo_ja_enfeitado_na_origem_aceita_frase_nova(
     assert "IM8S" in saida and "590L" in saida
 
 
+def test_frase_do_grupo_nao_trava_o_enfeite(monkeypatch: pytest.MonkeyPatch) -> None:
+    titulo_enfeite._CACHE.clear()
+    grupo = "Cozinha 250cm Smart Madesa: modulada rústica e moderna! ✨🍽️"
+
+    class _FraseNova(_Client):
+        def post(
+            self, url: str, *, headers: dict[str, str], json: dict[str, object]
+        ) -> httpx.Response:
+            return httpx.Response(
+                200,
+                json={
+                    "choices": [
+                        {"message": {"content": "Cozinha 250cm Smart Madesa: tudo no lugar! 🏡"}}
+                    ]
+                },
+            )
+
+    monkeypatch.setattr(settings, "openai_api_key", "sk-teste")
+    monkeypatch.setattr(httpx, "Client", _FraseNova)
+    assert (
+        titulo_enfeite.enfeitar_titulo(grupo, grupo)
+        == "Cozinha 250cm Smart Madesa: tudo no lugar! 🏡"
+    )
+
+
+def test_enfeite_recusado_devolve_o_nome_sem_a_frase_do_grupo(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    titulo_enfeite._CACHE.clear()
+    grupo = "Cozinha 250cm Smart Madesa: modulada rústica e moderna! ✨🍽️"
+
+    class _Ruim(_Client):
+        def post(
+            self, url: str, *, headers: dict[str, str], json: dict[str, object]
+        ) -> httpx.Response:
+            return httpx.Response(
+                200, json={"choices": [{"message": {"content": "Oferta boa demais! ✨"}}]}
+            )
+
+    monkeypatch.setattr(settings, "openai_api_key", "sk-teste")
+    monkeypatch.setattr(httpx, "Client", _Ruim)
+    saida = titulo_enfeite.enfeitar_titulo(grupo, grupo)
+    assert saida == "Cozinha 250cm Smart Madesa"
+    assert not titulo_enfeite.titulo_igual(saida, grupo)
+
+
 def test_enfeite_sem_o_modelo_e_descartado(monkeypatch: pytest.MonkeyPatch) -> None:
     titulo_enfeite._CACHE.clear()
 

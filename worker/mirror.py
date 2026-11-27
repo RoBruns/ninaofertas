@@ -57,14 +57,21 @@ def _foto_shopee_api(titulo: str, preco: float | None) -> str | None:
     _conta, app_id, secret = credenciais_shopee_do_bot()
     if not app_id or not secret:
         return None
-    try:
-        with httpx.Client(timeout=12.0) as client:
-            return foto_por_titulo(
-                client, titulo, app_id=app_id, secret=secret, preco=preco or None
+    # O "System Error [10000]" da Shopee aparece e some; uma nova tentativa basta.
+    for tentativa in (1, 2):
+        try:
+            with httpx.Client(timeout=12.0) as client:
+                return foto_por_titulo(
+                    client, titulo, app_id=app_id, secret=secret, preco=preco or None
+                )
+        except Exception as exc:
+            if tentativa == 1:
+                time.sleep(1.5)
+                continue
+            logger.info(
+                f"[espelho] busca de foto na API Shopee falhou ({titulo[:50]!r}): {exc}"
             )
-    except Exception as exc:
-        logger.info(f"[espelho] busca de foto na API Shopee falhou: {exc}")
-        return None
+    return None
 
 
 def _oferta_template(

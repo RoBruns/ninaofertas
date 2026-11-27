@@ -108,6 +108,38 @@ def test_foto_por_titulo_preco_muito_diferente_e_recusado() -> None:
         )
 
 
+def test_foto_shopee_tenta_de_novo_depois_do_system_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from core.platforms import shopee
+    from worker import mirror
+
+    chamadas: list[int] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        chamadas.append(1)
+        if len(chamadas) == 1:
+            return httpx.Response(200, json={"errors": [{"message": "error [10000]: System Error"}]})
+        nodes = [
+            {
+                "productName": "Electrolux ES5GB Inverter",
+                "imageUrl": "https://down-br.img.susercontent.com/file/es5gb",
+                "priceMin": "2500",
+            }
+        ]
+        return httpx.Response(200, json={"data": {"productOfferV2": {"nodes": nodes}}})
+
+    cliente_real = httpx.Client
+    monkeypatch.setattr(
+        httpx, "Client", lambda **_kw: cliente_real(transport=httpx.MockTransport(handler))
+    )
+    monkeypatch.setattr(shopee, "credenciais_shopee_do_bot", lambda: (None, "app", "seg"))
+    monkeypatch.setattr(mirror.time, "sleep", lambda _s: None)
+    url = mirror._foto_shopee_api("Electrolux ES5GB: sua cozinha moderna!", 2500.0)
+    assert url == "https://down-br.img.susercontent.com/file/es5gb"
+    assert len(chamadas) == 2
+
+
 @pytest.mark.parametrize("titulo", ["", "Ar"])
 def test_foto_por_titulo_curto_nao_busca(titulo: str) -> None:
     with _client_com([]) as client:
