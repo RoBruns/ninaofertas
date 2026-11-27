@@ -32,7 +32,7 @@ _BATCH = 8
 _ultimo_webhook_ts = 0.0
 _WEBHOOK_TTL_S = 120.0
 # Cupom esgota — pending antigo demais não publica código morto.
-_CUPOM_MAX_IDADE = timedelta(minutes=60)
+_CUPOM_MAX_IDADE = timedelta(minutes=20)
 # Enfeite pode chegar a ~160; 120 cortava no meio da frase ("todos os di").
 _NOME_MAX = 200
 
@@ -177,34 +177,36 @@ def _escolher_lote(candidatos: list[MirrorInbox], limite: int) -> list[MirrorInb
 
 
 def _lote_pendentes(session) -> list[MirrorInbox]:
-    """Até _BATCH pending: cupom em FIFO estrito; depois justo por bot.
+    """Até _BATCH pending: cupom recente primeiro (o mais novo antes); depois justo por bot.
 
-    Cupom esgota — o mais antigo com código sai primeiro, sem round-robin.
-    Sem cupom, um por bot para o freio de um não engolir a fila dos outros.
+    Cupom esgota em minutos — o código mais novo é o que ainda vale. Ele é buscado
+    à parte porque a janela dos mais antigos pode estar cheia de produto esperando
+    o freio. Sem cupom, um por bot para o freio de um não engolir a fila dos outros.
     """
-    janela = list(
-        session.scalars(
+    recentes = session.scalars(
+        select(MirrorInbox)
+        .where(
+            MirrorInbox.status == "pending",
+            MirrorInbox.created_at >= datetime.now(timezone.utc) - _CUPOM_MAX_IDADE,
+        )
+        .order_by(MirrorInbox.created_at.desc())
+    ).all()
+    lote = [item for item in recentes if _item_com_cupom(item)][:_BATCH]
+    if len(lote) < _BATCH:
+        janela = session.scalars(
             select(MirrorInbox)
             .where(MirrorInbox.status == "pending")
             .order_by(MirrorInbox.created_at.asc())
             .limit(max(_BATCH * 20, 80))
         ).all()
-    )
-    if not janela:
-        return []
-    com_cupom = [item for item in janela if _item_com_cupom(item)]
-    sem_cupom = [item for item in janela if not _item_com_cupom(item)]
-    # FIFO puro no subconjunto com cupom (já ordenado por created_at).
-    lote = com_cupom[:_BATCH]
-    if len(lote) < _BATCH:
         ids = {item.id for item in lote}
-        resto = [item for item in sem_cupom if item.id not in ids]
+        resto = [item for item in janela if item.id not in ids and not _item_com_cupom(item)]
         lote.extend(_escolher_lote(resto, _BATCH - len(lote)))
     return lote
 
 
 def expirar_cupons_velhos() -> int:
-    """Pending com cupom digitável e idade > 60 min → skipped (código morto)."""
+    """Pending com cupom digitável mais velho que _CUPOM_MAX_IDADE → skipped (código morto)."""
     limite = datetime.now(timezone.utc) - _CUPOM_MAX_IDADE
     with db.get_session() as session:
         pendentes = list(
@@ -231,7 +233,8 @@ def processar_pendentes() -> int:
         logger.info(f"[espelho] {encerradas} oferta(s) do dia anterior saíram da fila")
     velhos = expirar_cupons_velhos()
     if velhos:
-        logger.info(f"[espelho] {velhos} cupom(ns) com mais de 60 min saíram da fila")
+        minutos = int(_CUPOM_MAX_IDADE.total_seconds() // 60)
+        logger.info(f"[espelho] {velhos} cupom(ns) com mais de {minutos} min saíram da fila")
     processados = 0
     with db.get_session() as session:
         itens = _lote_pendentes(session)

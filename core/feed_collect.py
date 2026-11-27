@@ -410,13 +410,15 @@ def coletar_fonte(session: Session, source: FeedSource) -> dict[str, int | str]:
         for offer in offers:
             if _persistir_oferta(session, source=source, offer=offer):
                 catalogadas += 1
-            if offer.coupon:
+            loja_link = detectar_loja(offer.url)
+            # Em artigo de blog, código sem link de loja costuma ser nome de modelo.
+            if offer.coupon and (source.kind != "rss" or loja_link):
                 registrar_cupom(
                     session,
                     owner_id=source.owner_id,
                     code=offer.coupon,
                     source_group_name=source.name,
-                    store=offer.store_label,
+                    store=loja_link or offer.store_label,
                     url=offer.url,
                     title=offer.title[:120],
                 )

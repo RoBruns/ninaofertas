@@ -358,6 +358,64 @@ def test_webhook_fanout_dois_tenants(
         assert all(i.status == "pending" for i in items)
 
 
+def test_webhook_registra_cupom_com_a_loja_da_mensagem(
+    client,
+    session_factory: sessionmaker[Session],
+    webhook_secret: str,
+) -> None:
+    from core.models import CouponRadar
+
+    admin = add_user(session_factory, email="mirror-cupom@nina.test", role="admin")
+    send = uuid4()
+    with session_factory.begin() as session:
+        _seed_platform_listen(session)
+        session.add(
+            Phone(
+                id=send,
+                owner_id=admin.tenant_id,
+                label="Nina 2",
+                number="5511999000077",
+                evolution_instance="nina2-cupom",
+            )
+        )
+        session.flush()
+        session.add(
+            Bot(
+                id=uuid4(),
+                owner_id=admin.tenant_id,
+                name="Casa cupom",
+                slug="casa-cupom",
+                status="active",
+                phone_id=send,
+                settings=BotSettings(mirror=Mirror(enabled=True)).model_dump(mode="json"),
+            )
+        )
+
+    texto = (
+        "CORRE novo cupom Mercado Livre!\n"
+        "Use o cupom MELI40 acima de R$ 199\n"
+        "https://www.mercadolivre.com.br/cupons"
+    )
+    response = client.post(
+        f"/api/webhooks/evolution?token={webhook_secret}",
+        json={
+            "event": "messages.upsert",
+            "instance": "nina1-listen",
+            "data": {
+                "key": {"remoteJid": "120363origem@g.us", "fromMe": False, "id": "MSG-CUPOM"},
+                "message": {"conversation": texto},
+            },
+        },
+    )
+    assert response.status_code == 200, response.text
+    with session_factory() as session:
+        cupom = session.query(CouponRadar).filter_by(code="MELI40").one()
+        assert cupom.store == "mercadolivre"
+        assert cupom.url == "https://www.mercadolivre.com.br/cupons"
+        assert cupom.title and "MELI40" in cupom.title
+        assert cupom.source_group_name == "MELHORES OFERTAS"
+
+
 def test_webhook_guarda_miniatura_da_previa_do_link(
     client,
     session_factory: sessionmaker[Session],
@@ -1201,7 +1259,7 @@ def test_oferta_anterior_ao_2359_sai_da_fila(session_factory, monkeypatch) -> No
 
 def test_lote_pendentes_prioriza_cupom_mesmo_mais_novo(session_factory) -> None:
     """Cupom digitável fura a fila FIFO — esgota se ficar parado."""
-    from datetime import datetime, timezone
+    from datetime import datetime, timedelta, timezone
 
     admin = add_user(session_factory, email="lote-cupom@nina.test", role="admin")
     with session_factory.begin() as session:
@@ -1225,7 +1283,7 @@ def test_lote_pendentes_prioriza_cupom_mesmo_mais_novo(session_factory) -> None:
         )
         session.add(bot)
         session.flush()
-        agora = datetime(2026, 11, 26, 12, 0, tzinfo=timezone.utc)
+        agora = datetime.now(timezone.utc) - timedelta(hours=2)
         session.add(
             MirrorInbox(
                 owner_id=admin.tenant_id,
@@ -1250,7 +1308,7 @@ def test_lote_pendentes_prioriza_cupom_mesmo_mais_novo(session_factory) -> None:
                     "Use o cupom: SUPEROFERTA\nhttps://meli.la/b"
                 ),
                 status="pending",
-                created_at=agora.replace(hour=18),
+                created_at=datetime.now(timezone.utc) - timedelta(minutes=2),
             )
         )
         assert _item_com_cupom(
@@ -1261,11 +1319,17 @@ def test_lote_pendentes_prioriza_cupom_mesmo_mais_novo(session_factory) -> None:
         assert lote[0].message_key == "com-cupom"
 
 
-def test_lote_cupom_fifo_e_expira_com_mais_de_60_min(session_factory) -> None:
-    """Dois cupons: o mais antigo primeiro; >60 min → cupom_velho."""
+def test_lote_cupom_mais_novo_primeiro_e_expira_com_mais_de_20_min(
+    session_factory, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Dois cupons: o mais novo primeiro; >20 min → cupom_velho."""
     from datetime import datetime, timedelta, timezone
 
     from sqlalchemy import select
+
+    from core import db
+
+    monkeypatch.setattr(db, "get_session", session_factory.begin)
 
     admin = add_user(session_factory, email="lote-fifo-cupom@nina.test", role="admin")
     with session_factory.begin() as session:
@@ -1298,7 +1362,7 @@ def test_lote_cupom_fifo_e_expira_com_mais_de_60_min(session_factory) -> None:
         )
         session.add_all([bot_a, bot_b])
         session.flush()
-        agora = datetime(2026, 11, 26, 18, 0, tzinfo=timezone.utc)
+        agora = datetime.now(timezone.utc) - timedelta(minutes=10)
         session.add(
             MirrorInbox(
                 owner_id=admin.tenant_id,
@@ -1308,7 +1372,7 @@ def test_lote_cupom_fifo_e_expira_com_mais_de_60_min(session_factory) -> None:
                 message_key="cupom-novo",
                 body_text="Use o cupom: NOVO10\nhttps://meli.la/n",
                 status="pending",
-                created_at=agora.replace(minute=30),
+                created_at=agora + timedelta(minutes=5),
             )
         )
         session.add(
@@ -1324,10 +1388,10 @@ def test_lote_cupom_fifo_e_expira_com_mais_de_60_min(session_factory) -> None:
             )
         )
         lote = _lote_pendentes(session)
-        assert [i.message_key for i in lote[:2]] == ["cupom-antigo", "cupom-novo"]
+        assert [i.message_key for i in lote[:2]] == ["cupom-novo", "cupom-antigo"]
         session.scalars(
             select(MirrorInbox).where(MirrorInbox.message_key == "cupom-antigo")
-        ).one().created_at = datetime.now(timezone.utc) - timedelta(minutes=61)
+        ).one().created_at = datetime.now(timezone.utc) - timedelta(minutes=21)
     assert expirar_cupons_velhos() >= 1
     with session_factory() as session:
         item = session.scalars(
@@ -1335,6 +1399,64 @@ def test_lote_cupom_fifo_e_expira_com_mais_de_60_min(session_factory) -> None:
         ).one()
         assert item.status == "skipped"
         assert item.skip_reason == "cupom_velho"
+
+
+def test_cupom_novo_fura_fila_cheia_de_produto_antigo(session_factory) -> None:
+    from datetime import datetime, timedelta, timezone
+
+    admin = add_user(session_factory, email="fila-cheia-cupom@nina.test", role="admin")
+    with session_factory.begin() as session:
+        phone = Phone(
+            id=uuid4(),
+            owner_id=admin.tenant_id,
+            label="Nina fila cheia",
+            number="5511999000556",
+            evolution_instance="nina-fila-cheia",
+        )
+        session.add(phone)
+        session.flush()
+        bot = Bot(
+            id=uuid4(),
+            owner_id=admin.tenant_id,
+            name="Bot fila cheia",
+            slug="bot-fila-cheia",
+            status="active",
+            phone_id=phone.id,
+            settings={},
+        )
+        session.add(bot)
+        session.flush()
+        antes = datetime.now(timezone.utc) - timedelta(hours=3)
+        session.add_all(
+            [
+                MirrorInbox(
+                    owner_id=admin.tenant_id,
+                    bot_id=bot.id,
+                    listen_phone_id=phone.id,
+                    source_whatsapp_id="g@g.us",
+                    message_key=f"produto-{n}",
+                    body_text=f"Panela {n}\nhttps://meli.la/p{n}",
+                    status="pending",
+                    created_at=antes + timedelta(seconds=n),
+                )
+                for n in range(200)
+            ]
+        )
+        session.add(
+            MirrorInbox(
+                owner_id=admin.tenant_id,
+                bot_id=bot.id,
+                listen_phone_id=phone.id,
+                source_whatsapp_id="g@g.us",
+                message_key="cupom-agora",
+                body_text="Use o cupom: AGORA20\nhttps://meli.la/c",
+                status="pending",
+                created_at=datetime.now(timezone.utc) - timedelta(minutes=1),
+            )
+        )
+        session.flush()
+        lote = _lote_pendentes(session)
+        assert lote[0].message_key == "cupom-agora"
 
 
 def test_lote_pendentes_nao_deixa_um_bot_engolir_a_fila(session_factory) -> None:

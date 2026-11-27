@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import pytest
 
+from tests.test_api import client, session_factory  # noqa: F401
+
 
 @pytest.fixture(autouse=True)
 def _liga_descoberta_por_scraper_nos_testes(monkeypatch: pytest.MonkeyPatch) -> None:

@@ -264,15 +264,21 @@ async def evolution_messages(
                 accepted += 1
                 try:
                     from core.coupon_radar import registrar_cupom
+                    from core.coupon_store import loja_da_mensagem, resumo_da_mensagem
+                    from core.link_parser import extrair_links_oferta
                     from worker.filters import extrair_cupom_mensagem
 
                     codigo = extrair_cupom_mensagem(body)
                     if codigo:
+                        links = extrair_links_oferta(body)
                         registrar_cupom(
                             session,
                             owner_id=bot.owner_id,
                             code=codigo,
                             source_group_name=nome_grupo,
+                            store=loja_da_mensagem(body),
+                            url=links[0].url if links else None,
+                            title=resumo_da_mensagem(body) or None,
                         )
                 except Exception:
                     from loguru import logger as _log

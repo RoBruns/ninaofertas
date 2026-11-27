@@ -2,9 +2,12 @@
 
 from xml.etree.ElementTree import fromstring
 
+import pytest
+
 from core.feed_catalog import DEFAULT_FEED_SOURCES
 from core.feed_collect import CollectedOffer, _montar_body, _rss_image, _vale_no_catalogo
 from core.link_parser import extrair_links_oferta
+from tests.test_api import add_user
 
 
 def test_catalogo_tem_promobit() -> None:
@@ -51,6 +54,45 @@ def test_catalogo_exige_preco_e_imagem() -> None:
             image="https://cdn.ex/a.jpg",
         )
     )
+
+
+def test_rss_so_registra_cupom_com_link_de_loja(
+    session_factory, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from core import feed_collect
+    from core.models import CouponRadar, FeedSource
+
+    admin = add_user(session_factory, email="rss-cupom@nina.test", role="admin")
+    ofertas = [
+        CollectedOffer(
+            external_id="blog",
+            title="Melhor placa de vídeo",
+            url="https://www.adrenaline.com.br/hardware/rtx",
+            coupon="RTX4060",
+        ),
+        CollectedOffer(
+            external_id="loja",
+            title="Fone na Shopee",
+            url="https://shopee.com.br/product/1/2",
+            coupon="SHOP25",
+        ),
+    ]
+    monkeypatch.setattr(feed_collect, "coletar_rss", lambda _source: ofertas)
+    with session_factory.begin() as session:
+        fonte = FeedSource(
+            owner_id=admin.tenant_id,
+            slug="adrenaline",
+            name="Adrenaline",
+            kind="rss",
+            url="https://www.adrenaline.com.br/feed/",
+            enabled=True,
+        )
+        session.add(fonte)
+        session.flush()
+        feed_collect.coletar_fonte(session, fonte)
+    with session_factory() as session:
+        cupons = {c.code: c.store for c in session.query(CouponRadar).all()}
+    assert cupons == {"SHOP25": "shopee"}
 
 
 def test_rss_image_enclosure_e_img() -> None:
