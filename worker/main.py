@@ -177,7 +177,7 @@ def _registrar_jobs(scheduler: BackgroundScheduler) -> None:
     scheduler.add_job(
         mirror.ciclo,
         "interval",
-        seconds=15,
+        seconds=5,
         next_run_time=agora + timedelta(seconds=20),
         id="mirror-inbox",
         max_instances=1,
@@ -228,7 +228,7 @@ def main() -> None:
     scheduler = BackgroundScheduler(timezone=relogio.BR)
     _registrar_jobs(scheduler)
     logger.info("Recado do Instagram (foto da vó) a cada 4h nos grupos dos bots ativos.")
-    logger.info("Espelho WhatsApp: drenando mirror_inbox a cada 15s.")
+    logger.info("Espelho WhatsApp: drenando mirror_inbox a cada 5s.")
     logger.info("Às 23:59 a fila do dia é encerrada; oferta antiga não sai de manhã.")
     scheduler.start()
 

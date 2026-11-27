@@ -49,6 +49,7 @@ from worker.mirror import (
     _lote_pendentes,
     _oferta_template,
     corte_fila_do_dia,
+    expirar_cupons_velhos,
     expirar_pendentes,
 )
 
@@ -635,6 +636,117 @@ def test_extrair_precos_e_cupom_da_mensagem() -> None:
     assert extrair_cupom_mensagem(texto) == "NINA10"
 
 
+def test_extrair_cupom_formatos_da_origem() -> None:
+    from worker.filters import mensagem_menciona_cupom
+
+    assert extrair_cupom_mensagem("Cupom Shopee: CASA20\nhttps://s.shopee.com.br/a") == "CASA20"
+    assert extrair_cupom_mensagem("Use o cupom 👇\nTECHVIP\nhttps://meli.la/a") == "TECHVIP"
+    assert extrair_cupom_mensagem("De R$ 379 por R$ 179,50\n+ cupom *SUPER50*\nhttps://meli.la/b") == (
+        "SUPER50"
+    )
+    assert extrair_cupom_mensagem("🎟️ MEGA50\nhttps://meli.la/c") == "MEGA50"
+    assert extrair_cupom_mensagem("use cupom NINA-10\nhttps://meli.la/d") == "NINA10"
+    assert extrair_cupom_mensagem("tem cupom liberado\nhttps://meli.la/e") is None
+    assert mensagem_menciona_cupom("Por R$ 179,50 + cupom\nhttps://meli.la/f")
+    assert not mensagem_menciona_cupom("Por R$ 179,50\nhttps://meli.la/g")
+
+
+def test_modelos_reais_origem_preco_cupom_e_mensagem(monkeypatch) -> None:
+    """Três formatos dos grupos de origem: preço + cupom na mensagem do espelho."""
+    monkeypatch.setattr(
+        "worker.formatter.load_filtros",
+        lambda: {"mensagem_template": formatter.TEMPLATE_PADRAO},
+    )
+    loe = (
+        "➡️ Jogo De Panelas Induçao Antiaderente Cerâmica 10 Peças Ppg Pfoa Free Grafite\n\n"
+        "de: R$\u00a0683,00 por: R$\u00a0248,31 NO PIX com cupom\n"
+        "🎟️ Use o cupom: L40FH139H90\n\n"
+        "🛒 Compre aqui: https://meli.la/16HXAS4\n\n"
+        "Os valores que postamos no grupo já são calculados com o cupom. "
+        "Não se esqueçam de aplicar o cupom L40FH139H90 para chegar ao valor informado!\n"
+    )
+    gio = (
+        "💥 Kit Jantar Colonial Clássico 6 cadeiras todo mel. Luxo e tradição! 🍽️🐝\n\n"
+        "De: R$\u00a01.979,49 ❌\n"
+        "💸 Por: R$\u00a01.389,60 🔥\n\n"
+        "🎟️ Use o cupom: LIVREOFF\n\n"
+        "🛒 Compre aqui: https://meli.la/1MExKjj\n\n"
+        "😍 Ei, chame uma amiga pra participar do grupo da Gio: "
+        "https://chat.whatsapp.com/GafsQMhlWUt4cXjJC0ScvK\n\n"
+        "⚠️ Promoção sujeita a alteração a qualquer momento.\n"
+    )
+    tenis = (
+        "SUPER CONFORTÁVEL  🤩\n\n"
+        "Tênis adidas Acelera 2 Corrida Masculino\n\n"
+        "Por apenas: R$208 no pix 💵\n"
+        "Use o cupom: GARANTAJAHJ\n\n"
+        "Pegar promoção ➡️https://meli.la/1W83Mmg\n"
+    )
+    casos = [
+        (loe, 248.31, 683.0, "L40FH139H90"),
+        (gio, 1389.60, 1979.49, "LIVREOFF"),
+        (tenis, 208.0, None, "GARANTAJAHJ"),
+    ]
+    for texto, preco_ok, anterior_ok, cupom_ok in casos:
+        preco, anterior = extrair_precos_mensagem(texto)
+        assert preco == preco_ok, texto[:40]
+        assert anterior == anterior_ok, texto[:40]
+        assert extrair_cupom_mensagem(texto) == cupom_ok, texto[:40]
+        oferta = _oferta_template(
+            titulo=titulo_mensagem_espelho(texto),
+            loja="Mercado Livre",
+            url_afiliado="https://meli.la/aff",
+            url_origem="https://meli.la/orig",
+            body_text=texto,
+            sku="t",
+            imagem=None,
+        )
+        assert oferta.codigo_cupom == cupom_ok
+        assert oferta.preco == preco_ok
+        msg = formatter.montar_mensagem(oferta)
+        assert cupom_ok in msg
+        assert "meli.la/aff" in msg
+
+
+def test_formatter_legado_e_mencao_repassam_cupom(monkeypatch) -> None:
+    """Template antigo sem {cupom} e menção sem código ainda avisam o público."""
+    from core.platforms.base import OfertaCapturada
+
+    monkeypatch.setattr(
+        "worker.formatter.load_filtros",
+        lambda: {
+            "mensagem_template": (
+                "🔥 {nome}\n💰 De: R$ {preco_anterior}\nPor: R$ {preco}\n👉 {url}"
+            )
+        },
+    )
+    com_codigo = OfertaCapturada(
+        nome="Árvore",
+        preco=179.5,
+        preco_anterior=379.0,
+        url="https://meli.la/x",
+        loja="Mercado Livre",
+        categoria="espelho",
+        codigo_cupom="NATAL10",
+    )
+    msg = formatter.montar_mensagem(com_codigo)
+    assert "NATAL10" in msg
+    assert "meli.la/x" in msg
+
+    so_mencao = OfertaCapturada(
+        nome="Árvore",
+        preco=179.5,
+        preco_anterior=379.0,
+        url="https://meli.la/y",
+        loja="Mercado Livre",
+        categoria="espelho",
+        beneficio="cupom_origem",
+    )
+    msg2 = formatter.montar_mensagem(so_mencao)
+    assert "cupom" in msg2.lower()
+    assert "meli.la/y" in msg2
+
+
 def test_espelho_ignora_banner_desconto_e_le_de_sem_rs() -> None:
     """'R$1.000 DE DESCONTO' não é título nem preço; 'De: 2.309 | Por: R$1.017' vale."""
     texto = (
@@ -1147,6 +1259,82 @@ def test_lote_pendentes_prioriza_cupom_mesmo_mais_novo(session_factory) -> None:
         lote = _lote_pendentes(session)
         assert lote, "lote vazio"
         assert lote[0].message_key == "com-cupom"
+
+
+def test_lote_cupom_fifo_e_expira_com_mais_de_60_min(session_factory) -> None:
+    """Dois cupons: o mais antigo primeiro; >60 min → cupom_velho."""
+    from datetime import datetime, timedelta, timezone
+
+    from sqlalchemy import select
+
+    admin = add_user(session_factory, email="lote-fifo-cupom@nina.test", role="admin")
+    with session_factory.begin() as session:
+        phone = Phone(
+            id=uuid4(),
+            owner_id=admin.tenant_id,
+            label="Nina fifo cupom",
+            number="5511999000555",
+            evolution_instance="nina-fifo-cupom",
+        )
+        session.add(phone)
+        session.flush()
+        bot_a = Bot(
+            id=uuid4(),
+            owner_id=admin.tenant_id,
+            name="Bot A cupom",
+            slug="bot-a-fifo-cupom",
+            status="active",
+            phone_id=phone.id,
+            settings={},
+        )
+        bot_b = Bot(
+            id=uuid4(),
+            owner_id=admin.tenant_id,
+            name="Bot B cupom",
+            slug="bot-b-fifo-cupom",
+            status="active",
+            phone_id=phone.id,
+            settings={},
+        )
+        session.add_all([bot_a, bot_b])
+        session.flush()
+        agora = datetime(2026, 11, 26, 18, 0, tzinfo=timezone.utc)
+        session.add(
+            MirrorInbox(
+                owner_id=admin.tenant_id,
+                bot_id=bot_b.id,
+                listen_phone_id=phone.id,
+                source_whatsapp_id="g@g.us",
+                message_key="cupom-novo",
+                body_text="Use o cupom: NOVO10\nhttps://meli.la/n",
+                status="pending",
+                created_at=agora.replace(minute=30),
+            )
+        )
+        session.add(
+            MirrorInbox(
+                owner_id=admin.tenant_id,
+                bot_id=bot_a.id,
+                listen_phone_id=phone.id,
+                source_whatsapp_id="g@g.us",
+                message_key="cupom-antigo",
+                body_text="Use o cupom: VELHO10\nhttps://meli.la/v",
+                status="pending",
+                created_at=agora,
+            )
+        )
+        lote = _lote_pendentes(session)
+        assert [i.message_key for i in lote[:2]] == ["cupom-antigo", "cupom-novo"]
+        session.scalars(
+            select(MirrorInbox).where(MirrorInbox.message_key == "cupom-antigo")
+        ).one().created_at = datetime.now(timezone.utc) - timedelta(minutes=61)
+    assert expirar_cupons_velhos() >= 1
+    with session_factory() as session:
+        item = session.scalars(
+            select(MirrorInbox).where(MirrorInbox.message_key == "cupom-antigo")
+        ).one()
+        assert item.status == "skipped"
+        assert item.skip_reason == "cupom_velho"
 
 
 def test_lote_pendentes_nao_deixa_um_bot_engolir_a_fila(session_factory) -> None:

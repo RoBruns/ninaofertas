@@ -1,5 +1,12 @@
 # Roadmap de implementação
 
+## Espelho: cupom na mensagem + envio imediato — 2026-11-26
+
+Três modelos reais (Loe/Gio/`Por apenas:`) extrai preço+código. Template legado
+injeta cupom; menção sem código avisa checkout. Dreno a cada 5s; cupom em FIFO;
+fura intervalo/rajada e teto/hora do grupo; pending com cupom >60 min →
+`cupom_velho`. Tetos globais da conta seguem (ADR-044).
+
 ## Espelho: allowlist de origem no dashboard — 2026-11-26
 
 Aba Plataforma → Espelho: escolher até 3 grupos que a Nina 1 espelha

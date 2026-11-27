@@ -472,7 +472,7 @@ def test_freio_produto_com_cupom_origem_fura_intervalo(session_factory):
         settings=BotSettings(),
         account_ids=(),
     )
-    pacing = {"intervalo_minutos_entre_ofertas": 5}
+    pacing = {"intervalo_minutos_entre_ofertas": 5, "max_ofertas_por_hora": 1}
     sem = OfertaCapturada(
         nome="Sem cupom", preco=100, url="https://meli.la/a", loja="Mercado Livre", categoria="espelho"
     )
@@ -487,6 +487,9 @@ def test_freio_produto_com_cupom_origem_fura_intervalo(session_factory):
     with session_factory() as session, config_provider.usar_bot_runtime(runtime):
         assert not _freio_anti_ban(session, pacing, "outro", sem)[0]
         assert _freio_anti_ban(session, pacing, "outro", com)[0]
+        # Teto/hora do grupo também fura com cupom da origem; sem cupom barra.
+        assert not _freio_anti_ban(session, {"max_ofertas_por_hora": 1}, "grupo", sem)[0]
+        assert _freio_anti_ban(session, {"max_ofertas_por_hora": 1}, "grupo", com)[0]
 
 
 def test_test_baseline_even_in_production_groups(monkeypatch, session_factory):

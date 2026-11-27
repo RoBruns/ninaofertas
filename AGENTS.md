@@ -48,7 +48,7 @@ nina-worker (APScheduler) ──────────────── nina-
 ```
 
 - **Worker** (`python -m worker.main`): por padrão **só espelho** (ADR-037) — drena
-  `mirror_inbox` a cada 15 s (Nina 1 → nicho/afiliado/freio → envio nos grupos do bot).
+  `mirror_inbox` a cada 5 s (Nina 1 → nicho/afiliado/freio → envio nos grupos do bot).
   Scraper/API de produtos só com `ENABLE_SCRAPER_DISCOVERY=1`. Também: comandos do
   dashboard, importação de vendas às 06:00, alertas a cada 5 min, recado do Instagram.
 - **API** (`python -m api.serve`, socket IPv4+IPv6): auth JWT + refresh em cookie,

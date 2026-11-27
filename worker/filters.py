@@ -764,16 +764,66 @@ _PRECO_BR_RE = re.compile(
 _PRECO_DE_RE = re.compile(
     rf"(?i)\bde\s*(?:R\$\s*|:\s*(?:R\$\s*)?){_NUM_PRECO}",
 )
+# "Por: R$1.017", "por R$ 248,31", "Por apenas: R$208" (até 3 palavras no meio).
 _PRECO_POR_RE = re.compile(
-    rf"(?i)\bpor\s*(?:R\$\s*|:\s*(?:R\$\s*)?){_NUM_PRECO}",
+    rf"(?i)\bpor(?:\s+[A-Za-zÀ-ÿ]{{1,20}}){{0,3}}\s*(?:R\$\s*|:\s*(?:R\$\s*)?){_NUM_PRECO}",
 )
-_CUPOM_RE = re.compile(
-    r"(?i)(?:"
-    r"(?:use\s+(?:o\s+)?|aplica(?:r)?\s+(?:o\s+)?|com\s+)?"
-    r"cupom|"
-    r"c[oó]digo(?:\s+do\s+cupom)?|"
-    r"cupom\s+de\s+desconto"
-    r")\s*[:\-–]?\s*[*_~`]{0,2}([A-Za-z0-9]{4,16})[*_~`]{0,2}"
+# Só a keyword — o código vem nos tokens seguintes (pula loja/ruído).
+_CUPOM_KW_RE = re.compile(
+    r"(?ix)"
+    r"(?:use\s+(?:o\s+)?|aplica(?:r)?\s+(?:o\s+)?|com\s+|mais\s+|\+\s*)?"
+    r"cupom(?:\s+de\s+desconto)?"
+    r"|"
+    r"c[oó]digo(?:\s+do\s+cupom)?"
+)
+# Linha só com ticket + código (sem a palavra cupom): "🎟️ SUPEROFERTA"
+_CUPOM_TICKET_RE = re.compile(
+    r"(?i)(?:🎟️|🎫)\s*[*_~`]{0,2}([A-Za-z0-9][A-Za-z0-9\-]{2,15})[*_~`]{0,2}\b"
+)
+_CUPOM_TOKEN_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9\-]{2,15}")
+_CUPOM_DENY = frozenset(
+    {
+        "HTTP",
+        "HTTPS",
+        "MLB",
+        "JSON",
+        "TYPE",
+        "CUPOM",
+        "CUPONS",
+        "OFF",
+        "PIX",
+        "LINK",
+        "AQUI",
+        "SHOP",
+        "SHOPEE",
+        "MAGALU",
+        "MELI",
+        "AMAZON",
+        "MERCADO",
+        "LIVRE",
+        "PARA",
+        "HOJE",
+        "LIBERADO",
+        "DISPONIVEL",
+        "DISPONÍVEL",
+        "DESCONTO",
+        "GANHAR",
+        "PROMOCIONAL",
+        "PRODUTO",
+        "COMPRA",
+        "USAR",
+        "USE",
+        "APLICAR",
+        "CODIGO",
+        "CÓDIGO",
+        "VALIDO",
+        "VÁLIDO",
+        "CHECKOUT",
+        "APENAS",
+        "INFORMADO",
+        "CHEGAR",
+        "VALOR",
+    }
 )
 
 
@@ -833,25 +883,60 @@ def extrair_precos_mensagem(texto: str) -> tuple[float | None, float | None]:
 
 
 def _cupom_espelho_ok(codigo: str | None) -> str | None:
-    code = (codigo or "").strip().upper()
-    if re.fullmatch(r"[A-Z0-9]{4,16}", code) is None:
+    raw = (codigo or "").strip().upper().replace("-", "")
+    if re.fullmatch(r"[A-Z0-9]{4,16}", raw) is None:
         return None
-    if code in {
-        "HTTP",
-        "HTTPS",
-        "MLB",
-        "JSON",
-        "TYPE",
-        "CUPOM",
-        "OFF",
-        "PIX",
-        "LINK",
-        "AQUI",
-        "SHOP",
-        "SHOPEE",
-    }:
+    if raw in _CUPOM_DENY:
         return None
-    return code
+    return raw
+
+
+def _sem_urls(texto: str) -> str:
+    """Tira http(s) pra o slug do meli.la/shopee não virar 'cupom'."""
+    return re.sub(r"https?://\S+", " ", texto or "", flags=re.I)
+
+
+def _candidatos_cupom(bloco: str) -> list[str]:
+    """Todos os códigos possíveis no bloco; preferir os que têm dígito."""
+    limpo = _sem_urls(bloco)
+    encontrados: list[str] = []
+    for match in _CUPOM_KW_RE.finditer(limpo):
+        # Até o fim da linha + um pouco — para antes de onde estava a URL.
+        cauda = limpo[match.end() : match.end() + 80]
+        # Corta no próximo "cupom"/"use" de outra frase longa.
+        for tok in _CUPOM_TOKEN_RE.findall(cauda):
+            codigo = _cupom_espelho_ok(tok)
+            if codigo:
+                encontrados.append(codigo)
+    for match in _CUPOM_TICKET_RE.finditer(limpo):
+        codigo = _cupom_espelho_ok(match.group(1))
+        if codigo:
+            encontrados.append(codigo)
+    for bruto in re.findall(r"\*([A-Za-z0-9\-]{4,16})\*", limpo):
+        codigo = _cupom_espelho_ok(bruto)
+        if codigo:
+            encontrados.append(codigo)
+    # Dedup preservando ordem.
+    vistos: set[str] = set()
+    unicos: list[str] = []
+    for code in encontrados:
+        if code not in vistos:
+            vistos.add(code)
+            unicos.append(code)
+    # Preferir dígito só se o token misturar letra+dígito (L40FH…), não "10" puro.
+    mistos = [
+        c
+        for c in unicos
+        if any(ch.isdigit() for ch in c) and any(ch.isalpha() for ch in c)
+    ]
+    return mistos or unicos
+
+
+def mensagem_menciona_cupom(texto: str) -> bool:
+    """True se a origem fala em cupom (mesmo sem código digitável)."""
+    limpo = _sem_urls(texto or "").casefold()
+    # Evita cupons?+re.I (no CPython, `s?` com IGNORECASE não casa "cupom").
+    return "cupom" in limpo or "🎟️" in (texto or "") or "🎫" in (texto or "")
 
 
 def extrair_cupom_mensagem(texto: str) -> str | None:
@@ -870,16 +955,10 @@ def extrair_cupom_mensagem(texto: str) -> str | None:
     ]
     vizinhas: list[str] = []
     for i in idxs_link:
-        for j in range(max(0, i - 2), min(len(linhas), i + 3)):
+        for j in range(max(0, i - 4), min(len(linhas), i + 5)):
             vizinhas.append(linhas[j])
     for bloco in ("\n".join(vizinhas), texto_n):
-        match = _CUPOM_RE.search(bloco)
-        if match:
-            codigo = _cupom_espelho_ok(match.group(1))
-            if codigo:
-                return codigo
-        for bruto in re.findall(r"\*([A-Za-z0-9]{4,16})\*", bloco):
-            codigo = _cupom_espelho_ok(bruto)
-            if codigo:
-                return codigo
+        candidatos = _candidatos_cupom(bloco)
+        if candidatos:
+            return candidatos[0]
     return None

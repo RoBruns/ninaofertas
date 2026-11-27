@@ -24,14 +24,12 @@ TEMPLATE_LEGADO = (
 )
 
 _CAMPO = re.compile(r"\{(\w+)\}")
-_CODIGOS_CUPOM_INVALIDOS = {"HTTP", "HTTPS", "MLB", "JSON", "TYPE", "CUPOM", "OFF"}
 
 
 def _cupom_digitavel(codigo: str | None) -> str | None:
-    code = (codigo or "").strip().upper()
-    if re.fullmatch(r"[A-Z0-9]{4,16}", code) is None or code in _CODIGOS_CUPOM_INVALIDOS:
-        return None
-    return code
+    from worker.filters import _cupom_espelho_ok
+
+    return _cupom_espelho_ok(codigo)
 
 
 def _preco_fmt(valor: float) -> str:
@@ -82,15 +80,38 @@ def _de_por(oferta: OfertaCapturada) -> str:
     return f"Por {por}"
 
 
+def _injetar_cupom_antes_do_link(corpo: str, oferta: OfertaCapturada) -> str:
+    """Garante linha de cupom quando a origem trouxe código ou só a menção."""
+    codigo = _cupom_digitavel(oferta.codigo_cupom)
+    if codigo:
+        if codigo in corpo.upper():
+            return corpo
+        aviso = f"🎟️ Use o cupom: *{codigo}*"
+    elif (oferta.beneficio or "").lower() == "cupom_origem":
+        if re.search(r"(?i)cupom", corpo):
+            return corpo
+        aviso = "🎟️ Oferta com cupom — use o código no checkout"
+    else:
+        return corpo
+    url = oferta.url or ""
+    if url and url in corpo:
+        return corpo.replace(url, f"{aviso}\n\n{url}", 1)
+    return f"{corpo}\n\n{aviso}".strip()
+
+
 def _mensagem_curta(oferta: OfertaCapturada, template: str) -> str:
     """Substitui as variáveis; a linha cuja variável ficou vazia sai da mensagem."""
     codigo = _cupom_digitavel(oferta.codigo_cupom)
+    # Aviso genérico preenche {cupom} quando a origem falou em cupom sem código.
+    cupom_campo = codigo
+    if not cupom_campo and (oferta.beneficio or "").lower() == "cupom_origem":
+        cupom_campo = "código no checkout"
     valores = {
         # "*" e "~" no nome quebrariam o negrito do WhatsApp.
         "nome": (oferta.nome or "").replace("*", "").replace("~", "").strip(),
         "preco": _preco_fmt(oferta.preco) if oferta.preco and oferta.preco > 0 else "",
         "de_por": _de_por(oferta),
-        "cupom": codigo,
+        "cupom": cupom_campo or "",
         "loja": oferta.loja or "",
         "url": oferta.url or "",
         "hora": relogio.formatar_hora(oferta.capturado_em),
@@ -102,11 +123,7 @@ def _mensagem_curta(oferta: OfertaCapturada, template: str) -> str:
             continue
         linhas.append(_CAMPO.sub(lambda m: valores.get(m.group(1), m.group(0)), linha))
     corpo = re.sub(r"\n{3,}", "\n\n", "\n".join(linhas)).strip()
-    url = valores["url"]
-    if codigo and codigo not in corpo and url and url in corpo:
-        # Template do bot sem {cupom}: o código entra antes do link.
-        corpo = corpo.replace(url, f"🎟️ Cupom: *{codigo}*\n\n{url}", 1)
-    return corpo
+    return _injetar_cupom_antes_do_link(corpo, oferta)
 
 
 def _mensagem_legada(oferta: OfertaCapturada, template: str) -> str:
@@ -114,7 +131,7 @@ def _mensagem_legada(oferta: OfertaCapturada, template: str) -> str:
         return _mensagem_cupom_legada(oferta)
     preco_anterior = oferta.preco_anterior if oferta.preco_anterior else oferta.preco
     desconto = oferta.desconto if oferta.desconto is not None else 0
-    return template.format(
+    corpo = template.format(
         nome=_escape_template_field(oferta.nome),
         preco=_preco_fmt(oferta.preco),
         preco_anterior=_preco_fmt(preco_anterior),
@@ -123,6 +140,8 @@ def _mensagem_legada(oferta: OfertaCapturada, template: str) -> str:
         url=_escape_template_field(oferta.url),
         hora=relogio.formatar_hora(oferta.capturado_em),
     )
+    # Template legado não tem {cupom} — injeta quando a origem trouxe código/menção.
+    return _injetar_cupom_antes_do_link(corpo, oferta)
 
 
 def _mensagem_cupom(oferta: OfertaCapturada) -> str:

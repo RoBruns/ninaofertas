@@ -728,6 +728,21 @@ contas do bot.
 
 ---
 
+## ADR-044 — Cupom da origem: mensagem completa e envio urgente
+**Data:** 2026-11-26 · **Status:** aceita · **Decisor:** dono
+
+Preço postado na origem já inclui cupom; omitir o código mente o valor (ex.:
+18:15 na Loe → 21:32 no bot, código morto). Extração cobre `NO PIX com cupom`,
+`Por apenas:`, `🎟️ Use o cupom: CODE`. Dreno do espelho a cada 5s; lote com
+cupom em FIFO; freio fura intervalo, rajada e **teto/hora do grupo** quando há
+código digitável; tetos globais hora/dia da conta permanecem. Pending com cupom
+com mais de 60 min vira `skipped:cupom_velho`.
+
+**Alternativas:** só priorizar na fila sem furar teto/hora do grupo — ainda
+atrasava horas; OCR da imagem — fora de escopo.
+
+---
+
 ## ADR-043 — Allowlist de origem do espelho no dashboard (máx. 3)
 **Data:** 2026-11-26 · **Status:** aceita · **Decisor:** dono
 

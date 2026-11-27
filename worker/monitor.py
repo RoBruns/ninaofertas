@@ -361,8 +361,8 @@ def _freio_anti_ban(
     }
     limite = "no bot de teste" if teste else "na conta"
     eh_cupom = bool(oferta and (oferta.categoria or "").lower() == "cupom")
-    # Produto com cupom digitável na origem (espelho): fura intervalo/rajada —
-    # cupom esgota; tetos hora/dia anti-ban continuam.
+    # Produto com cupom digitável na origem (espelho): fura intervalo/rajada e
+    # teto/hora do grupo — cupom esgota; tetos globais da conta continuam (ADR-044).
     from worker.filters import _cupom_espelho_ok
 
     tem_cupom_origem = bool(
@@ -402,9 +402,14 @@ def _freio_anti_ban(
                 )
 
     max_hora_grupo = filtros.get("max_ofertas_por_hora")
-    if max_hora_grupo and repositories.contar_envios_ultima_hora(
-        session, grupo=grupo, tenant_id=_tenant_id_atual()
-    ) >= int(max_hora_grupo):
+    if (
+        not tem_cupom_origem
+        and max_hora_grupo
+        and repositories.contar_envios_ultima_hora(
+            session, grupo=grupo, tenant_id=_tenant_id_atual()
+        )
+        >= int(max_hora_grupo)
+    ):
         return False, f"freio: limite {max_hora_grupo}/hora neste grupo"
 
     max_hora_global = filtros.get("max_ofertas_globais_por_hora")
