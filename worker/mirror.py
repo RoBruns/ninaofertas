@@ -13,6 +13,8 @@ from core.credentials import platforms_with_usable_credentials
 from core.link_parser import extrair_links_oferta, loja_para_platform_slug
 from core.mirror_media import (
     ProdutoSomenteVideo,
+    eh_logo_shopee,
+    eh_loja_shopee,
     resolver_imagem_espelho,
     titulo_pagina_visto,
 )
@@ -43,6 +45,26 @@ def _marcar(item: MirrorInbox, status: str, reason: str | None = None) -> None:
 
 def _token_canal(runtime, grupo_jid: str) -> str:
     return f"db:{runtime.id}:{grupo_jid}"
+
+
+def _foto_shopee_api(titulo: str, preco: float | None) -> str | None:
+    """Foto do anúncio pela API de afiliado da conta do bot (runtime ativo)."""
+    import httpx
+
+    from core.platforms.shopee import credenciais_shopee_do_bot
+    from core.platforms.shopee_api import foto_por_titulo
+
+    _conta, app_id, secret = credenciais_shopee_do_bot()
+    if not app_id or not secret:
+        return None
+    try:
+        with httpx.Client(timeout=12.0) as client:
+            return foto_por_titulo(
+                client, titulo, app_id=app_id, secret=secret, preco=preco or None
+            )
+    except Exception as exc:
+        logger.info(f"[espelho] busca de foto na API Shopee falhou: {exc}")
+        return None
 
 
 def _oferta_template(
@@ -366,6 +388,16 @@ def processar_pendentes() -> int:
                         )
                     except ProdutoSomenteVideo:
                         somente_video = True
+                        return
+                    if eh_loja_shopee(link_nicho.loja, link_nicho.url) and (
+                        not imagem or eh_logo_shopee(imagem)
+                    ):
+                        achada = _foto_shopee_api(titulo, preco)
+                        if achada:
+                            logger.info("[espelho] foto Shopee pela API de afiliado")
+                        elif imagem:
+                            logger.info("[espelho] miniatura é o logo da Shopee; sem foto")
+                        imagem = achada
 
                 garantir_foto()
                 pagina = titulo_pagina_visto(link_nicho.url)

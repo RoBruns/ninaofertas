@@ -96,6 +96,61 @@ def test_copia_do_titulo_do_grupo_e_descartada(monkeypatch: pytest.MonkeyPatch) 
     ) == "Micro-ondas ME36S Efficient"
 
 
+def test_titulo_ja_enfeitado_na_origem_aceita_frase_nova(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    titulo_enfeite._CACHE.clear()
+    origem = "💥 Sua cozinha moderna com Electrolux IM8S Inox Look 590L! 🧊✨"
+
+    class _Nova(_Client):
+        def post(
+            self, url: str, *, headers: dict[str, str], json: dict[str, object]
+        ) -> httpx.Response:
+            return httpx.Response(
+                200,
+                json={
+                    "choices": [
+                        {
+                            "message": {
+                                "content": (
+                                    "Electrolux IM8S Inox Look 590L na cozinha: "
+                                    "frescor sem esforço! ❄️"
+                                )
+                            }
+                        }
+                    ]
+                },
+            )
+
+    monkeypatch.setattr(settings, "openai_api_key", "sk-teste")
+    monkeypatch.setattr(httpx, "Client", _Nova)
+    saida = titulo_enfeite.enfeitar_titulo(origem, origem)
+    assert saida != origem
+    assert "IM8S" in saida and "590L" in saida
+
+
+def test_enfeite_sem_o_modelo_e_descartado(monkeypatch: pytest.MonkeyPatch) -> None:
+    titulo_enfeite._CACHE.clear()
+
+    class _SemModelo(_Client):
+        def post(
+            self, url: str, *, headers: dict[str, str], json: dict[str, object]
+        ) -> httpx.Response:
+            return httpx.Response(
+                200,
+                json={
+                    "choices": [
+                        {"message": {"content": "Micro-ondas Efficient: praticidade total! ✨"}}
+                    ]
+                },
+            )
+
+    monkeypatch.setattr(settings, "openai_api_key", "sk-teste")
+    monkeypatch.setattr(httpx, "Client", _SemModelo)
+    base = "Micro-ondas ME36S Efficient"
+    assert titulo_enfeite.enfeitar_titulo(base, base) == base
+
+
 def test_enfeite_cortado_no_meio_e_descartado(monkeypatch: pytest.MonkeyPatch) -> None:
     titulo_enfeite._CACHE.clear()
 

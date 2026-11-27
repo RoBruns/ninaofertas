@@ -105,7 +105,15 @@ def _linha_serve(titulo: str, linha: str | None, titulo_grupo: str) -> bool:
     if not nossos:
         return False
     deles = _tokens_titulo(linha)
-    return nossos <= deles
+    # Modelo e medida (token com dígito) ficam sempre; o resto pode trocar a frase
+    # de efeito que o grupo de origem já pôs no título ("Sua cozinha moderna com…").
+    modelo = {p for p in nossos if any(c.isdigit() for c in p)}
+    if not modelo <= deles:
+        return False
+    resto = nossos - modelo
+    if not resto:
+        return True
+    return len(resto & deles) / len(resto) >= 0.6
 
 
 def _guardar(chave: str, linha: str) -> None:

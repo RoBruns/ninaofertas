@@ -233,6 +233,57 @@ def _eh_shopee(loja: str | None, url: str) -> bool:
     return "shopee" in nome or host.endswith("shopee.com.br") or host.endswith("shopee.com")
 
 
+def eh_loja_shopee(loja: str | None, url: str) -> bool:
+    return _eh_shopee(loja, url)
+
+
+def _bytes_da_imagem(imagem: str) -> bytes | None:
+    if imagem.startswith("https://"):
+        try:
+            with httpx.Client(timeout=10.0, follow_redirects=True, headers=_HEADERS) as client:
+                resp = client.get(imagem)
+            if resp.status_code >= 400:
+                return None
+            return resp.content
+        except httpx.HTTPError:
+            return None
+    cru = base64_puro(imagem)
+    if not cru:
+        return None
+    try:
+        return base64.b64decode(cru, validate=False)
+    except ValueError:
+        return None
+
+
+def eh_logo_shopee(imagem: str | None) -> bool:
+    """Miniatura que é o logo laranja da Shopee, não o produto.
+
+    Quando a Shopee não abre a página para o robô do WhatsApp, a prévia do link
+    na mensagem de origem vira o logo. Mais de 40% dos pixels no laranja da
+    marca (#EE4D2D) é o logo; foto de produto quase nunca chega perto.
+    """
+    if not imagem:
+        return False
+    bruto = _bytes_da_imagem(imagem)
+    if not bruto:
+        return False
+    try:
+        from io import BytesIO
+
+        from PIL import Image
+
+        with Image.open(BytesIO(bruto)) as img:
+            bruto_rgb = img.convert("RGB").resize((32, 32)).tobytes()
+    except Exception:
+        return False
+    pixels = [tuple(bruto_rgb[i : i + 3]) for i in range(0, len(bruto_rgb), 3)]
+    laranja = sum(
+        1 for r, g, b in pixels if r >= 200 and 50 <= g <= 120 and b <= 90
+    )
+    return laranja / len(pixels) >= 0.4
+
+
 def escolher_imagem_galeria(imagens: list[str], *, tem_video: bool) -> str | None:
     """Primeira mídia do carrossel que não é vídeo.
 
