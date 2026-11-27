@@ -812,3 +812,96 @@ class MirrorInbox(Base):
     skip_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(TIMESTAMPTZ, server_default=text("now()"))
     processed_at: Mapped[datetime | None] = mapped_column(TIMESTAMPTZ, nullable=True)
+
+
+class CouponRadar(Base):
+    """Cupons capturados/cadastrados no radar (Nina V3)."""
+
+    __tablename__ = "coupon_radar"
+    __table_args__ = (Index("ix_coupon_radar_owner_status", "owner_id", "status"),)
+
+    id: Mapped[PythonUUID] = mapped_column(
+        UUID_TYPE, primary_key=True, server_default=text("gen_random_uuid()")
+    )
+    owner_id: Mapped[PythonUUID] = mapped_column(UUID_TYPE, ForeignKey("tenants.id"))
+    code: Mapped[str] = mapped_column(Text)
+    store: Mapped[str | None] = mapped_column(Text, nullable=True)
+    title: Mapped[str | None] = mapped_column(Text, nullable=True)
+    url: Mapped[str | None] = mapped_column(Text, nullable=True)
+    status: Mapped[str] = mapped_column(Text, server_default=text("'ativo'"))
+    source_group_name: Mapped[str | None] = mapped_column(Text, nullable=True)
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    min_value: Mapped[Decimal] = mapped_column(MONEY, server_default=text("0"))
+    validity: Mapped[str | None] = mapped_column(Text, nullable=True)
+    report_count: Mapped[int] = mapped_column(Integer, server_default=text("0"))
+    created_at: Mapped[datetime] = mapped_column(TIMESTAMPTZ, server_default=text("now()"))
+    updated_at: Mapped[datetime] = mapped_column(TIMESTAMPTZ, server_default=text("now()"))
+
+
+class VipRequest(Base):
+    """Pedidos VIP: desejo de produto + teto de preço."""
+
+    __tablename__ = "vip_requests"
+    __table_args__ = (Index("ix_vip_requests_owner_status", "owner_id", "status"),)
+
+    id: Mapped[PythonUUID] = mapped_column(
+        UUID_TYPE, primary_key=True, server_default=text("gen_random_uuid()")
+    )
+    owner_id: Mapped[PythonUUID] = mapped_column(UUID_TYPE, ForeignKey("tenants.id"))
+    contact_name: Mapped[str] = mapped_column(Text)
+    contact_phone: Mapped[str | None] = mapped_column(Text, nullable=True)
+    wish_product: Mapped[str] = mapped_column(Text)
+    max_price: Mapped[Decimal] = mapped_column(MONEY)
+    status: Mapped[str] = mapped_column(Text, server_default=text("'waiting'"))
+    matched_offer_id: Mapped[int | None] = mapped_column(
+        Integer, ForeignKey("ofertas.id", ondelete="SET NULL"), nullable=True
+    )
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(TIMESTAMPTZ, server_default=text("now()"))
+    updated_at: Mapped[datetime] = mapped_column(TIMESTAMPTZ, server_default=text("now()"))
+
+
+class PriceMonitor(Base):
+    """Monitor de preço: URL + alvo."""
+
+    __tablename__ = "price_monitors"
+    __table_args__ = (Index("ix_price_monitors_owner_status", "owner_id", "status"),)
+
+    id: Mapped[PythonUUID] = mapped_column(
+        UUID_TYPE, primary_key=True, server_default=text("gen_random_uuid()")
+    )
+    owner_id: Mapped[PythonUUID] = mapped_column(UUID_TYPE, ForeignKey("tenants.id"))
+    url: Mapped[str] = mapped_column(Text)
+    title: Mapped[str | None] = mapped_column(Text, nullable=True)
+    image_url: Mapped[str | None] = mapped_column(Text, nullable=True)
+    target_price: Mapped[Decimal] = mapped_column(MONEY)
+    last_price: Mapped[Decimal | None] = mapped_column(MONEY, nullable=True)
+    status: Mapped[str] = mapped_column(Text, server_default=text("'monitorando'"))
+    last_checked_at: Mapped[datetime | None] = mapped_column(TIMESTAMPTZ, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(TIMESTAMPTZ, server_default=text("now()"))
+    updated_at: Mapped[datetime] = mapped_column(TIMESTAMPTZ, server_default=text("now()"))
+
+
+class FeedSource(Base):
+    """Fonte de coleta (Promobit/RSS) por tenant — enfileira no mirror_inbox."""
+
+    __tablename__ = "feed_sources"
+    __table_args__ = (
+        UniqueConstraint("owner_id", "slug"),
+        Index("ix_feed_sources_owner_enabled", "owner_id", "enabled"),
+    )
+
+    id: Mapped[PythonUUID] = mapped_column(
+        UUID_TYPE, primary_key=True, server_default=text("gen_random_uuid()")
+    )
+    owner_id: Mapped[PythonUUID] = mapped_column(UUID_TYPE, ForeignKey("tenants.id"))
+    slug: Mapped[str] = mapped_column(Text)
+    name: Mapped[str] = mapped_column(Text)
+    kind: Mapped[str] = mapped_column(Text)  # promobit | rss
+    url: Mapped[str] = mapped_column(Text)
+    enabled: Mapped[bool] = mapped_column(Boolean, server_default=text("false"))
+    last_collected_at: Mapped[datetime | None] = mapped_column(TIMESTAMPTZ, nullable=True)
+    last_error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    total_collected: Mapped[int] = mapped_column(Integer, server_default=text("0"))
+    created_at: Mapped[datetime] = mapped_column(TIMESTAMPTZ, server_default=text("now()"))
+    updated_at: Mapped[datetime] = mapped_column(TIMESTAMPTZ, server_default=text("now()"))

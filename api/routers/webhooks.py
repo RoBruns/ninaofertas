@@ -262,6 +262,22 @@ async def evolution_messages(
             result = session.execute(inbox_stmt)
             if result.rowcount:
                 accepted += 1
+                try:
+                    from core.coupon_radar import registrar_cupom
+                    from worker.filters import extrair_cupom_mensagem
+
+                    codigo = extrair_cupom_mensagem(body)
+                    if codigo:
+                        registrar_cupom(
+                            session,
+                            owner_id=bot.owner_id,
+                            code=codigo,
+                            source_group_name=nome_grupo,
+                        )
+                except Exception:
+                    from loguru import logger as _log
+
+                    _log.exception("[espelho] falha ao registrar cupom no radar")
 
     session.commit()
     return {"accepted": accepted, "captures": captures}

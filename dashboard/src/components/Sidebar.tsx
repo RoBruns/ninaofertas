@@ -1,18 +1,115 @@
 import { useQuery } from '@tanstack/react-query'
-import { BellRing, Bot, History, KeyRound, LayoutDashboard, Megaphone, Receipt, ScrollText, ShoppingBag, Smartphone, SquareKanban, TrendingUp, Users } from 'lucide-react'
+import {
+  BellRing,
+  Bot,
+  Crosshair,
+  Gauge,
+  History,
+  KeyRound,
+  LayoutDashboard,
+  Radar,
+  ScrollText,
+  ShoppingBag,
+  Smartphone,
+  Sparkles,
+  Ticket,
+  Users,
+  Workflow,
+} from 'lucide-react'
 import { NavLink } from 'react-router-dom'
 import { api, apiFailure } from '../api/client'
 import { useAuth } from '../auth/useAuth'
 import { BrandMark } from './BrandMark'
 
 const groups = [
-  ['Operação', [['/', 'Visão geral', LayoutDashboard], ['/bots', 'Bots', Bot], ['/telefones', 'Telefones e grupos', Smartphone], ['/contas', 'Contas', KeyRound]]],
-  ['Dinheiro', [['/desempenho', 'Desempenho', TrendingUp], ['/vendas', 'Vendas', ShoppingBag], ['/despesas', 'Despesas', Receipt], ['/campanhas', 'Campanhas', Megaphone]]],
-  ['Controle', [['/alertas', 'Alertas', BellRing], ['/tarefas', 'Tarefas', SquareKanban], ['/logs', 'Logs técnicos', ScrollText], ['/auditoria', 'Auditoria', History], ['/usuarios', 'Usuários', Users]]],
+  [
+    'Operação',
+    [
+      ['/', 'Visão geral', LayoutDashboard],
+      ['/ofertas', 'Ofertas', ShoppingBag],
+      ['/esteira', 'Esteira & fila', Workflow],
+      ['/bots', 'Bots', Bot],
+    ],
+  ],
+  [
+    'Grupos & Radar',
+    [
+      ['/fontes', 'Fontes & espelho', Sparkles],
+      ['/cupons', 'Radar de cupons', Ticket],
+      ['/vip', 'Pedidos VIP', Crosshair],
+      ['/monitor', 'Monitor de preço', Gauge],
+      ['/telefones', 'Telefones', Smartphone],
+    ],
+  ],
+  [
+    'Ajustes',
+    [
+      ['/contas', 'Contas', KeyRound],
+      ['/vendas', 'Vendas', ShoppingBag],
+      ['/alertas', 'Alertas', BellRing],
+      ['/logs', 'Logs', ScrollText],
+      ['/auditoria', 'Auditoria', History],
+      ['/usuarios', 'Usuários', Users],
+    ],
+  ],
 ] as const
 
 export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
-  const { user } = useAuth(), adminOnly = new Set(['/auditoria', '/usuarios'])
-  const alerts = useQuery({ queryKey: ['alerts', 'sidebar-count'], queryFn: async () => { const result = await api.GET('/api/alerts', { params: { query: { status: 'open', page: 1, page_size: 1 } } }); if (!result.data) throw apiFailure(result.error, result.response); return result.data.total }, refetchInterval: 60_000 })
-  return <><button className={`sidebar-backdrop ${open ? 'open' : ''}`} aria-label="Fechar menu" onClick={onClose} /><aside className={`sidebar ${open ? 'open' : ''}`}><NavLink className="brand" to="/" onClick={onClose}><BrandMark /><div><strong>Nina Bot</strong><small>{user?.tenant?.name}</small></div></NavLink><nav aria-label="Navegação principal">{groups.map(([title, items]) => <div className="nav-group" key={title}><span>{title}</span>{items.filter(([path]) => !adminOnly.has(path) || user?.role === 'admin').map(([path, label, Icon]) => <NavLink key={path} to={path} end={path === '/'} onClick={onClose}><span className="nav-icon"><Icon /></span>{label}{path === '/alertas' && !!alerts.data && <span className="nav-count">{alerts.data}</span>}</NavLink>)}</div>)}{user?.is_platform_admin && <div className="nav-group"><span>Plataforma</span><NavLink to="/plataforma" onClick={onClose}><span className="nav-icon"><Users /></span>Plataforma</NavLink></div>}</nav><div className="sidebar-foot">A vó achou mais uma 🔥</div></aside></>
+  const { user } = useAuth()
+  const adminOnly = new Set(['/auditoria', '/usuarios'])
+  const alerts = useQuery({
+    queryKey: ['alerts', 'sidebar-count'],
+    queryFn: async () => {
+      const result = await api.GET('/api/alerts', {
+        params: { query: { status: 'open', page: 1, page_size: 1 } },
+      })
+      if (!result.data) throw apiFailure(result.error, result.response)
+      return result.data.total
+    },
+    refetchInterval: 60_000,
+  })
+  return (
+    <>
+      <button className={`sidebar-backdrop ${open ? 'open' : ''}`} aria-label="Fechar menu" onClick={onClose} />
+      <aside className={`sidebar ${open ? 'open' : ''}`}>
+        <NavLink className="brand" to="/" onClick={onClose}>
+          <BrandMark />
+          <div>
+            <strong>Nina</strong>
+            <small>{user?.tenant?.name || 'operação'}</small>
+          </div>
+        </NavLink>
+        <nav aria-label="Navegação principal">
+          {groups.map(([title, items]) => (
+            <div className="nav-group" key={title}>
+              <span>{title}</span>
+              {items
+                .filter(([path]) => !adminOnly.has(path) || user?.role === 'admin')
+                .map(([path, label, Icon]) => (
+                  <NavLink key={path} to={path} end={path === '/'} onClick={onClose}>
+                    <span className="nav-icon nav-icon-tint">
+                      <Icon size={16} />
+                    </span>
+                    {label}
+                    {path === '/alertas' && !!alerts.data && <span className="nav-count">{alerts.data}</span>}
+                  </NavLink>
+                ))}
+            </div>
+          ))}
+          {user?.is_platform_admin && (
+            <div className="nav-group">
+              <span>Plataforma</span>
+              <NavLink to="/plataforma" onClick={onClose}>
+                <span className="nav-icon nav-icon-tint">
+                  <Radar size={16} />
+                </span>
+                Plataforma
+              </NavLink>
+            </div>
+          )}
+        </nav>
+        <div className="sidebar-foot">operação · local</div>
+      </aside>
+    </>
+  )
 }

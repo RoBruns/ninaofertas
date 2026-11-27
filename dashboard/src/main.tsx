@@ -2,6 +2,7 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import App from './App'
 import './index.css'
+import './v3/theme.css'
 
 const root = document.getElementById('root')
 if (!root) throw new Error('Elemento raiz não encontrado')

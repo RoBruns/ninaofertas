@@ -17,10 +17,12 @@ EXPECTED_TABLES = {
     "campaigns",
     "clicks",
     "commands",
+    "coupon_radar",
     "envios",
     "events",
     "expense_categories",
     "expenses",
+    "feed_sources",
     "group_joins",
     "groups",
     "metric_snapshots",
@@ -34,6 +36,7 @@ EXPECTED_TABLES = {
     "platform_credentials",
     "platform_settings",
     "platforms",
+    "price_monitors",
     "sales",
     "subscription_events",
     "subscriptions",
@@ -47,6 +50,7 @@ EXPECTED_TABLES = {
     "task_lists",
     "tenants",
     "users",
+    "vip_requests",
 }
 
 

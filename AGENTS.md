@@ -185,8 +185,10 @@ nina-worker (APScheduler) ──────────────── nina-
 
 `STATUS.md` é histórico da V1 (2026-09-07) — não reflete o projeto atual.
 
-## Pendências conhecidas (atualizado em 2026-11-23)
+## Pendências conhecidas (atualizado em 2026-11-27)
 
+- **Nina V3** (branch `nina-v3`): dashboard operacional local — Home de decisões,
+  Esteira, Fontes, Radar/VIP/Monitor. Não mergear em `master` sem OK; ver `docs/V3.md`.
 - Backup do `nina-db`: scripts lógicos Python em `scripts/backup_db.py` e
  `scripts/restore_db.py`, com restauração testada em Postgres real. Ainda faltam
  cópia real antes do deploy e agendamento; o plano Hobby não tem backup nativo

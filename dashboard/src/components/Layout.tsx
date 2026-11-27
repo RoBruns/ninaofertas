@@ -4,7 +4,16 @@ import { Header } from './Header'
 import { Sidebar } from './Sidebar'
 import { Spinner } from './Spinner'
 import { WorkerAlert } from './WorkerAlert'
-function initialDark() { try { const saved = localStorage.getItem('nina-theme'); if (saved) return saved === 'dark' } catch { /* storage may be unavailable */ } return window.matchMedia('(prefers-color-scheme: dark)').matches }
+function initialDark() {
+  try {
+    const saved = localStorage.getItem('nina-theme')
+    if (saved) return saved === 'dark'
+  } catch {
+    /* storage may be unavailable */
+  }
+  // V3: claro por padrão — o visual editorial graphite nasce no light.
+  return false
+}
 export function Layout() {
   const [menuOpen, setMenuOpen] = useState(false), [dark, setDark] = useState(initialDark)
   useEffect(() => { document.documentElement.classList.toggle('dark', dark); try { localStorage.setItem('nina-theme', dark ? 'dark' : 'light') } catch { /* storage may be unavailable */ } }, [dark])

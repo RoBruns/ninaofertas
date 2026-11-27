@@ -762,17 +762,20 @@ baterem; catálogo do picker = padrão + grupos ativos do telefone de escuta.
 ---
 
 ## ADR-037 — Só espelho: scraper/API de produtos desligado
-**Data:** 2026-11-24 · **Status:** aceita · **Decisor:** dono
+**Data:** 2026-11-24 · **Status:** aceita (complementada em 2026-11-27) · **Decisor:** dono
 
-A operação deixa de descobrir ofertas por HTML/API (Shopee, ML, Amazon, Magalu,
-fila `produtos_meli`, cupons scrapeados). A **única** fonte de produto é o
-espelho WhatsApp (ADR-036): Nina 1 captura → fan-out → template/afiliado/foto
-no phone do bot.
+A operação deixa de descobrir ofertas por HTML/API **de marketplace** (Shopee,
+ML, Amazon, Magalu, fila `produtos_meli`, cupons scrapeados dessas lojas). A
+fonte principal continua o espelho WhatsApp (ADR-036).
 
 Decisão: `ENABLE_SCRAPER_DISCOVERY` padrão **off**. `monitor.ciclo` e o job
 `bots-db` / "Rodar agora" viram no-op sem a flag. Código dos scrapers permanece
 no repo para religar com a env se o dono pedir. Recado do Instagram, sync de
 vendas, alertas e heartbeat seguem.
+
+**Complemento V3 (2026-11-27):** fontes **Promobit/RSS** (`feed_sources`) são
+permitidas: coletor enfileira no `mirror_inbox` e o bot dispara no mesmo tubo
+do espelho (freio/nicho). Não religa scraper de loja nem Baileys.
 
 Consequência: em produção não setar `ENABLE_SCRAPER_DISCOVERY` (ou deixar
 ausente). Testes ligam a flag no `conftest`.

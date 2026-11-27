@@ -1,5 +1,21 @@
 # Roadmap de implementação
 
+## Nina V3 — dashboard operacional (branch `nina-v3`) — 2026-11-27
+
+Branch isolada (Railway não publica). Shell editorial, Home de decisões,
+Ofertas, Esteira (`mirror_inbox`), Fontes & Espelho, Radar de cupons, VIP e
+Monitor de preço (`/api/v3/*` + migrations `0019`/`0020`). Fontes BR
+(Promobit/RSS) enfileiram no `mirror_inbox` e o bot dispara sozinho. Validar
+local antes de merge em `master`. Ver `docs/V3.md`. Fase 2: arte cupom 9:16.
+
+## Fontes BR → esteira automática — 2026-11-27
+
+Catálogo por tenant (`feed_sources`): Promobit + RSS. Coletor resolve link de
+marketplace, monta body estilo origem e insere pending no `mirror_inbox` de
+cada bot ativo. Worker drena com freio/nicho (mesmo tubo do espelho). ADR-037
+permanece para scraper ML/Shopee; fontes RSS/Promobit são o complemento
+explícito pedido na V3.
+
 ## Espelho: cupom na mensagem + envio imediato — 2026-11-26
 
 Três modelos reais (Loe/Gio/`Por apenas:`) extrai preço+código. Template legado

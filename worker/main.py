@@ -16,7 +16,7 @@ from core.alerts import cleanup_events, detect_alerts
 from core.config_provider import bots_ativos, usar_bot_runtime
 from core.sales_sync import sync_all_active_accounts
 from core.settings import settings
-from worker import commands, mirror, monitor, promo_instagram, telemetry
+from worker import commands, feed_sources, mirror, monitor, price_monitors, promo_instagram, telemetry
 from worker.channels import canais_ativos
 from worker.logger import logger
 
@@ -190,6 +190,25 @@ def _registrar_jobs(scheduler: BackgroundScheduler) -> None:
         minutes=5,
         next_run_time=agora + timedelta(seconds=30),
         id="mirror-webhook",
+        max_instances=1,
+        coalesce=True,
+    )
+    scheduler.add_job(
+        price_monitors.ciclo,
+        "interval",
+        minutes=30,
+        next_run_time=agora + timedelta(minutes=3),
+        id="price-monitors",
+        max_instances=1,
+        coalesce=True,
+    )
+    # Fontes BR (Promobit/RSS) → mirror_inbox; worker do espelho drena.
+    scheduler.add_job(
+        feed_sources.ciclo,
+        "interval",
+        seconds=45,
+        next_run_time=agora + timedelta(seconds=40),
+        id="feed-sources",
         max_instances=1,
         coalesce=True,
     )
