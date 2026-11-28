@@ -33,6 +33,8 @@ _ultimo_webhook_ts = 0.0
 _WEBHOOK_TTL_S = 120.0
 # Cupom esgota — pending antigo demais não publica código morto.
 _CUPOM_MAX_IDADE = timedelta(minutes=20)
+# Produto sai do mais novo para o mais antigo; o que passa disso já mudou de preço.
+_PRODUTO_MAX_IDADE = timedelta(hours=2)
 # Enfeite pode chegar a ~160; 120 cortava no meio da frase ("todos os di").
 _NOME_MAX = 200
 
@@ -134,6 +136,25 @@ def expirar_pendentes(quando: datetime | None = None) -> int:
         return int(resultado.rowcount or 0)
 
 
+def expirar_produtos_velhos(quando: datetime | None = None) -> int:
+    """Pending mais velho que _PRODUTO_MAX_IDADE sai da fila. Não apaga o registro."""
+    agora = quando or datetime.now(timezone.utc)
+    with db.get_session() as session:
+        resultado = session.execute(
+            update(MirrorInbox)
+            .where(
+                MirrorInbox.status == "pending",
+                MirrorInbox.created_at < agora - _PRODUTO_MAX_IDADE,
+            )
+            .values(
+                status="skipped",
+                skip_reason="produto_velho",
+                processed_at=datetime.now(timezone.utc),
+            )
+        )
+        return int(resultado.rowcount or 0)
+
+
 def limpar_fila_pendente(*, motivo: str = "fila_limpa") -> int:
     """Marca todo pending como skipped. Usado no deploy para não drenar cópia velha."""
     with db.get_session() as session:
@@ -177,11 +198,11 @@ def _escolher_lote(candidatos: list[MirrorInbox], limite: int) -> list[MirrorInb
 
 
 def _lote_pendentes(session) -> list[MirrorInbox]:
-    """Até _BATCH pending: cupom recente primeiro (o mais novo antes); depois justo por bot.
+    """Até _BATCH pending: cupom recente primeiro, depois produto; sempre o mais novo antes.
 
-    Cupom esgota em minutos — o código mais novo é o que ainda vale. Ele é buscado
-    à parte porque a janela dos mais antigos pode estar cheia de produto esperando
-    o freio. Sem cupom, um por bot para o freio de um não engolir a fila dos outros.
+    Cupom esgota em minutos e preço muda em horas — com o freio segurando a fila,
+    o que chegou por último é o que ainda vale. Sem cupom, um por bot para o freio
+    de um não engolir a fila dos outros.
     """
     recentes = session.scalars(
         select(MirrorInbox)
@@ -196,7 +217,7 @@ def _lote_pendentes(session) -> list[MirrorInbox]:
         janela = session.scalars(
             select(MirrorInbox)
             .where(MirrorInbox.status == "pending")
-            .order_by(MirrorInbox.created_at.asc())
+            .order_by(MirrorInbox.created_at.desc())
             .limit(max(_BATCH * 20, 80))
         ).all()
         ids = {item.id for item in lote}
@@ -235,6 +256,12 @@ def processar_pendentes() -> int:
     if velhos:
         minutos = int(_CUPOM_MAX_IDADE.total_seconds() // 60)
         logger.info(f"[espelho] {velhos} cupom(ns) com mais de {minutos} min saíram da fila")
+    produtos_velhos = expirar_produtos_velhos()
+    if produtos_velhos:
+        horas = int(_PRODUTO_MAX_IDADE.total_seconds() // 3600)
+        logger.info(
+            f"[espelho] {produtos_velhos} oferta(s) com mais de {horas} h saíram da fila"
+        )
     processados = 0
     with db.get_session() as session:
         itens = _lote_pendentes(session)

@@ -728,8 +728,25 @@ contas do bot.
 
 ---
 
+## ADR-045 — Fila do espelho: o mais novo primeiro
+**Data:** 2026-11-27 · **Status:** aceita · **Decisor:** dono
+
+Com o freio em 5/hora e mais oferta que isso passando o nicho, a fila cresce.
+O lote lia as 160 pendentes mais antigas e só então procurava cupom: cupom
+recém-postado nem era visto e saía com até 60 min, já esgotado (relato do dono
+em 2026-11-27). Agora: cupons dos últimos 20 min são buscados à parte, o mais
+novo primeiro; produto também sai do mais novo para o mais antigo. Pending com
+cupom passa a `skipped:cupom_velho` com mais de 20 min e o resto vira
+`skipped:produto_velho` com mais de 2 h. O freio não muda.
+
+**Alternativas:** manter FIFO e só aumentar a janela — o cupom ainda esperava a
+vez atrás de produto velho; reservar vagas da hora para cupom — tira vaga de
+produto sem resolver a idade.
+
+---
+
 ## ADR-044 — Cupom da origem: mensagem completa e envio urgente
-**Data:** 2026-11-26 · **Status:** aceita · **Decisor:** dono
+**Data:** 2026-11-26 · **Status:** aceita (ordem da fila e prazo do cupom revistos no ADR-045) · **Decisor:** dono
 
 Preço postado na origem já inclui cupom; omitir o código mente o valor (ex.:
 18:15 na Loe → 21:32 no bot, código morto). Extração cobre `NO PIX com cupom`,

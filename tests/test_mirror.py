@@ -1459,6 +1459,64 @@ def test_cupom_novo_fura_fila_cheia_de_produto_antigo(session_factory) -> None:
         assert lote[0].message_key == "cupom-agora"
 
 
+def test_produto_mais_novo_primeiro_e_velho_sai_da_fila(
+    session_factory, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from datetime import datetime, timedelta, timezone
+
+    from core import db
+    from worker.mirror import expirar_produtos_velhos
+
+    monkeypatch.setattr(db, "get_session", session_factory.begin)
+    admin = add_user(session_factory, email="produto-novo@nina.test", role="admin")
+    agora = datetime.now(timezone.utc)
+    with session_factory.begin() as session:
+        phone = Phone(
+            id=uuid4(),
+            owner_id=admin.tenant_id,
+            label="Nina produto novo",
+            number="5511999000557",
+            evolution_instance="nina-produto-novo",
+        )
+        session.add(phone)
+        session.flush()
+        bot = Bot(
+            id=uuid4(),
+            owner_id=admin.tenant_id,
+            name="Bot produto novo",
+            slug="bot-produto-novo",
+            status="active",
+            phone_id=phone.id,
+            settings={},
+        )
+        session.add(bot)
+        session.flush()
+        for chave, idade in (("velho", 150), ("meia-hora", 30), ("agora", 1)):
+            session.add(
+                MirrorInbox(
+                    owner_id=admin.tenant_id,
+                    bot_id=bot.id,
+                    listen_phone_id=phone.id,
+                    source_whatsapp_id="g@g.us",
+                    message_key=chave,
+                    body_text=f"Panela {chave}\nhttps://meli.la/{chave}",
+                    status="pending",
+                    created_at=agora - timedelta(minutes=idade),
+                )
+            )
+        session.flush()
+        assert [i.message_key for i in _lote_pendentes(session)] == [
+            "agora",
+            "meia-hora",
+            "velho",
+        ]
+    assert expirar_produtos_velhos() == 1
+    with session_factory() as session:
+        estados = {i.message_key: (i.status, i.skip_reason) for i in session.query(MirrorInbox)}
+    assert estados["velho"] == ("skipped", "produto_velho")
+    assert estados["agora"] == ("pending", None)
+
+
 def test_lote_pendentes_nao_deixa_um_bot_engolir_a_fila(session_factory) -> None:
     """Pending antigo de um bot não impede o mais antigo do outro entrar no lote."""
     from datetime import datetime, timezone

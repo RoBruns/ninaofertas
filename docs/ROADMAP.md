@@ -16,12 +16,20 @@ cada bot ativo. Worker drena com freio/nicho (mesmo tubo do espelho). ADR-037
 permanece para scraper ML/Shopee; fontes RSS/Promobit são o complemento
 explícito pedido na V3.
 
+## Espelho: fila do mais novo primeiro + radar com loja — 2026-11-27
+
+Cupom dos últimos 20 min sai primeiro (o mais novo antes), mesmo com a fila
+cheia de produto; produto também sai do mais novo para o mais antigo. Cupom
+com mais de 20 min vira `cupom_velho`; o resto, com mais de 2 h,
+`produto_velho` (ADR-045). Radar: cupom dos grupos entra com loja (link ou
+texto), link e resumo; RSS só registra cupom com link de loja.
+
 ## Espelho: cupom na mensagem + envio imediato — 2026-11-26
 
 Três modelos reais (Loe/Gio/`Por apenas:`) extrai preço+código. Template legado
-injeta cupom; menção sem código avisa checkout. Dreno a cada 5s; cupom em FIFO;
-fura intervalo/rajada e teto/hora do grupo; pending com cupom >60 min →
-`cupom_velho`. Tetos globais da conta seguem (ADR-044).
+injeta cupom; menção sem código avisa checkout. Dreno a cada 5s; cupom
+fura intervalo/rajada e teto/hora do grupo (ordem e prazo da fila: ADR-045).
+Tetos globais da conta seguem (ADR-044).
 
 ## Espelho: allowlist de origem no dashboard — 2026-11-26
 
